@@ -41,7 +41,7 @@ GraphRAG decides *everything* it will retrieve before seeing any results. If the
 ## 6.3 Files created
 
 ```
-src/hidden_links/pipelines/graphrag/
+src/interlock/pipelines/graphrag/
 ├── __init__.py
 ├── prompts/
 │   ├── link_v1.md          # mentions + relation types

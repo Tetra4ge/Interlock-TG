@@ -53,7 +53,7 @@ After drafting an answer, a separate check marks each claim as supported or unsu
 ## 7.3 Files created
 
 ```
-src/hidden_links/pipelines/agent/
+src/interlock/pipelines/agent/
 ├── __init__.py
 ├── prompts/
 │   ├── agent_system_v1.md

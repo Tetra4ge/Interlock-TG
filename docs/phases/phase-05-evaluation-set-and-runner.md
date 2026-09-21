@@ -45,7 +45,7 @@ With 30 questions in a category, 70% vs 77% might be noise. Bootstrap: resample 
 ## 5.3 Files created
 
 ```
-src/hidden_links/eval/
+src/interlock/eval/
 ├── __init__.py
 ├── models.py            # Question, Template, RunConfig, ScoreRow
 ├── templates/
@@ -66,7 +66,7 @@ src/hidden_links/eval/
 ├── taxonomy.py          # failure labeler
 ├── stats.py             # bootstrap CIs, paired differences
 └── runner.py            # hl eval
-src/hidden_links/eval/prompts/
+src/interlock/eval/prompts/
 ├── paraphrase_v1.md
 ├── judge_correctness_v1.md
 ├── judge_faithfulness_v1.md

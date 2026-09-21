@@ -167,9 +167,9 @@ set -euo pipefail
 case "${1:-api}" in
   api)
     uv run python scripts/seed_graph.py          # no-op if graph not empty
-    uv run python -m hidden_links.cli db-migrate
-    uv run python -m hidden_links.cli seed-runs   # import sample run results if run store empty
-    exec uv run uvicorn hidden_links.api.main:app --host 0.0.0.0 --port 8000
+    uv run python -m interlock.cli db-migrate
+    uv run python -m interlock.cli seed-runs   # import sample run results if run store empty
+    exec uv run uvicorn interlock.api.main:app --host 0.0.0.0 --port 8000
     ;;
   dashboard)
     exec uv run streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
@@ -273,7 +273,7 @@ Only report numbers from these runs; the dashboard loads the same runs.
 Structure:
 
 ```markdown
-# Hidden Links — RAG vs GraphRAG vs Agentic GraphRAG on corporate governance networks
+# Interlock — RAG vs GraphRAG vs Agentic GraphRAG on corporate governance networks
 
 One-sentence description. CI badge.
 
@@ -285,7 +285,7 @@ Small table: category × pipeline accuracy (with CIs) + cost/latency row. Link t
 - Link to the demo video.
 
 ## Quick start (demo, no API key needed)
-    git clone … && cd hidden-links
+    git clone … && cd interlock
     docker compose up --build
     open http://localhost:8501
 

@@ -1,9 +1,9 @@
-# PRD — Hidden Links: Agentic GraphRAG for Corporate Governance Networks
+# PRD — Interlock: Agentic GraphRAG for Corporate Governance Networks
 
 | Field | Value |
 | --- | --- |
 | Document | Product Requirements Document |
-| Product | Hidden Links |
+| Product | Interlock |
 | Version | 1.0 |
 | Status | Draft for build |
 | Related | `TRD.md` (how it is built), `ARCHITECTURE.md` (system design), `phases/` (build plan) |
@@ -12,7 +12,7 @@
 
 ## 1. Summary
 
-Hidden Links is a question-answering system over public disclosures of Indian listed companies. It builds a knowledge graph of companies, directors, shareholders, auditors, related-party transactions and regulatory actions. It then answers natural-language questions three different ways — **RAG**, **GraphRAG** and **Agentic GraphRAG** — and shows, with measured evidence, where each approach succeeds and where it fails.
+Interlock is a question-answering system over public disclosures of Indian listed companies. It builds a knowledge graph of companies, directors, shareholders, auditors, related-party transactions and regulatory actions. It then answers natural-language questions three different ways — **RAG**, **GraphRAG** and **Agentic GraphRAG** — and shows, with measured evidence, where each approach succeeds and where it fails.
 
 It is built for a hackathon whose brief requires:
 
@@ -114,7 +114,7 @@ For the hackathon, the **primary audience is the judges**. They need to see a wo
 | US-02 | Judge | Open one question and compare all three answers with evidence | I can trust the claims |
 | US-03 | Judge | See where the agent fails and what it costs | I see an honest evaluation |
 | US-04 | Judge | Ask my own question and see three answers | I can test the system myself |
-| US-05 | Analyst | Ask "which companies share directors with firms named in regulatory orders?" | I find hidden links quickly |
+| US-05 | Analyst | Ask "which companies share directors with firms named in regulatory orders?" | I find interlock quickly |
 | US-06 | Analyst | Click a citation and see the exact source page and quote | I can verify every claim |
 | US-07 | Developer | Rebuild the whole graph from raw files with one command | Results are reproducible |
 | US-08 | Developer | Run the full evaluation with one command | I can compare changes reliably |

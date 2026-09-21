@@ -1,4 +1,4 @@
-# TRD — Hidden Links: Technical Requirements Document
+# TRD — Interlock: Technical Requirements Document
 
 | Field | Value |
 | --- | --- |
@@ -72,7 +72,7 @@ Model names and prices change often. Put them only in `config/models.yaml` and f
 ## 2. Repository structure
 
 ```
-hidden-links/
+interlock/
 ├── README.md
 ├── LICENSE
 ├── pyproject.toml
@@ -94,8 +94,8 @@ hidden-links/
 │   ├── samples/             # committed small demo graph + cached answers
 │   └── cache/llm/           # gitignored LLM response cache
 ├── db/
-│   └── hidden_links.sqlite  # gitignored run store
-├── src/hidden_links/
+│   └── interlock.sqlite  # gitignored run store
+├── src/interlock/
 │   ├── __init__.py
 │   ├── settings.py
 │   ├── cli.py
@@ -162,7 +162,7 @@ EMBEDDING_API_KEY=                # if using a hosted embedding API
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=change-me
-SQLITE_PATH=db/hidden_links.sqlite
+SQLITE_PATH=db/interlock.sqlite
 LLM_SPEND_CAP_USD=25
 LOG_LEVEL=INFO
 ```

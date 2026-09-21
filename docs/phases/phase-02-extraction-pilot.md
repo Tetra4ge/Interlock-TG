@@ -47,7 +47,7 @@ Amounts are commonly reported in lakh (1 lakh = 100,000) or crore (1 crore = 10,
 ## 2.3 Files created
 
 ```
-src/hidden_links/parse/
+src/interlock/parse/
 ├── __init__.py
 ├── models.py          # Page, Table, TableCell, Section, Chunk (from TRD §4.1)
 ├── pdf.py             # parse_document(): pages + tables
@@ -55,7 +55,7 @@ src/hidden_links/parse/
 ├── sections.py        # detect_sections()
 ├── chunk.py           # make_chunks()
 └── tokens.py          # approximate token counter
-src/hidden_links/extract/
+src/interlock/extract/
 ├── __init__.py
 ├── schemas.py         # Evidence + record models (TRD §4.2)
 ├── prompts/
@@ -328,7 +328,7 @@ def extract_document(ctx, doc_id: str, run_id: str) -> None:
 
 ```python
 from rapidfuzz import fuzz
-from hidden_links.parse.clean import normalize_for_match
+from interlock.parse.clean import normalize_for_match
 
 def grounded(quote: str, page_text: str, min_partial: int = 95) -> bool:
     q, p = normalize_for_match(quote), normalize_for_match(page_text)

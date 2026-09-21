@@ -51,20 +51,20 @@ A Lucene-based text index over entity names and aliases. Used by GraphRAG and th
 ## 3.3 Files created
 
 ```
-src/hidden_links/resolve/
+src/interlock/resolve/
 ├── __init__.py
 ├── normalize.py      # person/company/firm name normalization
 ├── mentions.py       # build mention list from records
 ├── match.py          # blocking + exact + fuzzy matching
 ├── cluster.py        # union-find to form entities
 └── review.py         # uncertain pairs → review
-src/hidden_links/graph/
+src/interlock/graph/
 ├── schema.py         # constraints and indexes
 ├── loader.py         # nodes, edges, provenance (batched)
 ├── mentions_link.py  # Chunk-[:MENTIONS]->entity
 ├── export.py         # JSONL export/import for the sample graph
 └── queries.py        # shared read queries used later by pipelines
-src/hidden_links/embed/
+src/interlock/embed/
 ├── __init__.py
 ├── provider.py       # local or hosted embedding provider
 ├── index.py          # write embeddings to Neo4j
@@ -112,7 +112,7 @@ Examples:
 
 ```python
 import re
-from hidden_links.parse.clean import normalize_for_match
+from interlock.parse.clean import normalize_for_match
 
 HONORIFICS = r"\b(mr|mrs|ms|miss|dr|shri|smt|sri|kum|prof|capt|col|justice|ca|cs)\b\.?"
 COMPANY_SUFFIX = r"\b(limited|ltd|private|pvt|llp|inc|incorporated|co|company|corporation|corp)\b\.?"

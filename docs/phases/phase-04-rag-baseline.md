@@ -44,7 +44,7 @@ Answering "not found in the data" when the evidence doesn't support an answer. I
 ## 4.3 Files created
 
 ```
-src/hidden_links/pipelines/
+src/interlock/pipelines/
 ├── __init__.py
 ├── base.py                # Pipeline protocol, registry
 ├── models.py              # AnswerResult etc. (TRD §4.3)
@@ -58,7 +58,7 @@ src/hidden_links/pipelines/
 │   ├── answer.py          # final LLM call + parsing (shared by all pipelines)
 │   └── citations.py       # validation
 └── rag.py
-src/hidden_links/embed/query.py   # embed_query with correct query prefix
+src/interlock/embed/query.py   # embed_query with correct query prefix
 tests/unit/test_budget.py, test_citations.py, test_answer_parse.py
 tests/integration/test_rag_fixture.py
 docs/decisions/0011-reranker.md

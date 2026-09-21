@@ -47,7 +47,7 @@ A short file recording a decision, the alternatives and the reason. It stops you
 ## 0.3 Directory layout created in this phase
 
 ```
-hidden-links/
+interlock/
 ├── pyproject.toml
 ├── uv.lock
 ├── Makefile
@@ -63,7 +63,7 @@ hidden-links/
 │   ├── parsed/.gitkeep
 │   └── cache/llm/.gitkeep
 ├── db/.gitkeep
-├── src/hidden_links/
+├── src/interlock/
 │   ├── __init__.py
 │   ├── settings.py
 │   ├── cli.py
@@ -108,7 +108,7 @@ hidden-links/
 
 ### Step 1 — Create the repository
 
-1. Create an empty GitHub repository `hidden-links` (public, so CI minutes are free; **Verify** current GitHub Actions free-tier terms).
+1. Create an empty GitHub repository `interlock` (public, so CI minutes are free; **Verify** current GitHub Actions free-tier terms).
 2. Clone it locally.
 3. Create `.gitignore` **before the first commit**:
 
@@ -161,7 +161,7 @@ python_version = "3.11"
 strict = false
 warn_unused_ignores = true
 disallow_untyped_defs = true
-packages = ["hidden_links"]
+packages = ["interlock"]
 ```
 
 **Verify it worked:** `uv run python -c "import pydantic, neo4j, fitz, pdfplumber"` exits without error. (PyMuPDF's import name has historically been `fitz`, and newer versions also offer `pymupdf`; **Verify**.)
@@ -227,7 +227,7 @@ volumes:
 
 ### Step 5 — Settings
 
-`src/hidden_links/settings.py`:
+`src/interlock/settings.py`:
 
 ```python
 from pathlib import Path
@@ -246,7 +246,7 @@ class Secrets(BaseSettings):
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str = ""
-    sqlite_path: str = "db/hidden_links.sqlite"
+    sqlite_path: str = "db/interlock.sqlite"
     llm_spend_cap_usd: float = 25.0
     log_level: str = "INFO"
 
@@ -379,7 +379,7 @@ def migrate(conn: sqlite3.Connection) -> None:
 
 Why migrations: when you add a column in Phase 5, you add `0002_*.sql` instead of deleting your database.
 
-**Verify it worked:** `uv run python -c "from hidden_links.store.db import connect, migrate; c=connect('db/hidden_links.sqlite'); migrate(c)"` then open the file with any SQLite viewer and see the tables.
+**Verify it worked:** `uv run python -c "from interlock.store.db import connect, migrate; c=connect('db/interlock.sqlite'); migrate(c)"` then open the file with any SQLite viewer and see the tables.
 
 ### Step 8 — Neo4j client
 
@@ -424,7 +424,7 @@ Copy `Message`, `ToolSpec`, `LLMRequest`, `ToolCall`, `LLMResponse` from TRD §7
 ```python
 import json
 from pathlib import Path
-from hidden_links.common.ids import sha256_text
+from interlock.common.ids import sha256_text
 
 class DiskCache:
     def __init__(self, root: Path):
@@ -466,7 +466,7 @@ def cost_usd(prices: dict, model: str, tokens_in: int, tokens_out: int) -> float
 
 ```python
 from typing import Protocol
-from hidden_links.llm.models import LLMRequest, LLMResponse
+from interlock.llm.models import LLMRequest, LLMResponse
 
 class Provider(Protocol):
     def call(self, model: str, req: LLMRequest) -> LLMResponse: ...
@@ -489,10 +489,10 @@ Structured output: providers offer JSON-schema-constrained output or tool callin
 
 ```python
 import random, time
-from hidden_links.llm.cache import DiskCache
-from hidden_links.llm.models import LLMRequest, LLMResponse
-from hidden_links.llm.pricing import cost_usd
-from hidden_links.llm.providers.base import RetryableError
+from interlock.llm.cache import DiskCache
+from interlock.llm.models import LLMRequest, LLMResponse
+from interlock.llm.pricing import cost_usd
+from interlock.llm.providers.base import RetryableError
 
 class SpendCapExceeded(Exception): ...
 
@@ -570,7 +570,7 @@ Use the standard library `argparse` (no extra dependency) or a CLI library of yo
 | `hl ask --pipeline <p> "<q>"` | 4 |
 | `hl eval --pipeline <p> --split <s>` | 5 |
 
-Register the entry point in `pyproject.toml` under `[project.scripts]` as `hl = "hidden_links.cli:main"`.
+Register the entry point in `pyproject.toml` under `[project.scripts]` as `hl = "interlock.cli:main"`.
 
 ### Step 11 — PDF parser bake-off
 

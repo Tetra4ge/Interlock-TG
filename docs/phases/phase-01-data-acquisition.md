@@ -43,7 +43,7 @@ If you choose only companies known for scandals, the dataset over-represents reg
 
 ```
 config/companies.yaml
-src/hidden_links/ingest/
+src/interlock/ingest/
 ├── __init__.py
 ├── models.py          # CompanyConfig, DocumentTarget, FetchResult
 ├── registry.py        # register(), exists(), list_documents()
@@ -164,7 +164,7 @@ If a source is complicated, **go manual**. For 50–100 companies × 3 years, ma
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from hidden_links.common.ids import sha256_bytes
+from interlock.common.ids import sha256_bytes
 
 RAW = Path("data/raw")
 
@@ -250,7 +250,7 @@ Keep site-specific logic isolated so a change on a website touches one file.
 
 ```python
 from typing import Protocol, Iterable
-from hidden_links.ingest.models import CompanyConfig, DocumentTarget
+from interlock.ingest.models import CompanyConfig, DocumentTarget
 
 class SourceAdapter(Protocol):
     name: str

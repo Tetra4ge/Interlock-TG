@@ -39,7 +39,7 @@ Streamlit reruns the script on every interaction. Load run data with a cache dec
 ## 8.3 Files created
 
 ```
-src/hidden_links/api/
+src/interlock/api/
 ├── __init__.py
 ├── main.py            # app, routes
 ├── deps.py            # shared context (settings, gateway, driver, pipelines)
@@ -82,7 +82,7 @@ import asyncio
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="Hidden Links API")
+app = FastAPI(title="Interlock API")
 
 class AskIn(BaseModel):
     question: str
@@ -151,7 +151,7 @@ Security: bind to `127.0.0.1` by default; CORS not needed if Streamlit calls the
 
 ### Step 3 — Run the API
 
-`uv run uvicorn hidden_links.api.main:app --reload --port 8000` (**Verify**). Open `/docs` for the auto-generated API docs — useful for judges and for your own testing.
+`uv run uvicorn interlock.api.main:app --reload --port 8000` (**Verify**). Open `/docs` for the auto-generated API docs — useful for judges and for your own testing.
 
 ---
 

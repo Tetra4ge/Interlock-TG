@@ -1,6 +1,6 @@
-# Hidden Links — Project Documentation
+# Interlock — Project Documentation
 
-Detailed build documentation for Hidden Links: an Agentic GraphRAG system over Indian listed-company governance disclosures that answers questions three ways (RAG, GraphRAG, Agentic GraphRAG) and measures where each succeeds or fails.
+Detailed build documentation for Interlock: an Agentic GraphRAG system over Indian listed-company governance disclosures that answers questions three ways (RAG, GraphRAG, Agentic GraphRAG) and measures where each succeeds or fails.
 
 ## Documents
 

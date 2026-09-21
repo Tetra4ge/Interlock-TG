@@ -1,4 +1,4 @@
-# ARCHITECTURE — Hidden Links
+# ARCHITECTURE — Interlock
 
 | Field | Value |
 | --- | --- |
@@ -10,7 +10,7 @@
 
 ## 1. Architecture at a glance
 
-Hidden Links is a **modular monolith** with two halves joined by shared storage:
+Interlock is a **modular monolith** with two halves joined by shared storage:
 
 - **Offline build pipeline** — turns public PDFs into a verified knowledge graph and a vector index. Runs as CLI commands.
 - **Online answer + evaluation layer** — three question-answering pipelines, an evaluation runner, an API and a dashboard.
@@ -23,7 +23,7 @@ Hidden Links is a **modular monolith** with two halves joined by shared storage:
 
 ```mermaid
 flowchart LR
-    Judge[Judge / Analyst] -->|questions, browsing| HL[Hidden Links]
+    Judge[Judge / Analyst] -->|questions, browsing| HL[Interlock]
     Dev[Developer] -->|CLI: build, eval| HL
     HL -->|download filings| Sources[Exchange + regulator websites]
     HL -->|completions, tool calls| LLM[LLM provider API]
@@ -61,7 +61,7 @@ flowchart TB
 
 | Container | Technology | Runs as | Responsibilities |
 | --- | --- | --- | --- |
-| CLI | Python (`hidden_links.cli`) | On-demand commands | Fetch, parse, extract, resolve, load, embed, eval |
+| CLI | Python (`interlock.cli`) | On-demand commands | Fetch, parse, extract, resolve, load, embed, eval |
 | API | FastAPI + Uvicorn | Long-running (Compose service) | Serve pipelines, runs, metrics, subgraphs |
 | Dashboard | Streamlit | Long-running (Compose service) | Five pages for judges |
 | Neo4j | Neo4j Community | Long-running (Compose service) | Entities, relations, chunks, embeddings, indexes |

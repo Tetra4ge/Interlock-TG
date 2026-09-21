@@ -1,6 +1,6 @@
-# Hidden Links — Agentic GraphRAG for Corporate Governance Networks
+# Interlock — Agentic GraphRAG for Corporate Governance Networks
 
-Hidden Links answers natural-language questions about Indian listed companies using public disclosures (annual reports, shareholding patterns, related-party disclosures, regulatory orders). It builds a typed, time-aware knowledge graph of companies, directors, shareholders, auditors, related-party transactions and regulatory actions, then answers each question **three ways** and measures where each approach succeeds or fails:
+Interlock answers natural-language questions about Indian listed companies using public disclosures (annual reports, shareholding patterns, related-party disclosures, regulatory orders). It builds a typed, time-aware knowledge graph of companies, directors, shareholders, auditors, related-party transactions and regulatory actions, then answers each question **three ways** and measures where each approach succeeds or fails:
 
 | Pipeline | How it answers |
 | --- | --- |
@@ -37,7 +37,73 @@ A modular monolith with two halves joined by shared storage:
 - **Offline build pipeline (CLI):** fetch → registry → parse → sections → chunk / extract → ground + validate → entity resolution → graph load + embeddings.
 - **Online layer:** three pipelines, evaluation runner, API and a five-page dashboard (Overview, Trade-offs, Failures, Question inspector, Live ask).
 
-Diagrams and sequences are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+### System diagram
+
+```mermaid
+flowchart LR
+    subgraph OFF[Offline build pipeline - CLI]
+        direction TB
+        CFG[companies.yaml] --> F[Fetcher]
+        IN[data/inbox] --> REG[Registry]
+        F --> REG
+        REG --> RAW[(data/raw PDFs)]
+        RAW --> P[Parser]
+        P --> S[Section detector]
+        S --> CH[Chunker]
+        S --> X[LLM extractor]
+        X --> G[Grounding + validation]
+        G --> RQ[(Review queue)]
+        G --> RES[Entity resolver]
+        RES --> L[Graph loader]
+        CH --> E[Embedder]
+    end
+
+    subgraph STORE[Storage]
+        direction TB
+        NEO[(Neo4j: graph + vector + full-text)]
+        SQL[(SQLite: run store, traces, scores)]
+        CACHE[(LLM cache)]
+    end
+
+    subgraph ON[Online layer]
+        direction TB
+        RET[Shared retrieval services]
+        RAG[RAG]
+        GR[GraphRAG]
+        subgraph AGENT[Agentic GraphRAG]
+            direction LR
+            PL[Plan] --> AC[Act: tools] --> OB[Observe] --> VF[Verify]
+            OB -->|need more| AC
+            VF -->|unsupported| AC
+        end
+        RAG --> RET
+        GR --> RET
+        AGENT --> RET
+        GW[LLM gateway]
+        RAG --> GW
+        GR --> GW
+        AGENT --> GW
+    end
+
+    L --> NEO
+    E --> NEO
+    RET --> NEO
+    GW --> CACHE
+    GW --> LLM[LLM provider]
+
+    EVAL[Evaluation runner + scorers + judge] --> RAG
+    EVAL --> GR
+    EVAL --> AGENT
+    EVAL --> SQL
+    API[FastAPI] --> RAG
+    API --> GR
+    API --> AGENT
+    API --> SQL
+    DASH[Streamlit dashboard: 5 pages] --> API
+    SQL --> DASH
+```
+
+**Reading the diagram:** the offline pipeline turns PDFs into a grounded graph and vector index; the three pipelines share one retrieval layer and one LLM gateway, so they differ only in *how* they use retrieval; the evaluation runner scores all three into SQLite, which feeds the dashboard. Detailed sequences (RAG, GraphRAG, agent loop, `/compare`, evaluation flow) are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Deliverables
 
