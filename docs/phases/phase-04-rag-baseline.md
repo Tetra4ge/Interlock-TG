@@ -10,7 +10,7 @@
 | --- | --- |
 | Goal | Define the one answer contract all pipelines share, the shared answer prompt, the tracer, evidence budgeting and citation validation — and build the RAG pipeline on top of them |
 | Why | The baseline defines what "fair" means: the same output format, prompt rules and evidence budget that GraphRAG and the agent must use. It also gives an early end-to-end system |
-| Prerequisites | Phase 3 complete (chunks embedded, vector index online) |
+| Prerequisites | Phase 3 complete (chunks embedded, vector search working) |
 | Produces | `pipelines/base.py`, `pipelines/prompts/answer_v1.md`, `pipelines/common/` (budget, citations, tracer, render), `pipelines/rag.py`, CLI `hl ask` |
 | PRD links | FR-21, FR-24, FR-25, NFR-03, NFR-04, NFR-07 |
 | TRD links | §4.3 `AnswerResult`, §7.2, §3.3 `retrieval` |
@@ -347,7 +347,7 @@ Write 10 questions by hand across categories (not part of the eval set — these
 
 | Situation | Behavior |
 | --- | --- |
-| Neo4j query fails | `status=error`, error in trace |
+| TigerGraph query fails | `status=error`, error in trace |
 | No chunks retrieved | Still calls answer step with empty evidence → model should return not_found; or short-circuit to not_found (choose one and apply identically in all pipelines) |
 | Invalid JSON | One repair attempt, then `status=error` |
 | Invalid citations | Flagged; answer still returned |

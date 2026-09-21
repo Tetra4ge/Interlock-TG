@@ -18,6 +18,10 @@ Governance risk often lives in relationships *between* disclosures: a director o
 
 Example questions, by category: single-fact, multi-hop, temporal, numerical, global, and unanswerable (the system must say "not found in the data").
 
+## Built on TigerGraph
+
+This project is built for a hackathon organised by TigerGraph, so TigerGraph is the graph engine: the schema is defined in GSQL, facts are upserted through `pyTigerGraph`, and GraphRAG and the agent traverse the graph with installed, parameterized GSQL queries (multi-hop expansion, shared-director search, path finding, accumulator-based totals). Chunk embeddings live in a TigerGraph vector attribute when the deployed version supports it (fallback: local vector index). GSQL syntax and version-specific features are marked **Verify** in the docs.
+
 ## Key design points
 
 - **Grounded facts:** every graph edge carries document, page and exact quote; records whose quote is not on the stated page are rejected.
@@ -28,7 +32,7 @@ Example questions, by category: single-fact, multi-hop, temporal, numerical, glo
 
 ## Planned stack
 
-Python 3.11+ (uv, Pydantic v2, httpx) · PyMuPDF + pdfplumber · Neo4j 5 (graph, full-text and vector indexes) · SQLite run store · custom LLM gateway with cache and cost cap · hand-written agent state machine · FastAPI · Streamlit dashboard · pytest, Ruff, mypy · Docker Compose.
+Python 3.11+ (uv, Pydantic v2, httpx) · PyMuPDF + pdfplumber · **TigerGraph** (graph, GSQL installed queries, vector search; `pyTigerGraph` client) · SQLite FTS5 for entity-name lookup · SQLite run store · custom LLM gateway with cache and cost cap · hand-written agent state machine · FastAPI · Streamlit dashboard · pytest, Ruff, mypy · Docker Compose.
 
 ## Architecture
 
@@ -60,7 +64,7 @@ flowchart LR
 
     subgraph STORE[Storage]
         direction TB
-        NEO[(Neo4j: graph + vector + full-text)]
+        TG[(TigerGraph: graph + vectors)]
         SQL[(SQLite: run store, traces, scores)]
         CACHE[(LLM cache)]
     end
@@ -85,9 +89,9 @@ flowchart LR
         AGENT --> GW
     end
 
-    L --> NEO
-    E --> NEO
-    RET --> NEO
+    L --> TG
+    E --> TG
+    RET --> TG
     GW --> CACHE
     GW --> LLM[LLM provider]
 
@@ -116,7 +120,7 @@ Full index in [docs/README.md](docs/README.md).
 | Document | Contents |
 | --- | --- |
 | [PRD](docs/PRD.md) | Problem, users, goals, requirements (FR/NFR), success metrics, scope, risks, open questions |
-| [TRD](docs/TRD.md) | Stack decisions, repo layout, config, data models, SQLite and Neo4j schemas, interfaces, API, security, testing |
+| [TRD](docs/TRD.md) | Stack decisions, repo layout, config, data models, SQLite and TigerGraph (GSQL) schemas, interfaces, API, security, testing |
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | Context, containers, build pipeline, online layer, agent loop, deployment, ADRs |
 | [Phases 0–10](docs/phases/) | Ordered build plan, each with steps, tests, exit criteria and hand-off |
 
@@ -124,10 +128,10 @@ Full index in [docs/README.md](docs/README.md).
 
 | Release | Phases |
 | --- | --- |
-| R0 Foundations | 0 Setup, LLM gateway, parser spike |
-| R1 Data | 1 Acquisition · 2 Extraction pilot · 3 Entity resolution + graph |
+| R0 Foundations | 0 Setup, TigerGraph + GSQL spike, LLM gateway, parser spike |
+| R1 Data | 1 Acquisition · 2 Extraction pilot · 3 Entity resolution + TigerGraph build (GSQL schema, loading, installed queries, vectors) |
 | R2 Baseline + Eval | 4 RAG baseline · 5 Evaluation set + runner |
-| R3 Comparison | 6 GraphRAG · 7 Agentic GraphRAG |
+| R3 Comparison | 6 GraphRAG (GSQL traversal) · 7 Agentic GraphRAG (allow-listed GSQL query tools) |
 | R4 Presentation | 8 API + dashboard · 9 Hardening |
 | R5 Submission | 10 Demo + submission |
 

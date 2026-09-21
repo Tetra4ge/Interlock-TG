@@ -1,6 +1,6 @@
 # Phase 5 — Evaluation Set, Scorers, Judge and Runner
 
-> **Accuracy note.** Cypher and code are sketches; verify against your schema and library docs. Category shares and thresholds are starting points, not facts.
+> **Accuracy note.** GSQL and code are sketches; verify against your schema and library docs. Category shares and thresholds are starting points, not facts.
 
 ---
 
@@ -25,7 +25,7 @@
 If you change the test set after seeing results, create a new version and rerun everything.
 
 ### Gold answers from the graph (and their bias)
-Generating gold answers with Cypher is fast and consistent, but if the graph has an error, the gold answer inherits it — and GraphRAG, which reads the same graph, looks "right" when it is wrong. Checking gold answers against the original PDFs breaks this circularity.
+Generating gold answers with GSQL queries against TigerGraph is fast and consistent, but if the graph has an error, the gold answer inherits it — and GraphRAG, which reads the same graph, looks "right" when it is wrong. Checking gold answers against the original PDFs breaks this circularity.
 
 ### Matching metric to answer type
 - Single entity → exact match after normalization.
@@ -55,7 +55,7 @@ src/interlock/eval/
 │   ├── numerical.yaml
 │   ├── global.yaml
 │   └── unanswerable.yaml
-├── generate.py          # templates + Cypher → candidate questions
+├── generate.py          # templates + GSQL gold queries → candidate questions
 ├── paraphrase.py        # natural wording via helper LLM
 ├── verify_ui.py         # Streamlit page for PDF verification
 ├── split.py             # stratified dev/test split + freeze
@@ -110,7 +110,7 @@ class Question(BaseModel):
 
 ### Step 2 — Templates
 
-Each template is YAML with the question pattern, the parameter query (which entities to fill in), and the gold query.
+Each template is YAML with the question pattern, the parameter query (which entities to fill in), and the gold query. Both are **installed GSQL queries** kept in `eval/gold_queries/*.gsql` and referenced by name. They are written separately from the pipeline queries in `graph/gsql/queries/`, so a bug in a retrieval query cannot silently become the gold answer. Each gold query `PRINT`s two things: `answer` and `evidence` (a list of `{doc_id, page, edge_id}`).
 
 **Example: multi-hop (`templates/multi_hop.yaml`)**
 
@@ -120,33 +120,32 @@ Each template is YAML with the question pattern, the parameter query (which enti
   answer_type: list
   difficulty: medium
   question: "Which companies in the dataset share at least one director with {company}?"
-  params_cypher: |
-    MATCH (c:Company {in_dataset:true})<-[:DIRECTOR_OF]-(:Person)-[:DIRECTOR_OF]->(o:Company {in_dataset:true})
-    WHERE c <> o
-    RETURN DISTINCT c.entity_id AS company_id, c.name AS company
-    LIMIT 40
-  gold_cypher: |
-    MATCH (c:Company {entity_id:$company_id})<-[r1:DIRECTOR_OF]-(p:Person)-[r2:DIRECTOR_OF]->(o:Company {in_dataset:true})
-    WHERE o <> c
-    RETURN collect(DISTINCT o.name) AS answer,
-           collect(DISTINCT {doc_id:r1.doc_id, page:r1.page, edge_id:r1.edge_id}) +
-           collect(DISTINCT {doc_id:r2.doc_id, page:r2.page, edge_id:r2.edge_id}) AS evidence
+  params_query: gold_params_shared_director_companies      # returns rows {company_id, company}
+  gold_query: gold_shared_director_companies               # params: company_id; prints answer + evidence
 
 - template_id: MH-02
   category: multi_hop
   answer_type: list
   difficulty: hard
   question: "Which directors of {company} also sit on the board of a company named in a regulatory order?"
-  params_cypher: |
-    MATCH (c:Company {in_dataset:true})<-[:DIRECTOR_OF]-(p:Person)-[:DIRECTOR_OF]->(o:Company)-[:NAMED_IN]->(:RegulatoryAction)
-    WHERE c <> o
-    RETURN DISTINCT c.entity_id AS company_id, c.name AS company LIMIT 40
-  gold_cypher: |
-    MATCH (c:Company {entity_id:$company_id})<-[r1:DIRECTOR_OF]-(p:Person)-[r2:DIRECTOR_OF]->(o:Company)-[r3:NAMED_IN]->(a:RegulatoryAction)
-    WHERE o <> c
-    RETURN collect(DISTINCT p.name) AS answer,
-           collect(DISTINCT {doc_id:r1.doc_id,page:r1.page,edge_id:r1.edge_id}) +
-           collect(DISTINCT {doc_id:r3.doc_id,page:r3.page,edge_id:r3.edge_id}) AS evidence
+  params_query: gold_params_directors_on_actioned_boards
+  gold_query: gold_directors_on_actioned_boards
+```
+
+Sketch of the gold query behind MH-01 (**Verify** GSQL syntax):
+
+```gsql
+CREATE QUERY gold_shared_director_companies(VERTEX<Company> company_id) FOR GRAPH Interlock SYNTAX v2 {
+  SetAccum<STRING> @@answer;
+  ListAccum<STRING> @@evidence;
+  Start = {company_id};
+  Dirs = SELECT p FROM Start:c -(HAS_DIRECTOR:r1)- Person:p
+         ACCUM @@evidence += r1.edge_id;
+  Others = SELECT o FROM Dirs:p -(DIRECTOR_OF:r2)- Company:o
+           WHERE o != company_id AND o.in_dataset == TRUE
+           ACCUM @@answer += o.name, @@evidence += r2.edge_id;
+  PRINT @@answer AS answer, @@evidence AS evidence;   // real version also returns doc_id and page
+}
 ```
 
 **Template ideas per category** (write 3–6 per category):
@@ -161,7 +160,7 @@ Each template is YAML with the question pattern, the parameter query (which enti
 | Unanswerable | Facts outside the years; metrics not collected (salaries, prices); false premise ("Why was X's auditor debarred in FY2022-23?" when it wasn't) |
 
 Rules for templates:
-- Gold must be **computable** by Cypher and **checkable** in PDFs.
+- Gold must be **computable** by a GSQL query and **checkable** in PDFs.
 - Avoid schema words in questions ("DIRECTOR_OF", "HOLDS_STAKE").
 - For numerical templates, state the unit in the question and compute gold in that unit.
 - Global questions must be well-defined ("across the three fiscal years in the dataset").
@@ -169,9 +168,9 @@ Rules for templates:
 ### Step 3 — Generate candidates (`eval/generate.py`)
 
 For each template:
-1. Run `params_cypher` → parameter rows.
+1. Run `params_query` (`conn.runInstalledQuery`) → parameter rows.
 2. Sample up to N rows (spread across companies; don't let one company dominate).
-3. For each, run `gold_cypher` with parameters → answer + evidence.
+3. For each, run `gold_query` with parameters → answer + evidence.
 4. Skip empty answers (except for templates intended to test "none" answers — keep a few of those deliberately, labeled).
 5. Fill the question text; create `Question(question_raw=..., question=...)` with `verified=False`.
 
@@ -317,7 +316,7 @@ Use `role="judge"` in the gateway (different model family if available). Tempera
 For each question with `correct < 1`:
 1. **Rule-based first** (cheap, deterministic):
     - `status=budget_exceeded` → `budget_loop`
-    - `status=error` and trace has Cypher error → `bad_cypher`
+    - `status=error` and trace has a GSQL/query error → `bad_query`
     - evidence_recall == 0 → `retrieval_miss`
     - answered not_found on answerable → `wrong_abstention`
     - NUMBER with right evidence retrieved but wrong value → `arithmetic_error`
@@ -326,7 +325,7 @@ For each question with `correct < 1`:
 3. Hand-check a sample (e.g. 30) and report agreement.
 4. `data_error` is only assigned by you during review; such questions are fixed in v2 or excluded, and counted.
 
-Taxonomy (one primary label): `retrieval_miss`, `entity_link_error`, `missed_hop`, `temporal_error`, `arithmetic_error`, `hallucination`, `wrong_abstention`, `bad_cypher`, `budget_loop`, `data_error`.
+Taxonomy (one primary label): `retrieval_miss`, `entity_link_error`, `missed_hop`, `temporal_error`, `arithmetic_error`, `hallucination`, `wrong_abstention`, `bad_query`, `budget_loop`, `data_error`.
 
 ### Step 13 — Runner (`eval/runner.py`)
 
@@ -399,7 +398,7 @@ Contents:
 | Paired diff | Identical pipelines → diff 0 |
 | Runner resume (integration) | Kill after 3 questions; resume completes without duplicates |
 | Runner offline | With `--offline` and a full cache, no network calls |
-| Gold queries | Every template's gold_cypher runs on the fixture graph without error |
+| Gold queries | Every template's gold GSQL query is installed and runs on the fixture graph without error |
 
 ---
 

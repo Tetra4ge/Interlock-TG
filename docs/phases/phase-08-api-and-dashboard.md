@@ -71,7 +71,7 @@ tests/unit/test_dashboard_data.py
 
 ### Step 1 — Shared context (`api/deps.py`)
 
-Create once at startup: settings, SQLite connection factory (one connection per request/thread — SQLite connections shouldn't be shared across threads by default), Neo4j driver (thread-safe, shared), LLM gateway, embedding model (loaded once), pipelines registry.
+Create once at startup: settings, SQLite connection factory (one connection per request/thread — SQLite connections shouldn't be shared across threads by default), TigerGraph connection (`pyTigerGraph`; one shared read-only connection/token, **Verify** thread-safety and create one per worker if unsure), LLM gateway, embedding model (loaded once), pipelines registry.
 
 Use FastAPI's lifespan hook to build and close these (**Verify** the current lifespan API).
 
@@ -93,7 +93,7 @@ class CompareIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"neo4j": ctx.neo4j_ok(), "sqlite": ctx.sqlite_ok(), "llm_key": bool(ctx.settings.secrets.llm_api_key)}
+    return {"tigergraph": ctx.tigergraph_ok(), "sqlite": ctx.sqlite_ok(), "llm_key": bool(ctx.settings.secrets.llm_api_key)}
 
 @app.post("/ask")
 def ask(body: AskIn):
@@ -136,15 +136,15 @@ Other routes (read-only, from the run store):
 | `GET /graph/subgraph?edge_ids=a,b,c` | nodes + edges for visualization |
 | `GET /data-quality` | data quality report numbers |
 
-Subgraph route Cypher:
+Subgraph route: an installed GSQL query `subgraph_by_edges(SET<STRING> edge_ids)`. It scans the fact edge types, keeps edges whose `edge_id` is in the set, and prints both endpoints and the edge (**Verify** syntax):
 
-```cypher
-MATCH (s)-[r]->(t) WHERE r.edge_id IN $edge_ids
-RETURN coalesce(s.entity_id, s.txn_id, s.order_id) AS sid, labels(s)[0] AS slabel,
-       coalesce(s.name, s.nature, s.summary) AS sname,
-       type(r) AS rel, properties(r) AS rprops,
-       coalesce(t.entity_id, t.txn_id, t.order_id) AS tid, labels(t)[0] AS tlabel,
-       coalesce(t.name, t.nature, t.summary) AS tname
+```gsql
+CREATE QUERY subgraph_by_edges(SET<STRING> edge_ids) FOR GRAPH Interlock SYNTAX v2 {
+  // For each fact edge type (DIRECTOR_OF, HOLDS_STAKE, SUBSIDIARY_OF, AUDITED_BY, PARTY_TO, NAMED_IN):
+  //   SELECT t FROM AnyVertex:s -(EdgeType:e)- :t WHERE e.edge_id IN edge_ids
+  //   and PRINT source id/type/name, edge type, edge attributes, target id/type/name.
+  // Vertex name comes from name, nature or summary depending on the vertex type.
+}
 ```
 
 Security: bind to `127.0.0.1` by default; CORS not needed if Streamlit calls the API server-side. If hosted publicly, put basic auth in front (e.g. via a reverse proxy) and keep demo mode on to control cost.
@@ -255,7 +255,7 @@ Keep graphs small (≤ 60 nodes shown); show "N more omitted" otherwise.
 5. "Save to demo run" button stores the result for later inspection.
 
 ### Step 11 — Page 98: Data quality
-Render `/data-quality`: document counts, record statuses by reason, extraction precision per type, resolution precision, node/edge counts, MENTIONS coverage.
+Render `/data-quality`: document counts, record statuses by reason, extraction precision per type, resolution precision, vertex/edge counts, MENTIONS coverage.
 
 ### Step 12 — Cached demo answers
 

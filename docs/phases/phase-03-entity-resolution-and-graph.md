@@ -1,6 +1,6 @@
-# Phase 3 — Full Extraction, Entity Resolution, Graph Build and Embeddings
+# Phase 3 — Full Extraction, Entity Resolution, TigerGraph Build and Embeddings
 
-> **Accuracy note.** Cypher shown uses Neo4j 5 syntax as I understand it; verify index/constraint and vector-query syntax for your exact version. Code blocks are sketches.
+> **Accuracy note.** GSQL and `pyTigerGraph` calls are sketches written from general knowledge of TigerGraph. Verify schema-change, discriminator, vector-attribute and loading syntax against the documentation for the exact TigerGraph version you deployed (Phase 0, ADR-0011). Code blocks are sketches.
 
 ---
 
@@ -8,10 +8,10 @@
 
 | Item | Detail |
 | --- | --- |
-| Goal | Run extraction on all companies; resolve every mention to a canonical entity; load a knowledge graph with provenance; embed and index all chunks; link chunks to entities; rebuild everything with one command |
-| Why | Without entity resolution, the same person appears as several nodes and multi-hop questions break. The graph + vector index is what all three pipelines query |
+| Goal | Run extraction on all companies; resolve every mention to a canonical entity; load a knowledge graph with provenance into TigerGraph; embed and index all chunks; install the GSQL queries the pipelines will use; link chunks to entities; rebuild everything with one command |
+| Why | Without entity resolution, the same person appears as several nodes and multi-hop questions break. The TigerGraph graph + vector search is what all three pipelines query |
 | Prerequisites | Phase 2 exit criteria met |
-| Produces | `resolve/`, `graph/` (schema, loader, queries), `embed/` packages; populated Neo4j; `entities`, `merge_log` tables; `docs/data-quality.md`; ADR-0009 (embedding choice); committed sample graph export |
+| Produces | `resolve/`, `graph/` (GSQL schema, loader, installed queries, Python wrappers), `embed/` packages; populated TigerGraph; `entities`, `merge_log` tables; `docs/data-quality.md`; ADR-0009 (embedding choice); committed sample graph export |
 | PRD links | FR-15 to FR-20, NFR-01, NFR-02, NFR-09 |
 | TRD links | §5 (`entities`, `merge_log`), §6 (graph schema), §3.3 `resolve` |
 
@@ -37,14 +37,17 @@ So auto-merge thresholds are set high and uncertain cases go to review.
 - A **relationship property** is a fact about how two things connect (role, period, percentage).
 - Related-party transactions are nodes because they connect two parties *and* carry amount, nature and year you will filter and sum.
 
-### MERGE semantics
-`MERGE (n:Company {entity_id: $id})` finds the node if it exists or creates it. With a uniqueness constraint, reruns never create duplicates. Use `ON CREATE SET` / `SET` to update properties. MERGE on a relationship matches the whole pattern, so include a stable key (`edge_id`) in the pattern to keep it idempotent.
+### Upsert semantics in TigerGraph
+There is no `MERGE`. Loading a vertex with an existing `PRIMARY_ID` **updates** it, and loading an edge with the same source, target, type and discriminator value **updates** that edge (`upsert`). Reruns therefore never create duplicates, provided ids are deterministic. Edge types that must hold several parallel edges between the same two vertices declare a `DISCRIMINATOR` (here `edge_id`). Vertex and edge types cannot change freely after data exists: changing the schema needs a **schema-change job**, so freeze the schema early (Phase 0 spike, TRD §6).
 
-### Vector indexes
-An approximate nearest-neighbour (ANN) index returns the chunks whose embeddings are most similar to a query embedding, in milliseconds, without comparing against every vector. Similarity function here: cosine.
+### GSQL installed queries and accumulators
+GSQL is TigerGraph's query language. A query is written once, **installed** (compiled), then called with typed parameters over REST. Traversals are written as `SELECT ... FROM ... ACCUM ...` blocks and collect results in **accumulators** (`SumAccum`, `SetAccum`, `ListAccum`, `HeapAccum`...), so multi-hop expansion and totals run inside the database, in parallel. Parameterized installed queries are also the safe interface for the agent (no string-built queries).
 
-### Full-text indexes
-A Lucene-based text index over entity names and aliases. Used by GraphRAG and the agent to go from a name in a question to a node, tolerating word order and partial matches.
+### Vector attributes and search
+A vector attribute stores an embedding on a vertex; a vector search returns the vertices whose embeddings are most similar to a query vector (approximate nearest neighbour, cosine here). Support depends on the TigerGraph version (**Verify**, ADR-0011). Fallback if unsupported: local FAISS/NumPy index keyed by `chunk_id`; everything else stays in TigerGraph.
+
+### Entity-name search (no graph full-text index)
+TigerGraph has no built-in full-text index (**Verify**). Name → entity lookup is done over the `entities` table in SQLite with an FTS5 index on `name` and `aliases`, then RapidFuzz re-ranking. Entities are few (thousands), so this is fast and simple.
 
 ---
 
@@ -59,17 +62,20 @@ src/interlock/resolve/
 ├── cluster.py        # union-find to form entities
 └── review.py         # uncertain pairs → review
 src/interlock/graph/
-├── schema.py         # constraints and indexes
-├── loader.py         # nodes, edges, provenance (batched)
+├── gsql/
+│   ├── schema.gsql       # vertex/edge types, graph, vector attribute (TRD §6.3)
+│   └── queries/*.gsql    # entity_neighbors, shared_directors, path_between, stake_aggregate, chunks_for_entities, vector_chunks, delete_run
+├── schema.py         # apply schema and (re)install queries
+├── loader.py         # vertices, edges, provenance (batched upserts)
 ├── mentions_link.py  # Chunk-[:MENTIONS]->entity
 ├── export.py         # JSONL export/import for the sample graph
-└── queries.py        # shared read queries used later by pipelines
+└── queries.py        # Python wrappers over installed queries, used by pipelines
 src/interlock/embed/
 ├── __init__.py
 ├── provider.py       # local or hosted embedding provider
-├── index.py          # write embeddings to Neo4j
+├── index.py          # write embeddings to TigerGraph (or the local fallback index)
 └── recall_test.py    # choose the model
-tests/unit/test_normalize.py, test_match.py, test_cluster.py
+tests/unit/test_normalize.py, test_match.py, test_cluster.py, test_entity_fts.py
 tests/integration/test_loader_idempotent.py, test_graph_queries.py
 docs/data-quality.md
 docs/decisions/0009-embedding-model.md
@@ -215,88 +221,92 @@ Write to `entities` and one `merge_log` row per mention (`method`, `score`, `rea
 3. Report precision of merges and the rate of missed merges in `docs/data-quality.md`.
 4. If merge precision is below ~98%, raise the threshold; false merges are the expensive error.
 
-### Step 7 — Graph schema (`graph/schema.py`)
+### Step 7 — Graph schema and queries (`graph/schema.py`, `graph/gsql/`)
 
-Run the constraints and indexes from TRD §6.3 at startup of `build-graph` (they use `IF NOT EXISTS`, so reruns are safe). Set the vector index `vector.dimensions` to your embedding model's dimension **after** Step 11 (create the vector index then).
+1. Apply `schema.gsql` (TRD §6.3) through `conn.gsql(...)`. Make it rerunnable: check `conn.getVertexTypes()` first and skip if the graph already exists; use schema-change jobs for later changes.
+2. Add the vector attribute **after** Step 11 (when you know the embedding dimension), if the version supports it.
+3. Write each installed query as a `.gsql` file and install it (`INSTALL QUERY <name>`, or `INSTALL QUERY ALL`). Installation compiles C++ and can take minutes; do it once per query change, not on every run. Keep a `queries.lock` (hash of each file) and reinstall only what changed.
+4. Smoke-call each query with a tiny fixture graph.
+
+Query sketches (**Verify** syntax):
+
+```gsql
+CREATE QUERY entity_neighbors(SET<VERTEX> seeds, INT hops = 1, STRING fiscal_year = "",
+                              INT max_triples = 150) FOR GRAPH Interlock SYNTAX v2 {
+  ListAccum<STRING> @@triples;   // real version returns structured edge rows with provenance
+  SetAccum<VERTEX> @@frontier;
+  Start = seeds;
+  // hop 1
+  Hop1 = SELECT t FROM Start:s -(:e)- :t
+         WHERE fiscal_year == "" OR e.fiscal_year == fiscal_year   // edge types without the attribute need per-type handling; Verify
+         ACCUM @@triples += s.entity_id + "|" + e.type + "|" + t.entity_id
+         LIMIT max_triples;
+  // hop 2 repeats the pattern from Hop1 when hops == 2
+  PRINT @@triples;
+}
+```
+
+```gsql
+CREATE QUERY stake_aggregate(VERTEX<Company> company) FOR GRAPH Interlock SYNTAX v2 {
+  SumAccum<DOUBLE> @@pledged;
+  S = {company};
+  R = SELECT h FROM S:c -(HELD_BY:e)- :h ACCUM @@pledged += e.pledged_pct;
+  PRINT @@pledged;
+}
+```
 
 ### Step 8 — Loader (`graph/loader.py`)
 
 Principles:
-- **Batch** rows (e.g. 500 per transaction) using `UNWIND $rows AS row`.
-- **Deterministic IDs**: `edge_id = sha256(record_id + rel_type)[:16]`, `txn_id = sha256(record_id)[:16]`.
+- **Batch** rows (e.g. 500 to 1000 per request) with `conn.upsertVertices(vertex_type, [(id, {attrs}), ...])` and `conn.upsertEdges(src_type, edge_type, tgt_type, [(src_id, tgt_id, {attrs}), ...])` (**Verify** signatures). For very large loads a GSQL `LOADING JOB` fed with CSV/JSONL through `runLoadingJobWithData` is an alternative.
+- **Deterministic IDs**: `edge_id = sha256(record_id + rel_type)[:16]`, `txn_id = sha256(record_id)[:16]`. Include `edge_id` in the edge attributes (it is the discriminator).
 - **Provenance on every fact edge**: `doc_id, page, quote, run_id, edge_id`.
+- **Order**: vertices first (Sector, Document, AuditFirm, Person, Company, RegulatoryAction, RelatedPartyTxn), then edges. Upserting an edge whose endpoint does not exist may create an empty endpoint vertex or fail depending on configuration (**Verify**); loading vertices first avoids it.
+- Load failures: `pyTigerGraph` returns accepted counts; compare with rows sent and raise on mismatch.
 
-Nodes:
+Vertices (`Company` example):
 
-```cypher
-UNWIND $rows AS row
-MERGE (c:Company {entity_id: row.entity_id})
-SET c.name = row.name, c.cin = row.cin, c.aliases = row.aliases,
-    c.aliases_text = row.aliases_text, c.sector = row.sector,
-    c.in_dataset = row.in_dataset
+```python
+rows = [(e.entity_id, {"name": e.name, "cin": e.cin, "aliases_text": e.aliases_text,
+                       "sector": e.sector, "in_dataset": e.in_dataset}) for e in batch]
+conn.upsertVertices("Company", rows)
 ```
 
-(`in_dataset=true` for companies from `companies.yaml`; counterparties outside the dataset are still Company nodes but flagged, which matters for questions like "companies in the dataset".)
-
-Same pattern for `Person`, `AuditFirm`, `Sector`, `Document`.
+(`in_dataset=true` for companies from `companies.yaml`; counterparties outside the dataset are still `Company` vertices but flagged, which matters for questions like "companies in the dataset".) Same pattern for `Person`, `AuditFirm`, `Sector`, `Document`, `RegulatoryAction`.
 
 Sector links:
 
-```cypher
-UNWIND $rows AS row
-MATCH (c:Company {entity_id: row.company_id})
-MERGE (s:Sector {name: row.sector})
-MERGE (c)-[:IN_SECTOR]->(s)
+```python
+conn.upsertEdges("Company", "IN_SECTOR", "Sector", [(c.entity_id, c.sector, {}) for c in batch])
 ```
 
 Directors:
 
-```cypher
-UNWIND $rows AS row
-MATCH (p:Person {entity_id: row.person_id})
-MATCH (c:Company {entity_id: row.company_id})
-MERGE (p)-[r:DIRECTOR_OF {edge_id: row.edge_id}]->(c)
-SET r.role = row.role, r.independent = row.independent,
-    r.from = row.from, r.to = row.to, r.fiscal_year = row.fiscal_year,
-    r.doc_id = row.doc_id, r.page = row.page, r.quote = row.quote, r.run_id = row.run_id
+```python
+conn.upsertEdges("Person", "DIRECTOR_OF", "Company", [
+    (r.person_id, r.company_id, {
+        "edge_id": r.edge_id, "role": r.role, "independent": r.independent,
+        "start_date": r.start_date, "end_date": r.end_date, "fiscal_year": r.fiscal_year,
+        "doc_id": r.doc_id, "page": r.page, "quote": r.quote, "run_id": r.run_id})
+    for r in batch])
 ```
 
-Note on directors across years: each fiscal year's report produces its own `DIRECTOR_OF` edge (different `edge_id`). That is intentional: it records "was a director according to the FY2022-23 report". Questions about periods then filter on `fiscal_year` or on `from`/`to` where available. Document this choice in the README.
+Note on directors across years: each fiscal year's report produces its own `DIRECTOR_OF` edge (different `edge_id` discriminator). That is intentional: it records "was a director according to the FY2022-23 report". Questions about periods then filter on `fiscal_year` or on `start_date`/`end_date` where available. Document this choice in the README.
 
-Related-party transactions:
+Related-party transactions: upsert the `RelatedPartyTxn` vertex (with `amount_inr`, `nature`, `relationship`, `fiscal_year`), then two `PARTY_TO` edges, one with `side = "reporting"` from the reporting `Company`, one with `side = "counterparty"` from the counterparty (`Company` or `Person`, chosen by its resolved kind).
 
-```cypher
-UNWIND $rows AS row
-MATCH (rep:Company {entity_id: row.reporting_id})
-MATCH (cp {entity_id: row.counterparty_id})
-MERGE (t:RelatedPartyTxn {txn_id: row.txn_id})
-SET t.fiscal_year = row.fiscal_year, t.nature = row.nature,
-    t.relationship = row.relationship, t.amount_inr = row.amount_inr,
-    t.amount_raw = row.amount_raw,
-    t.doc_id = row.doc_id, t.page = row.page, t.quote = row.quote, t.run_id = row.run_id
-MERGE (rep)-[a:PARTY_TO {edge_id: row.edge_id_rep}]->(t) SET a.side = 'reporting'
-MERGE (cp)-[b:PARTY_TO {edge_id: row.edge_id_cp}]->(t) SET b.side = 'counterparty'
-```
+Write similar loaders for `HOLDS_STAKE`, `SUBSIDIARY_OF`, `AUDITED_BY`, `NAMED_IN`, `HAS_CHUNK`.
 
-Write similar statements for `HOLDS_STAKE`, `SUBSIDIARY_OF`, `AUDITED_BY`, `NAMED_IN` (with `RegulatoryAction` nodes), `HAS_CHUNK`.
-
-Deleting a bad run:
-
-```cypher
-MATCH ()-[r {run_id: $run_id}]-() DELETE r;
-MATCH (t:RelatedPartyTxn {run_id: $run_id}) DETACH DELETE t;
-```
+Deleting a bad run: an installed query `delete_run(STRING run_id)` that selects edges/vertices with that `run_id` and uses GSQL `DELETE` (**Verify** edge-delete syntax), or `conn.delEdges` / `conn.delVertices` from a list gathered by a read query.
 
 ### Step 9 — Chunks into the graph
 
-```cypher
-UNWIND $rows AS row
-MATCH (d:Document {doc_id: row.doc_id})
-MERGE (ch:Chunk {chunk_id: row.chunk_id})
-SET ch.text = row.text, ch.section = row.section, ch.page_start = row.page_start,
-    ch.page_end = row.page_end, ch.fiscal_year = row.fiscal_year,
-    ch.company_id = row.company_id
-MERGE (d)-[:HAS_CHUNK]->(ch)
+```python
+conn.upsertVertices("Chunk", [(c.chunk_id, {
+    "text": c.text, "section": c.section, "page_start": c.page_start,
+    "page_end": c.page_end, "fiscal_year": c.fiscal_year, "company_id": c.company_id})
+    for c in batch])
+conn.upsertEdges("Document", "HAS_CHUNK", "Chunk", [(c.doc_id, c.chunk_id, {}) for c in batch])
 ```
 
 ### Step 10 — MENTIONS links (`graph/mentions_link.py`)
@@ -305,18 +315,16 @@ A chunk mentions an entity if:
 1. A record extracted from pages overlapping the chunk resolved to that entity (precise), **or**
 2. The chunk text contains the entity's canonical name or an alias with ≥ 2 tokens (string match after normalization). Single-token aliases are skipped to avoid false links (e.g. a surname alone).
 
-```cypher
-UNWIND $rows AS row
-MATCH (ch:Chunk {chunk_id: row.chunk_id})
-MATCH (e {entity_id: row.entity_id})
-MERGE (ch)-[:MENTIONS]->(e)
+```python
+conn.upsertEdges("Chunk", "MENTIONS", "Company", [(chunk_id, entity_id, {}) ...])
+# repeat for Person and AuditFirm, choosing the target type from the entity kind
 ```
 
 Report the number of chunks with at least one MENTIONS link; GraphRAG depends on it.
 
 ### Step 11 — Embedding model choice (`embed/recall_test.py`)
 
-1. Write 30 questions by hand, each with the chunk IDs that contain the answer (look them up in Neo4j Browser or the chunk files). Cover all sections.
+1. Write 30 questions by hand, each with the chunk IDs that contain the answer (look them up in GraphStudio or the chunk files). Cover all sections.
 2. For each candidate model (e.g. one hosted embedding model and one open-weight model via sentence-transformers — **Verify** model names and dimensions on the model card):
     - Embed all chunks (cache by `chunk_id + model`).
     - Embed each question; compute cosine similarity; take top 10.
@@ -334,72 +342,61 @@ model = SentenceTransformer(model_name)                    # Verify
 vecs = model.encode(texts, batch_size=32, normalize_embeddings=True)  # Verify args
 ```
 
-### Step 12 — Write embeddings and create the vector index (`embed/index.py`)
+### Step 12 — Write embeddings and enable vector search (`embed/index.py`)
 
-```cypher
-UNWIND $rows AS row
-MATCH (ch:Chunk {chunk_id: row.chunk_id})
-SET ch.embedding = row.embedding
+1. Add the vector attribute with the model's dimension (schema-change job from TRD §6.3): `ALTER VERTEX Chunk ADD VECTOR ATTRIBUTE embedding(DIMENSION=<dim>, METRIC="COSINE")`. **Verify** syntax and supported index types for your version.
+2. Upsert the embeddings in batches. Depending on the version this is done through a loading job that maps a vector column, or a REST upsert that accepts the vector (**Verify**). Cache vectors on disk by `chunk_id + model` so a rebuild never re-embeds.
+3. Wait until the vector index is built (**Verify** how to check status), then run the smoke test.
+
+Smoke test (**Verify** function name and signature for your version):
+
+```gsql
+CREATE QUERY vector_chunks(LIST<FLOAT> qvec, INT k = 10) FOR GRAPH Interlock SYNTAX v2 {
+  // native vector search over Chunk.embedding, e.g. vectorSearch({Chunk.embedding}, qvec, k)
+  // returns the top-k Chunk vertices; PRINT their chunk_id, page_start, score
+}
 ```
 
-Neo4j may provide a dedicated procedure for setting vector properties with type checking (**Verify**, e.g. a `db.create.setNodeVectorProperty` procedure); plain `SET` of a list of floats is the simple approach.
-
-Then create the vector index with the correct dimension (TRD §6.3) and wait for it to come online (check with `SHOW INDEXES`).
-
-Smoke test query (**Verify** procedure name/signature for your version; newer versions may also offer a `SEARCH` clause):
-
-```cypher
-CALL db.index.vector.queryNodes('chunk_embedding', 10, $qvec)
-YIELD node, score
-RETURN node.chunk_id AS chunk_id, node.page_start AS page, score
-```
+**Fallback (if native vectors are not available in your TigerGraph version):** keep embeddings in a local index (FAISS or a NumPy matrix) saved to `data/vectors/`, keyed by `chunk_id`. `vector_search` then returns chunk ids from the local index and reads chunk text and links from TigerGraph. Record which mode is used in ADR-0011, and expose it in the `/health` response and dashboard so the comparison stays honest.
 
 ### Step 13 — Shared read queries (`graph/queries.py`)
 
-Write and test these now; Phases 4–7 reuse them.
+Write and test these now; Phases 4–7 reuse them. Each graph function calls an **installed GSQL query** through `run_installed`.
 
 | Function | Purpose | Sketch |
 | --- | --- | --- |
-| `vector_search(qvec, k, filters)` | Top-k chunks, optional company/year/section filter | vector procedure, then `WHERE` filters (over-fetch k×3 then filter) |
-| `fulltext_entities(text, kind, limit)` | Name → entity candidates | `CALL db.index.fulltext.queryNodes('entity_names', $q) YIELD node, score` (**Verify**) |
-| `neighbors(entity_id, rel_types, hops, fy)` | Bounded expansion | parameterized pattern per hop count |
-| `chunks_for_entities(ids, limit)` | Linked text | `MATCH (c:Chunk)-[:MENTIONS]->(e) WHERE e.entity_id IN $ids` |
-| `get_edge(edge_id)` | Provenance for citations | `MATCH ()-[r {edge_id:$id}]->() RETURN r` |
-| `get_chunk(chunk_id)` | Chunk text + pages | simple match |
+| `vector_search(qvec, k, filters)` | Top-k chunks, optional company/year/section filter | `vector_chunks` query (or local index); over-fetch k×3 then filter |
+| `entity_search(text, kind, limit)` | Name → entity candidates | SQLite FTS5 query on `entities` (escape FTS syntax characters in user text, use quoted phrases), then RapidFuzz re-rank |
+| `neighbors(entity_id, rel_types, hops, fy)` | Bounded expansion | `entity_neighbors` query |
+| `shared_directors(ids, fy)` | Common directors between companies | `shared_directors` query |
+| `path_between(a, b, max_hops)` | Bounded shortest path | `path_between` query |
+| `aggregate_stake(entity_id)` / `sum_txn(...)` | Totals over a subgraph | `stake_aggregate` and related accumulator queries |
+| `chunks_for_entities(ids, limit)` | Linked text | `chunks_for_entities` query |
+| `get_edge(edge_id)` | Provenance for citations | edge lookup via `conn.getEdges(...)` or a small installed query (**Verify**) |
+| `get_chunk(chunk_id)` | Chunk text + pages | `conn.getVerticesById("Chunk", chunk_id)` |
 
-Full-text query strings use Lucene syntax; escape special characters (`+ - && || ! ( ) { } [ ] ^ " ~ * ? : \ /`) in user text before querying, then optionally append `~` to tokens for fuzzy matching.
+Sanity checks to run in GraphStudio (or via `conn`) after loading:
 
-Sanity queries to run in Neo4j Browser after loading:
-
-```cypher
-// counts by label
-MATCH (n) RETURN labels(n)[0] AS label, count(*) ORDER BY label;
-
-// directors shared between dataset companies
-MATCH (c1:Company {in_dataset:true})<-[:DIRECTOR_OF]-(p:Person)-[:DIRECTOR_OF]->(c2:Company {in_dataset:true})
-WHERE c1.entity_id < c2.entity_id
-RETURN p.name, c1.name, c2.name LIMIT 25;
-
-// fact edges missing provenance (should be 0)
-MATCH ()-[r]->() WHERE type(r) IN ['DIRECTOR_OF','HOLDS_STAKE','SUBSIDIARY_OF','AUDITED_BY','PARTY_TO','NAMED_IN']
-  AND (r.doc_id IS NULL OR r.page IS NULL)
-RETURN type(r), count(*);
-```
+- Vertex counts by type: `conn.getVertexCount("*")` (**Verify**).
+- Edge counts by type: `conn.getEdgeCount("*")` (**Verify**).
+- Directors shared between dataset companies: call `shared_directors` on a few dataset company ids and eyeball the results.
+- Fact edges missing provenance (should be 0): a small installed query `edges_missing_provenance` that scans each fact edge type and counts edges with empty `doc_id` or `page = 0`.
 
 ### Step 14 — One-command build
 
 `hl build-graph` runs, in order, skipping completed work:
 
-1. `migrate` (SQLite) and `schema` (Neo4j constraints/indexes)
+1. `migrate` (SQLite) and `schema` (TigerGraph schema and installed queries, skipped if unchanged)
 2. `parse` all registered documents
 3. `sections` + `chunk`
 4. `extract` (resumable, cached)
 5. `resolve`
 6. `load` nodes, edges, chunks
 7. `mentions`
-8. `embed` + vector index
+8. `embed` + vector attribute (or local vector index)
+9. `entity-index`: rebuild the SQLite FTS5 table from `entities`
 
-Flags: `--from <step>` to restart from a step; `--reset-graph` to wipe Neo4j first (`MATCH (n) DETACH DELETE n` in batches for large graphs; **Verify** the recommended batched-delete approach).
+Flags: `--from <step>` to restart from a step; `--reset-graph` to wipe the graph's data first (`CLEAR GRAPH STORE` in GSQL, or drop and recreate the graph; **Verify** the current command and that it only affects this graph). This is destructive: the command must print what it will delete and require `--yes`.
 
 ### Step 15 — Data quality report (`docs/data-quality.md`)
 
@@ -418,10 +415,10 @@ Generate automatically:
 
 For the judges' one-command demo, export a subset (e.g. 10–15 companies with interesting links, plus all their neighbors) to JSONL files:
 
-- `nodes.jsonl`: `{label, props}`
-- `rels.jsonl`: `{type, start_label, start_key, end_label, end_key, props}`
+- `vertices.jsonl`: `{vertex_type, id, attrs}`
+- `edges.jsonl`: `{edge_type, src_type, src_id, tgt_type, tgt_id, attrs}`
 
-Include chunk embeddings for those companies (this can be large; keep the sample small). An import script recreates the graph with the same MERGE statements. This is simpler and more version-proof than database dump files; Neo4j's own dump/load tools are an alternative (**Verify** Community Edition procedure and whether the database must be stopped).
+Include chunk embeddings for those companies (this can be large; keep the sample small). An import script recreates the graph with the same `upsertVertices` / `upsertEdges` calls after applying the schema. This is simpler and more version-proof than database backup files; TigerGraph's own `gbar` backup/restore or export tools are an alternative (**Verify** edition support and procedure).
 
 ---
 
@@ -438,7 +435,7 @@ Include chunk embeddings for those companies (this can be large; keep the sample
 | Loader idempotency | Load twice → identical node/edge counts |
 | Provenance completeness | Query returns 0 fact edges missing doc/page |
 | Graph queries on fixture graph | Known 2-hop answer returned; `neighbors` respects hop and type filters |
-| Full-text escaping | Names with `&`, `(`, `-` don't crash the query |
+| FTS escaping | Names with `&`, `(`, `-`, quotes don't crash the SQLite FTS5 query |
 
 Fixture graph: 5 companies, 8 persons, 1 audit firm, 1 regulatory action, 4 transactions — small enough to reason about by hand.
 
@@ -452,7 +449,8 @@ Fixture graph: 5 companies, 8 persons, 1 audit firm, 1 regulatory action, 4 tran
 | Cluster with conflicting IDs | Split; review |
 | Loader batch failure | Transaction rolls back; retry batch; log failing row ids |
 | Embedding provider failure | Retry with backoff; resumable by chunk_id |
-| Vector index still populating | Wait/poll `SHOW INDEXES` before smoke test |
+| Vector index still building | Wait/poll the index status before smoke test (**Verify** how) |
+| Installed query out of date | Reinstall changed `.gsql` files; the `queries.lock` hash check catches this |
 
 ---
 
@@ -460,11 +458,11 @@ Fixture graph: 5 companies, 8 persons, 1 audit firm, 1 regulatory action, 4 tran
 
 | # | Criterion | How to check |
 | --- | --- | --- |
-| 1 | `hl build-graph` rebuilds from raw files | Run on a clean Neo4j |
+| 1 | `hl build-graph` rebuilds from raw files | Run on a clean TigerGraph graph |
 | 2 | 100% of fact edges have provenance | Sanity query returns zero |
 | 3 | Merge precision measured and ≥ your bar (suggested ~98%) | `docs/data-quality.md` |
 | 4 | Embedding model chosen by recall test | ADR-0009 |
-| 5 | Vector and full-text indexes online; smoke queries work | Neo4j Browser |
+| 5 | Vector search (native or fallback) and entity FTS work; all installed queries return sane results | GraphStudio + smoke tests |
 | 6 | Sample graph export + import works on an empty database | Integration test |
 | 7 | Interesting multi-hop links exist (shared directors, directors named in orders, RPT counterparties with overlapping boards) | Sanity queries return results |
 
@@ -479,12 +477,14 @@ If item 7 returns almost nothing, the dataset cannot separate the pipelines. Fix
 | One "person" connected to dozens of unrelated companies | False merge on a common name | Raise threshold; require initials compatibility; check clusters by degree |
 | Same director appears as two nodes | DIN missing in one report | Add same-company blocking; review band |
 | Loader very slow | One row per transaction | UNWIND batches |
-| Duplicate relationships on rerun | MERGE pattern without edge_id | Include edge_id in MERGE |
-| Vector search returns nothing | Dimension mismatch or index not online | Check `SHOW INDEXES` and model dimension |
-| Full-text errors on some names | Unescaped Lucene characters | Escape before querying |
+| Duplicate relationships on rerun | Edge type missing a `DISCRIMINATOR`, or `edge_id` not deterministic | Add `DISCRIMINATOR(edge_id)` (schema change) and make ids deterministic |
+| Vector search returns nothing | Dimension mismatch or index not built | Check the vector attribute's dimension against the model and the index status |
+| FTS errors on some names | Unescaped FTS5 syntax characters | Quote the phrase and escape quotes before querying |
+| Edge upsert silently creates empty vertices or drops edges | Endpoints not loaded yet, or wrong endpoint types on a multi-endpoint edge | Load vertices first; check edge definitions and accepted counts |
+| Schema change fails with data loaded | Schema jobs may not allow some changes on populated graphs | Freeze schema early; for breaking changes drop the graph and rebuild (one-command build) |
 
 ---
 
 ## 3.9 Hand-off to Phase 4
 
-Phase 4 needs: chunks with embeddings in the vector index, `graph/queries.py` functions, and the sample graph for tests.
+Phase 4 needs: chunks with embeddings in vector search (TigerGraph native or fallback), `graph/queries.py` functions, and the sample graph for tests.

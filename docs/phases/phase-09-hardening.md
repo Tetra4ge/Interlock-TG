@@ -20,7 +20,7 @@
 ## 9.2 Concepts you will learn
 
 ### Reproducible environments
-A container image packages your code with exact dependencies. Compose starts several containers (Neo4j, API, dashboard) with the right network, volumes and environment. The same command works on any machine with Docker.
+A container image packages your code with exact dependencies. Compose starts several containers (TigerGraph, API, dashboard) with the right network, volumes and environment. The same command works on any machine with Docker.
 
 ### Seeding data
 The demo needs a graph. Instead of asking judges to run extraction (needs API keys, time and money), ship a small sample graph and import it automatically on first start.
@@ -41,7 +41,7 @@ docker-compose.yml
 .dockerignore
 scripts/
 ├── seed_graph.py         # import data/samples/graph/*.jsonl if graph is empty
-└── entrypoint.sh         # wait for Neo4j, seed, start service
+└── entrypoint.sh         # wait for TigerGraph, seed, start service
 .github/workflows/ci.yml
 README.md
 docs/
@@ -116,32 +116,35 @@ Local embedding model: if you use a local embedding model, the API container mus
 
 ### Step 4 — Compose (final)
 
+Two supported demo modes; pick one as the default and document the other:
+
+- **Local TigerGraph in Compose** (self-contained; heavy on memory and slow on first start).
+- **Hosted TigerGraph (Savanna)**: Compose runs only `api` and `dashboard`, pointing at the hosted instance through `.env`. Lighter for judges, but needs credentials, so use a **read-only demo user/secret** dedicated to the demo, and never commit it (**Verify** the platform's terms for sharing credentials and any idle-shutdown behavior).
+
 ```yaml
 services:
-  neo4j:
-    image: neo4j:5-community            # Verify tag; pin a specific version for reproducibility
-    environment:
-      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:-demo-password}"
-      NEO4J_server_memory_heap_max__size: "1G"      # Verify env var naming
-      NEO4J_server_memory_pagecache_size: "1G"
-    ports: ["7474:7474", "7687:7687"]
-    volumes: ["neo4j_data:/data"]
+  tigergraph:
+    image: tigergraph/community:latest  # Verify image; pin a specific version for reproducibility
+    ports: ["14240:14240", "9000:9000"]
+    ulimits:
+      nofile: 1000000                   # Verify
+    volumes: ["tg_data:/home/tigergraph/tigergraph/data"]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
-      interval: 10s
-      retries: 20
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/echo || exit 1"]
+      interval: 15s
+      retries: 40
 
   api:
     build: .
     command: ["api"]
     env_file: [.env]
     environment:
-      NEO4J_URI: "bolt://neo4j:7687"
+      TG_HOST: "http://tigergraph"
       DEMO_MODE: "${DEMO_MODE:-true}"
     ports: ["127.0.0.1:8000:8000"]
     volumes: ["./db:/app/db"]
     depends_on:
-      neo4j: {condition: service_healthy}
+      tigergraph: {condition: service_healthy}
 
   dashboard:
     build: .
@@ -152,7 +155,7 @@ services:
     depends_on: [api]
 
 volumes:
-  neo4j_data:
+  tg_data:
 ```
 
 Make `.env` optional for the demo: provide defaults so `docker compose up` works with no `.env` in demo mode (and document how to add a key for live questions).
@@ -179,11 +182,11 @@ esac
 ```
 
 `scripts/seed_graph.py`:
-1. Wait for Neo4j (retry `RETURN 1` for up to ~60 s).
-2. If `MATCH (n) RETURN count(n)` > 0 → exit.
-3. Create constraints and indexes (Phase 3 schema).
-4. Import `nodes.jsonl` and `rels.jsonl` in batches (Phase 3 export format).
-5. Create the vector index and wait until it is online.
+1. Wait for TigerGraph (retry `conn.echo()` for up to several minutes; first start is slow).
+2. If the graph exists and its vertex count is > 0 → exit.
+3. Apply the GSQL schema and install the queries (Phase 3 schema; installing takes minutes, so do it once and cache with the `queries.lock` hash).
+4. Import `vertices.jsonl` and `edges.jsonl` in batches with `upsertVertices` / `upsertEdges` (Phase 3 export format).
+5. Add the vector attribute and load embeddings (or build the local fallback index), and wait until vector search returns results.
 
 `seed-runs`: import `data/samples/runs/*.jsonl` (the final test runs' results and scores) so the dashboard shows real numbers immediately. These are exports of your final runs — the same run IDs as in `docs/results.md`.
 
@@ -214,18 +217,11 @@ jobs:
   integration:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    services:
-      neo4j:
-        image: neo4j:5-community
-        env:
-          NEO4J_AUTH: neo4j/ci-password
-        ports: ["7687:7687"]
-        options: >-
-          --health-cmd "wget -qO- http://localhost:7474 || exit 1"
-          --health-interval 10s --health-retries 20
     env:
-      NEO4J_URI: bolt://localhost:7687
-      NEO4J_PASSWORD: ci-password
+      TG_HOST: ${{ secrets.TG_CI_HOST }}          # a dedicated TigerGraph instance used only by CI
+      TG_USERNAME: ${{ secrets.TG_CI_USERNAME }}
+      TG_PASSWORD: ${{ secrets.TG_CI_PASSWORD }}
+      TG_GRAPH: InterlockCI
       LLM_OFFLINE: "true"
     steps:
       - uses: actions/checkout@v4
@@ -236,7 +232,7 @@ jobs:
       - run: uv run pytest -m integration -q
 ```
 
-Note: the health command runs inside the service container; if `wget` is not available in the Neo4j image, use another check (**Verify**).
+Note: a TigerGraph Docker image is large and slow to start, so running it as a GitHub Actions service container may be impractical (**Verify**). Options: (a) a dedicated free-tier cloud instance used only by CI, with credentials in repository secrets (`TG_CI_*`) and a separate graph name so CI never touches the demo graph; (b) run integration tests locally/self-hosted before tagging and keep CI to unit tests plus a mocked-graph contract test. Whichever you choose, say so in the README.
 
 Add a CI badge to the README.
 
@@ -333,7 +329,7 @@ Record the result (machine, time to start, issues fixed) in `docs/test-plan.md`.
 ### Step 12 — Optional hosting
 
 Only if Q-05 requires it:
-1. Small VM with enough RAM for Neo4j + app (see TRD §9).
+1. Small VM with enough RAM for TigerGraph + app (see TRD §9).
 2. Install Docker; clone; `docker compose up -d`.
 3. Put a reverse proxy with HTTPS and basic auth in front of the dashboard; keep API internal.
 4. Keep `DEMO_MODE=true`, or set a low spend cap if live questions are allowed.
@@ -357,7 +353,7 @@ Only if Q-05 requires it:
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| API starts before Neo4j is ready | No health wait | `depends_on` with health condition + retry in seed script |
+| API starts before TigerGraph is ready | No health wait | `depends_on` with health condition + retry in seed script |
 | Dashboard empty on first start | Runs not seeded | `seed-runs` step |
 | Image huge | Raw data or model weights copied | `.dockerignore`; decide on model download strategy |
 | CI fails only in CI | Hidden dependency on local files or network | Offline mode; fixtures committed |

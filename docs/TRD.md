@@ -23,8 +23,10 @@
 | PDF text | PyMuPDF | Required | Fast, reliable page text |
 | PDF tables | pdfplumber | Required | Cell-level table control |
 | OCR | Tesseract (via pytesseract) | Optional | Only if scanned PDFs appear |
-| Graph DB + vectors | Neo4j 5.x Community | Required | Cypher paths, built-in vector + full-text indexes |
-| Graph driver | Official `neo4j` Python driver | Required | Supported, transactional |
+| Graph DB (+ vectors) | **TigerGraph** (Savanna cloud or Community/Developer edition in Docker; 4.2+ recommended for native vector attributes — **Verify**) | Required (hackathon organiser's platform) | Native parallel graph engine, GSQL multi-hop traversal and accumulators, installed queries |
+| Graph query language | GSQL (installed, parameterized queries kept as `.gsql` files) | Required | TigerGraph's query language; versioned in git |
+| Graph driver | `pyTigerGraph` (REST++ / GSQL server) | Required | Official Python client: schema, upserts, installed and interpreted queries |
+| Entity-name lookup | SQLite FTS5 over `entities` (name + aliases) | Required | TigerGraph has no built-in full-text index (**Verify**); the run store already holds every entity |
 | Run store | SQLite (stdlib `sqlite3`) | Required | Zero setup |
 | LLM access | Own gateway over one provider SDK | Required | Caching, cost, fairness, logging in one place |
 | Embeddings | Chosen by recall test (hosted API or sentence-transformers) | Required | Measured on own data |
@@ -45,13 +47,14 @@ Full reasoning, alternatives and trade-offs for every row are in section 1.2.
 | Decision | Alternatives considered | Why not selected | Learning value |
 | --- | --- | --- | --- |
 | **Python** | TypeScript, Go, Java | Weaker PDF/table and evaluation tooling; second language for the dashboard | Typed Python, packaging, async |
-| **Neo4j** | Memgraph; PostgreSQL + Apache AGE; ArangoDB; NetworkX | Smaller ecosystem; less mature graph tooling; own query language; no persistence/query language | Graph modeling, Cypher, indexes |
-| **Vectors inside Neo4j** | Qdrant, pgvector, Chroma, FAISS | Doubles storage; breaks direct chunk-to-entity links. Revisit only if vector search is too slow | Vector indexes, ANN search |
+| **TigerGraph** | Neo4j; Memgraph; PostgreSQL + Apache AGE; ArangoDB; NetworkX | **Not a free choice: the hackathon is organised by TigerGraph and requires it.** It also suits the project: deep multi-hop traversal with accumulators (e.g. summing pledged stake or transaction values along paths) runs inside the database | Graph modeling, GSQL, accumulators, installed queries |
+| **Vectors inside TigerGraph** | Qdrant, pgvector, Chroma, FAISS | Keeps chunk-to-entity links and vector search in one engine. Fallback if the deployed version lacks native vectors (Q-08): a local FAISS/NumPy index keyed by `chunk_id`, everything else stays in TigerGraph | Vector attributes, ANN search |
+| **SQLite FTS5 for entity names** | Lucene-style index in the graph DB, Elasticsearch | TigerGraph has no built-in full-text index; entities are few (thousands) so FTS5 plus RapidFuzz is enough | Full-text search basics |
 | **SQLite run store** | PostgreSQL, DuckDB | Postgres is overkill; DuckDB optional later for analytics | Relational schema design |
 | **PyMuPDF + pdfplumber** | Docling, Unstructured, Camelot, vision LLM | Heavier or narrower; decided by a bake-off in Phase 0 | Document AI realities |
 | **Own LLM gateway** | LiteLLM, LangChain model wrappers | Extra dependency; less control over caching and cost. LiteLLM can sit inside the gateway if you switch providers often | Caching, retries, cost control |
 | **Hand-written agent** | LangGraph, LlamaIndex agents, CrewAI | Framework prompts and abstractions hide behavior; for a comparison project transparency matters. Move to LangGraph if you need pause/resume or many branches | How agents actually work |
-| **Custom GraphRAG** | Microsoft GraphRAG package; `neo4j-graphrag` package | They build or assume their own graph structures; ours is typed with provenance. Read them for ideas (**Verify** APIs) | Graph retrieval design |
+| **Custom GraphRAG** | Microsoft GraphRAG package; TigerGraph's own GraphRAG project (`tigergraph/graphrag`) | They build or assume their own graph structures; ours is typed with provenance. Read TigerGraph's GraphRAG repo for ideas and for the hackathon's expectations (**Verify** APIs), and cite it as related work | Graph retrieval design |
 | **FastAPI** | Flask; no API | Flask lacks built-in typing; no-API is acceptable fallback | API design |
 | **Streamlit** | React/Next.js, Gradio, Grafana | Much more work; weaker dashboards; ops-focused | Data visualization |
 | **No queue/cache service/K8s** | Redis, Celery, Kubernetes | No need at single-machine scale | Knowing when *not* to add infrastructure |
@@ -105,7 +108,7 @@ interlock/
 │   ├── parse/               # pdf text, tables, cleaning, sections, chunking
 │   ├── extract/             # schemas, prompts, runner, grounding, validation
 │   ├── resolve/             # normalization, matching, merge log
-│   ├── graph/               # client, schema, loader, queries
+│   ├── graph/               # client, schema (gsql/), loader, queries
 │   ├── embed/               # embedding provider + indexing
 │   ├── llm/                 # gateway, providers, cache, pricing
 │   ├── pipelines/
@@ -159,9 +162,13 @@ LLM_PROVIDER=anthropic            # or openai, google, local
 LLM_API_KEY=
 JUDGE_API_KEY=                    # if judge uses a different provider
 EMBEDDING_API_KEY=                # if using a hosted embedding API
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=change-me
+TG_HOST=http://localhost           # or your TigerGraph Savanna URL
+TG_GRAPH=Interlock
+TG_USERNAME=tigergraph
+TG_PASSWORD=change-me
+TG_SECRET=                        # optional: for token auth on Savanna (Verify)
+TG_RESTPP_PORT=9000               # cloud deployments may use 443 (Verify)
+TG_GS_PORT=14240
 SQLITE_PATH=db/interlock.sqlite
 LLM_SPEND_CAP_USD=25
 LOG_LEVEL=INFO
@@ -229,8 +236,8 @@ agent:
   max_steps: 8
   max_tokens: 40000
   timeout_seconds: 120
-  cypher_timeout_seconds: 10
-  cypher_max_rows: 200
+  gsql_timeout_seconds: 10
+  gsql_max_rows: 200
 eval:
   bootstrap_samples: 2000
   numeric_rel_tolerance: 0.01
@@ -471,6 +478,11 @@ CREATE TABLE IF NOT EXISTS entities (
   aliases_json TEXT NOT NULL DEFAULT '[]'
 );
 
+-- Entity-name search (TigerGraph has no built-in full-text index); rebuilt from `entities` by the build
+CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5(
+  entity_id UNINDEXED, kind UNINDEXED, name, aliases
+);
+
 CREATE TABLE IF NOT EXISTS merge_log (
   mention_id TEXT PRIMARY KEY,
   entity_id TEXT NOT NULL,
@@ -542,58 +554,89 @@ Migrations: a `store/migrations/` folder with numbered `.sql` files and a `schem
 
 ---
 
-## 6. Graph schema (Neo4j)
+## 6. Graph schema (TigerGraph)
 
-### 6.1 Nodes and keys
+One graph named `Interlock` (name from `TG_GRAPH`). The schema is defined in GSQL and kept in `src/interlock/graph/gsql/schema.gsql`. Vertex types correspond to the former "labels"; every vertex has a `PRIMARY_ID` (the key below).
 
-| Label | Key property | Other properties |
+### 6.1 Vertex types and keys
+
+| Vertex type | `PRIMARY_ID` | Other attributes |
 | --- | --- | --- |
-| `Company` | `entity_id` | `name`, `cin`, `aliases`, `exchange_code`, `sector` |
-| `Person` | `entity_id` | `name`, `din`, `aliases` |
-| `AuditFirm` | `entity_id` | `name`, `frn`, `aliases` |
+| `Company` | `entity_id` | `name`, `cin`, `aliases_text`, `exchange_code`, `sector`, `in_dataset` (BOOL) |
+| `Person` | `entity_id` | `name`, `din`, `aliases_text` |
+| `AuditFirm` | `entity_id` | `name`, `frn`, `aliases_text` |
 | `RegulatoryAction` | `order_id` | `regulator`, `order_date`, `action_type`, `summary` |
-| `RelatedPartyTxn` | `txn_id` | `fiscal_year`, `nature`, `relationship`, `amount_inr`, `amount_raw` |
+| `RelatedPartyTxn` | `txn_id` | `fiscal_year`, `nature`, `relationship`, `amount_inr` (DOUBLE), `amount_raw` |
 | `Sector` | `name` | — |
 | `Document` | `doc_id` | `doc_type`, `fiscal_year`, `source_url` |
-| `Chunk` | `chunk_id` | `text`, `section`, `page_start`, `page_end`, `fiscal_year`, `company_id`, `embedding` |
+| `Chunk` | `chunk_id` | `text`, `section`, `page_start`, `page_end`, `fiscal_year`, `company_id`, `embedding` (vector attribute, see 6.3) |
 
-### 6.2 Relationships
+### 6.2 Edge types
 
-| Type | Pattern | Properties |
+Edges are directed. Every edge that traversals need to walk backwards declares a reverse edge (`WITH REVERSE_EDGE`). Each fact edge uses a `DISCRIMINATOR(edge_id STRING)` so that several edges of the same type between the same two vertices (for example a director serving in several years) stay distinct and re-loading the same `edge_id` overwrites instead of duplicating. **Verify** discriminator and multi-endpoint edge syntax on your version.
+
+| Edge type (reverse) | Pattern | Attributes |
 | --- | --- | --- |
-| `DIRECTOR_OF` | `(Person)-[:DIRECTOR_OF]->(Company)` | `role`, `independent`, `from`, `to`, `fiscal_year` |
-| `HOLDS_STAKE` | `(Person|Company)-[:HOLDS_STAKE]->(Company)` | `pct`, `pledged_pct`, `promoter_group`, `as_of` |
-| `SUBSIDIARY_OF` | `(Company)-[:SUBSIDIARY_OF]->(Company)` | `pct`, `as_of` |
-| `AUDITED_BY` | `(Company)-[:AUDITED_BY]->(AuditFirm)` | `fiscal_year` |
-| `PARTY_TO` | `(Company|Person)-[:PARTY_TO]->(RelatedPartyTxn)` | `side` = `reporting`/`counterparty` |
-| `NAMED_IN` | `(Company|Person)-[:NAMED_IN]->(RegulatoryAction)` | — |
-| `IN_SECTOR` | `(Company)-[:IN_SECTOR]->(Sector)` | — |
-| `HAS_CHUNK` | `(Document)-[:HAS_CHUNK]->(Chunk)` | — |
-| `MENTIONS` | `(Chunk)-[:MENTIONS]->(Company|Person|AuditFirm)` | — |
+| `DIRECTOR_OF` (`HAS_DIRECTOR`) | `Person -> Company` | `role`, `independent`, `start_date`, `end_date`, `fiscal_year` |
+| `HOLDS_STAKE` (`HELD_BY`) | `Person -> Company` and `Company -> Company` | `pct`, `pledged_pct`, `promoter_group`, `as_of` |
+| `SUBSIDIARY_OF` (`HAS_SUBSIDIARY`) | `Company -> Company` | `pct`, `as_of` |
+| `AUDITED_BY` (`AUDITS`) | `Company -> AuditFirm` | `fiscal_year` |
+| `PARTY_TO` (`HAS_PARTY`) | `Company -> RelatedPartyTxn` and `Person -> RelatedPartyTxn` | `side` = `reporting`/`counterparty` |
+| `NAMED_IN` (`NAMES`) | `Company -> RegulatoryAction` and `Person -> RegulatoryAction` | — |
+| `IN_SECTOR` (`SECTOR_OF`) | `Company -> Sector` | — |
+| `HAS_CHUNK` (`CHUNK_OF`) | `Document -> Chunk` | — |
+| `MENTIONS` (`MENTIONED_IN`) | `Chunk -> Company`, `Chunk -> Person`, `Chunk -> AuditFirm` | — |
 
-Every fact relationship (the first six: all except `IN_SECTOR`, `HAS_CHUNK`, `MENTIONS`) also has: `doc_id`, `page`, `quote`, `run_id`, `edge_id`.
+Every fact edge (the first six: all except `IN_SECTOR`, `HAS_CHUNK`, `MENTIONS`) also has: `doc_id`, `page`, `quote`, `run_id`. Its `edge_id` is the discriminator. `from` and `to` are reserved words, so date attributes are `start_date` / `end_date`.
 
-### 6.3 Constraints and indexes (Cypher, Neo4j 5 syntax — **Verify** for your version)
+### 6.3 Schema, vector attribute and queries (GSQL — **Verify** syntax for your TigerGraph version)
 
-```cypher
-CREATE CONSTRAINT company_id IF NOT EXISTS FOR (n:Company) REQUIRE n.entity_id IS UNIQUE;
-CREATE CONSTRAINT person_id IF NOT EXISTS FOR (n:Person) REQUIRE n.entity_id IS UNIQUE;
-CREATE CONSTRAINT auditfirm_id IF NOT EXISTS FOR (n:AuditFirm) REQUIRE n.entity_id IS UNIQUE;
-CREATE CONSTRAINT action_id IF NOT EXISTS FOR (n:RegulatoryAction) REQUIRE n.order_id IS UNIQUE;
-CREATE CONSTRAINT rpt_id IF NOT EXISTS FOR (n:RelatedPartyTxn) REQUIRE n.txn_id IS UNIQUE;
-CREATE CONSTRAINT sector_name IF NOT EXISTS FOR (n:Sector) REQUIRE n.name IS UNIQUE;
-CREATE CONSTRAINT doc_id IF NOT EXISTS FOR (n:Document) REQUIRE n.doc_id IS UNIQUE;
-CREATE CONSTRAINT chunk_id IF NOT EXISTS FOR (n:Chunk) REQUIRE n.chunk_id IS UNIQUE;
+```gsql
+CREATE VERTEX Company (PRIMARY_ID entity_id STRING, name STRING, cin STRING,
+    aliases_text STRING, exchange_code STRING, sector STRING, in_dataset BOOL) WITH primary_id_as_attribute="true"
+CREATE VERTEX Person (PRIMARY_ID entity_id STRING, name STRING, din STRING, aliases_text STRING)
+CREATE VERTEX AuditFirm (PRIMARY_ID entity_id STRING, name STRING, frn STRING, aliases_text STRING)
+CREATE VERTEX RegulatoryAction (PRIMARY_ID order_id STRING, regulator STRING, order_date STRING,
+    action_type STRING, summary STRING)
+CREATE VERTEX RelatedPartyTxn (PRIMARY_ID txn_id STRING, fiscal_year STRING, nature STRING,
+    relationship STRING, amount_inr DOUBLE, amount_raw STRING)
+CREATE VERTEX Sector (PRIMARY_ID name STRING)
+CREATE VERTEX Document (PRIMARY_ID doc_id STRING, doc_type STRING, fiscal_year STRING, source_url STRING)
+CREATE VERTEX Chunk (PRIMARY_ID chunk_id STRING, text STRING, section STRING, page_start INT,
+    page_end INT, fiscal_year STRING, company_id STRING)
 
-CREATE FULLTEXT INDEX entity_names IF NOT EXISTS
-FOR (n:Company|Person|AuditFirm) ON EACH [n.name, n.aliases_text];
+CREATE DIRECTED EDGE DIRECTOR_OF (FROM Person, TO Company, DISCRIMINATOR(edge_id STRING),
+    role STRING, independent BOOL, start_date STRING, end_date STRING, fiscal_year STRING,
+    doc_id STRING, page INT, quote STRING, run_id STRING) WITH REVERSE_EDGE="HAS_DIRECTOR"
+-- ...one statement per edge type in 6.2; multi-endpoint edges use
+-- (FROM Person, TO Company | FROM Company, TO Company, ...)
 
-CREATE VECTOR INDEX chunk_embedding IF NOT EXISTS
-FOR (c:Chunk) ON (c.embedding)
-OPTIONS { indexConfig: { `vector.dimensions`: 768, `vector.similarity_function`: 'cosine' } };
+CREATE GRAPH Interlock (*)
 ```
 
-`aliases_text` is a single string of aliases joined by `" | "`, because full-text indexes index string properties.
+Vector attribute (needs a TigerGraph version with vector support; set the dimension after the embedding model is chosen in Phase 3 — **Verify** syntax):
+
+```gsql
+CREATE SCHEMA_CHANGE JOB add_chunk_vector FOR GRAPH Interlock {
+  ALTER VERTEX Chunk ADD VECTOR ATTRIBUTE embedding(DIMENSION=768, METRIC="COSINE");
+}
+RUN SCHEMA_CHANGE JOB add_chunk_vector
+```
+
+Installed queries (files under `src/interlock/graph/gsql/queries/`, each installed with `INSTALL QUERY`; parameters are typed, so no string-built queries):
+
+| Query | Purpose |
+| --- | --- |
+| `entity_neighbors` | k-hop (1–2) expansion from seed vertices, filtered by edge types and fiscal year, capped by `max_triples`; returns triples with `edge_id` and provenance |
+| `shared_directors` | Companies (or people) connected through common directors, optionally restricted to a fiscal year |
+| `path_between` | Bounded shortest paths between two entities |
+| `stake_aggregate` | Accumulator-based totals (e.g. pledged stake or transaction amounts over a subgraph) |
+| `chunks_for_entities` | Chunks that `MENTIONS` a set of entities, with page and section |
+| `vector_chunks` | Top-k chunks by vector similarity (native vector search if available) |
+
+GSQL accumulators (`SumAccum`, `SetAccum`, ...) do the joins and totals in the database; the numerical and multi-hop question categories rely on them.
+
+**No full-text index in the graph.** Entity-name lookup uses SQLite FTS5 over the `entities` table (`name`, `aliases`), followed by RapidFuzz re-ranking. `aliases_text` is still stored on vertices (aliases joined by `" | "`) for display and debugging.
 
 ---
 
@@ -654,7 +697,7 @@ class Pipeline(Protocol):
 | --- | --- | --- |
 | `find_entity` | `name: str`, `kind: "company"|"person"|"audit_firm"|null` | up to 5 `{entity_id, name, kind, score}` |
 | `neighbors` | `entity_id: str`, `rel_types: list[str]`, `hops: 1|2`, `fiscal_year: str|null` | list of triples with edge_id and provenance |
-| `graph_query` | `cypher: str` | rows (max 200) or error text |
+| `graph_query` | `query_name: str` (from an allow-list of installed GSQL queries), `params: dict` | rows (max 200) or error text |
 | `search_text` | `query: str`, `company_id: str|null`, `fiscal_year: str|null`, `section: str|null`, `k: int≤10` | chunks with ids and pages |
 | `calculate` | `expression: str` | number or error |
 | `get_evidence` | `ref_id: str` | `{doc_id, page, quote}` |
@@ -665,7 +708,7 @@ class Pipeline(Protocol):
 
 | Method | Path | Request | Response |
 | --- | --- | --- | --- |
-| GET | `/health` | — | `{neo4j: bool, sqlite: bool, llm_key: bool}` |
+| GET | `/health` | — | `{tigergraph: bool, sqlite: bool, llm_key: bool}` |
 | POST | `/ask` | `{question, pipeline}` | `AnswerResult` |
 | POST | `/compare` | `{question}` | `{request_id, results: {rag, graphrag, agent}}` (each `AnswerResult` or `{status:"error", error}`) |
 | GET | `/runs` | — | list of runs |
@@ -682,11 +725,11 @@ Errors: JSON `{error_code, message}` with HTTP 400 (bad input), 404, 503 (depend
 
 | Item | Requirement |
 | --- | --- |
-| Machine | 16 GB RAM recommended (Neo4j + embeddings + app). 8 GB workable with a small local embedding model or hosted embeddings |
-| Neo4j memory | Set heap and page cache explicitly in Compose; start around 1–2 GB each and adjust |
+| Machine | 16 GB RAM recommended (TigerGraph + embeddings + app; the TigerGraph Docker image is memory-hungry — **Verify** its minimum). Or use TigerGraph Savanna and keep the laptop light. 8 GB workable with a small local embedding model or hosted embeddings |
+| TigerGraph resources | Give the container enough memory (start ≥ 8 GB for Docker Desktop — **Verify** current guidance); cloud free tiers have size limits, so check them in Phase 0 |
 | Evidence budget | Same token budget for final answer prompts across pipelines (`retrieval.evidence_token_budget`) |
 | Agent budget | ≤ 8 tool steps, ≤ 40k tokens, ≤ 120 s per question (tune in Phase 7) |
-| Cypher | ≤ 10 s per query, ≤ 200 rows |
+| GSQL queries | ≤ 10 s per query (request timeout header — **Verify**), ≤ 200 rows returned to the LLM |
 | Spend cap | Hard stop in gateway at `LLM_SPEND_CAP_USD` |
 | Caching | Every LLM call cached by content hash; eval reruns cost zero if nothing changed |
 
@@ -695,7 +738,7 @@ Errors: JSON `{error_code, message}` with HTTP 400 (bad input), 404, 503 (depend
 | ID | Requirement |
 | --- | --- |
 | SEC-01 | Secrets only in `.env`; `.env` in `.gitignore`; CI uses repository secrets |
-| SEC-02 | Agent Cypher: reject write/admin clauses; enforce LIMIT; read transactions; timeout |
+| SEC-02 | Agent graph access: only allow-listed installed read-only GSQL queries with typed parameters; no ad-hoc GSQL from the model; use a read-only TigerGraph role/token for the online layer; enforce row cap and timeout |
 | SEC-03 | Calculator: AST whitelist; no `eval`/`exec` |
 | SEC-04 | Retrieved document text is wrapped and labeled as untrusted data in all prompts |
 | SEC-05 | API binds to localhost by default; basic auth if hosted publicly |
@@ -713,11 +756,11 @@ Errors: JSON `{error_code, message}` with HTTP 400 (bad input), 404, 503 (depend
 
 | Level | Minimum coverage |
 | --- | --- |
-| Unit | All normalization, validation, grounding, scoring, calculator, Cypher-guard functions |
+| Unit | All normalization, validation, grounding, scoring, calculator, GSQL query allow-list and parameter validation |
 | Contract | All Pydantic models round-trip; every pipeline returns a valid `AnswerResult` |
 | Integration | Parse→extract→load on 2 fixture PDFs; queries on a fixture graph |
 | Regression | Extraction precision on labeled pages; 10-question smoke eval with cached LLM |
-| Security | Cypher injection and prompt-injection fixtures |
+| Security | Query-name/parameter injection and prompt-injection fixtures |
 | End-to-end | Fresh clone → `docker compose up` → dashboard loads |
 
 CI must run without network LLM access (cache only).

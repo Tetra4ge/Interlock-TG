@@ -14,10 +14,10 @@ Detailed build documentation for Interlock: an Agentic GraphRAG system over Indi
 
 | Phase | File | Outcome |
 | --- | --- | --- |
-| 0 | [phase-00-setup-and-spikes.md](phases/phase-00-setup-and-spikes.md) | Environment, Neo4j, run store, LLM gateway with cache/cost, parser chosen |
+| 0 | [phase-00-setup-and-spikes.md](phases/phase-00-setup-and-spikes.md) | Environment, TigerGraph (schema spike), run store, LLM gateway with cache/cost, parser chosen |
 | 1 | [phase-01-data-acquisition.md](phases/phase-01-data-acquisition.md) | All target filings obtained and registered with provenance |
 | 2 | [phase-02-extraction-pilot.md](phases/phase-02-extraction-pilot.md) | Parsing, sections, chunks, grounded extraction, validation; quality and cost measured on 5 companies |
-| 3 | [phase-03-entity-resolution-and-graph.md](phases/phase-03-entity-resolution-and-graph.md) | Full extraction, entity resolution, graph + vector index, one-command rebuild |
+| 3 | [phase-03-entity-resolution-and-graph.md](phases/phase-03-entity-resolution-and-graph.md) | Full extraction, entity resolution, GSQL schema + loading into TigerGraph, vectors, installed queries, one-command rebuild |
 | 4 | [phase-04-rag-baseline.md](phases/phase-04-rag-baseline.md) | Shared answer contract, tracer, RAG pipeline |
 | 5 | [phase-05-evaluation-set-and-runner.md](phases/phase-05-evaluation-set-and-runner.md) | Verified question set, scorers, calibrated judge, runner, statistics |
 | 6 | [phase-06-graphrag.md](phases/phase-06-graphrag.md) | GraphRAG pipeline, tuned on dev, evaluated on test |
@@ -28,8 +28,8 @@ Detailed build documentation for Interlock: an Agentic GraphRAG system over Indi
 
 ## Every phase file contains
 
-Overview (goal, why, prerequisites, outputs, requirement links) · concepts to learn · files created · numbered implementation steps with code/Cypher/SQL sketches · tests · error handling · exit criteria with how to check · pitfalls and debugging · hand-off to the next phase.
+Overview (goal, why, prerequisites, outputs, requirement links) · concepts to learn · files created · numbered implementation steps with code/GSQL/SQL sketches · tests · error handling · exit criteria with how to check · pitfalls and debugging · hand-off to the next phase.
 
 ## Accuracy note
 
-Code, Cypher and configuration are **sketches** that show structure. Library APIs, database syntax, filing formats, regulations and prices change. Anything marked **Verify** must be checked against current official documentation before use. Numbers such as thresholds and budgets are starting values to tune, not facts.
+Code, GSQL and configuration are **sketches** that show structure. Library APIs, database syntax, filing formats, regulations and prices change. Anything marked **Verify** must be checked against current official documentation before use. Numbers such as thresholds and budgets are starting values to tune, not facts.

@@ -1,4 +1,4 @@
-# Phase 0 — Environment Setup, LLM Gateway, and Parser Spike
+# Phase 0 — Environment Setup, TigerGraph, LLM Gateway, and Spikes
 
 > **Accuracy note.** Code blocks are sketches showing structure and intent. Check every library call against current official docs before using it. Items marked **Verify** are ones I am not fully certain about.
 
@@ -8,10 +8,10 @@
 
 | Item | Detail |
 | --- | --- |
-| Goal | A working development environment, a running Neo4j, a settings system, a run store, an LLM gateway that caches/logs/costs every call, and an evidence-based PDF parser choice |
-| Why | Every later phase depends on these. The gateway makes all LLM work cheap to repeat and fair to compare. The parser spike prevents discovering in Phase 2 that your parser breaks the tables you need |
+| Goal | A working development environment, a running TigerGraph (Docker or Savanna) with a proven GSQL schema/upsert/query/vector spike, a settings system, a run store, an LLM gateway that caches/logs/costs every call, and an evidence-based PDF parser choice |
+| Why | TigerGraph is mandatory for the hackathon and GSQL is new to most people, so the riskiest graph assumptions (schema syntax, multi-endpoint edges, discriminators, vector support, free-tier limits) are tested on day one. Every later phase depends on these. The gateway makes all LLM work cheap to repeat and fair to compare. The parser spike prevents discovering in Phase 2 that your parser breaks the tables you need |
 | Prerequisites | A laptop with Git, Docker Desktop (or Docker Engine + Compose), Python 3.11+, an LLM API key |
-| Produces | Repo skeleton, `Settings`, SQLite migrations, `LLMGateway`, Neo4j connectivity, ADR-0001 (parser), answers to open questions Q-01–Q-04 |
+| Produces | Repo skeleton, `Settings`, SQLite migrations, `LLMGateway`, TigerGraph connectivity and spike results (ADR-0011), ADR-0001 (parser), answers to open questions Q-01–Q-04 |
 | PRD links | NFR-02, NFR-05, NFR-06, NFR-07 |
 | TRD links | §1, §2, §3, §5, §7.1, §11 |
 
@@ -97,7 +97,7 @@ interlock/
 │   │   ├── test_gateway.py
 │   │   └── test_settings.py
 │   └── integration/
-│       └── test_neo4j_connect.py
+│       └── test_tigergraph_connect.py
 └── docs/
     └── decisions/0001-pdf-parser.md
 ```
@@ -144,7 +144,7 @@ __pycache__/
    - `uv init --package` (or the current equivalent; **Verify**).
    - Set `requires-python = ">=3.11"` in `pyproject.toml`.
 3. Add runtime dependencies (names are real packages; **Verify** versions at install time):
-   - `pydantic`, `pydantic-settings`, `pyyaml`, `httpx`, `neo4j`, `pymupdf`, `pdfplumber`, `rapidfuzz`, and your LLM provider's SDK.
+   - `pydantic`, `pydantic-settings`, `pyyaml`, `httpx`, `pyTigerGraph`, `pymupdf`, `pdfplumber`, `rapidfuzz`, and your LLM provider's SDK.
 4. Add dev dependencies: `pytest`, `ruff`, `mypy`.
 5. Configure Ruff and mypy in `pyproject.toml`:
 
@@ -164,7 +164,7 @@ disallow_untyped_defs = true
 packages = ["interlock"]
 ```
 
-**Verify it worked:** `uv run python -c "import pydantic, neo4j, fitz, pdfplumber"` exits without error. (PyMuPDF's import name has historically been `fitz`, and newer versions also offer `pymupdf`; **Verify**.)
+**Verify it worked:** `uv run python -c "import pydantic, pyTigerGraph, fitz, pdfplumber"` exits without error. (PyMuPDF's import name has historically been `fitz`, and newer versions also offer `pymupdf`; **Verify**.)
 
 ### Step 3 — Makefile
 
@@ -185,7 +185,7 @@ test:
 	uv run pytest -q
 
 up:
-	docker compose up -d neo4j
+	docker compose up -d tigergraph
 
 down:
 	docker compose down
@@ -193,37 +193,51 @@ down:
 
 On Windows without `make`, use the same commands directly or install make via your package manager.
 
-### Step 4 — Neo4j in Docker Compose
+### Step 4 — TigerGraph (Docker Compose or Savanna) and a GSQL spike
+
+Choose one deployment (PRD Q-08/Q-09) and write the choice in ADR-0011:
+
+- **Option A — TigerGraph Savanna (cloud):** create a free instance, note the host, credentials/secret and ports, put them in `.env`. No local memory cost. **Verify** free-tier limits (storage, vector support, idle shutdown).
+- **Option B — Docker (Community/Developer edition):**
 
 ```yaml
 services:
-  neo4j:
-    image: neo4j:5-community        # Verify current tag
+  tigergraph:
+    image: tigergraph/community:latest   # Verify the current image name and tag
     ports:
-      - "7474:7474"                 # browser UI
-      - "7687:7687"                 # bolt protocol
-    environment:
-      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD}"
-      # Memory settings: env var names follow Neo4j's convention of
-      # replacing dots with underscores and doubling existing underscores. Verify.
-      NEO4J_server_memory_heap_initial__size: "1G"
-      NEO4J_server_memory_heap_max__size: "1G"
-      NEO4J_server_memory_pagecache_size: "1G"
+      - "14240:14240"                   # GraphStudio / admin UI
+      - "9000:9000"                     # REST++ API
+      - "14022:22"                      # SSH (optional)
+    ulimits:
+      nofile: 1000000                   # commonly required by TigerGraph images; Verify
     volumes:
-      - neo4j_data:/data
+      - tg_data:/home/tigergraph/tigergraph/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
-      interval: 10s
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/echo || exit 1"]
+      interval: 15s
       timeout: 5s
-      retries: 10
+      retries: 20
 volumes:
-  neo4j_data:
+  tg_data:
 ```
 
-1. `cp .env.example .env`, set `NEO4J_PASSWORD`.
-2. `make up`.
-3. Open `http://localhost:7474`, log in, run `RETURN 1`.
-4. Check the version: run `CALL dbms.components()` in the browser. Confirm it is a 5.x version that supports vector indexes. **Verify** the minimum version in Neo4j's vector index docs.
+TigerGraph images are large and slow to start the first time; give Docker Desktop enough memory (**Verify** the current minimum, commonly several GB). The image may need its services started explicitly (`gadmin start all`) — **Verify** in the image's README.
+
+Steps:
+
+1. `cp .env.example .env`, set `TG_HOST`, `TG_PASSWORD` (and `TG_SECRET` if using token auth).
+2. `make up` (Docker) or confirm your Savanna instance is running.
+3. Open GraphStudio (`http://localhost:14240`) and log in.
+4. Check the version (`gadmin version` in the container, or the admin UI). Record it. **Verify** whether this version supports native vector attributes; note yes/no in ADR-0011.
+5. **GSQL spike (throwaway graph `SpikeGraph`):**
+   - Create two vertex types and one directed edge with a `DISCRIMINATOR` and a `REVERSE_EDGE`; create the graph.
+   - Upsert 3 vertices and 3 edges with `pyTigerGraph` (`upsertVertices`, `upsertEdges`); re-run the same upsert and confirm counts do not grow.
+   - Insert two edges of the same type between the same vertices with different discriminators; confirm both exist.
+   - Write and `INSTALL QUERY` a 2-hop traversal with a `SumAccum`; call it with `runInstalledQuery`.
+   - Test a multi-endpoint edge (`FROM Person, TO Company | FROM Company, TO Company`).
+   - If vectors are supported: add a vector attribute, upsert 3 vectors, run a top-k vector search.
+   - Drop the spike graph.
+6. Record what worked, what syntax had to change, and timings in `docs/decisions/0011-tigergraph-setup.md`. Update TRD §6.3 if your version's GSQL differs.
 
 ### Step 5 — Settings
 
@@ -243,9 +257,13 @@ class Secrets(BaseSettings):
     llm_api_key: str = ""
     judge_api_key: str = ""
     embedding_api_key: str = ""
-    neo4j_uri: str = "bolt://localhost:7687"
-    neo4j_user: str = "neo4j"
-    neo4j_password: str = ""
+    tg_host: str = "http://localhost"
+    tg_graph: str = "Interlock"
+    tg_username: str = "tigergraph"
+    tg_password: str = ""
+    tg_secret: str = ""
+    tg_restpp_port: int = 9000
+    tg_gs_port: int = 14240
     sqlite_path: str = "db/interlock.sqlite"
     llm_spend_cap_usd: float = 25.0
     log_level: str = "INFO"
@@ -381,36 +399,34 @@ Why migrations: when you add a column in Phase 5, you add `0002_*.sql` instead o
 
 **Verify it worked:** `uv run python -c "from interlock.store.db import connect, migrate; c=connect('db/interlock.sqlite'); migrate(c)"` then open the file with any SQLite viewer and see the tables.
 
-### Step 8 — Neo4j client
+### Step 8 — TigerGraph client
 
 `graph/client.py`:
 
 ```python
-from neo4j import GraphDatabase, Driver
+from pyTigerGraph import TigerGraphConnection
 
-_driver: Driver | None = None
+_conn: TigerGraphConnection | None = None
 
-def get_driver(uri: str, user: str, password: str) -> Driver:
-    global _driver
-    if _driver is None:
-        _driver = GraphDatabase.driver(uri, auth=(user, password))
-        _driver.verify_connectivity()      # Verify method name in current driver docs
-    return _driver
+def get_conn(cfg) -> TigerGraphConnection:
+    global _conn
+    if _conn is None:
+        c = TigerGraphConnection(
+            host=cfg.tg_host, graphname=cfg.tg_graph,
+            username=cfg.tg_username, password=cfg.tg_password,
+            restppPort=cfg.tg_restpp_port, gsPort=cfg.tg_gs_port,
+        )                                  # Verify constructor args for your pyTigerGraph version
+        if cfg.tg_secret:
+            c.getToken(cfg.tg_secret)      # token auth on Savanna; Verify
+        c.echo()                           # raises if REST++ is unreachable; Verify
+        _conn = c
+    return _conn
 
-def run_read(driver: Driver, cypher: str, **params) -> list[dict]:
-    def _tx(tx):
-        return [r.data() for r in tx.run(cypher, **params)]
-    with driver.session() as s:
-        return s.execute_read(_tx)         # Verify
-
-def run_write(driver: Driver, cypher: str, **params) -> None:
-    def _tx(tx):
-        tx.run(cypher, **params).consume()
-    with driver.session() as s:
-        s.execute_write(_tx)               # Verify
+def run_installed(conn, name: str, params: dict | None = None, timeout_ms: int = 10_000):
+    return conn.runInstalledQuery(name, params or {}, timeout=timeout_ms)   # Verify signature
 ```
 
-**Verify it worked:** `run_read(driver, "RETURN 1 AS x") == [{"x": 1}]`.
+**Verify it worked:** `get_conn(cfg).echo()` succeeds and `conn.getVertexTypes()` (after the schema exists) returns the expected list. Full-text-style lookups are not done here; see Phase 3 (SQLite FTS5).
 
 ### Step 9 — LLM gateway
 
@@ -644,7 +660,7 @@ Optionally add one layout-aware parser (e.g. Docling). **Verify** its current AP
 | Spend cap raises | `test_gateway.py` | Set cap 0.0; first uncached call raises |
 | Offline mode raises on miss | `test_gateway.py` | CI safety |
 | Settings load fails on bad YAML | `test_settings.py` | Fail fast |
-| Neo4j connectivity | `test_neo4j_connect.py` | Marked integration; skipped if Neo4j not up |
+| TigerGraph connectivity | `test_tigergraph_connect.py` | Marked integration; skipped if TigerGraph not up |
 
 Fake provider example:
 
@@ -667,7 +683,7 @@ class FakeProvider:
 | Situation | Behavior |
 | --- | --- |
 | Missing `.env` value | `Settings` fails at startup with the variable name |
-| Neo4j down | `get_driver` raises with URI in the message; CLI prints "run `make up`" |
+| TigerGraph down | `get_conn` raises with host/port in the message; CLI prints "run `make up`" (or check your Savanna instance) |
 | Provider rate limit | Retries with backoff |
 | Invalid API key | `FatalError`, no retry, clear message |
 | Spend cap reached | `SpendCapExceeded`; batch commands stop cleanly |
@@ -679,11 +695,11 @@ class FakeProvider:
 | # | Criterion | How to check |
 | --- | --- | --- |
 | 1 | `make setup lint type test` passes | Run it |
-| 2 | Neo4j reachable from Python | `run_read(..., "RETURN 1")` |
+| 2 | TigerGraph reachable from Python and the GSQL spike passed (upsert idempotent, discriminator, installed query, vector yes/no) | `get_conn(cfg).echo()`; ADR-0011 |
 | 3 | One real LLM call logged with tokens and cost | `llm_calls` row |
 | 4 | Second identical call is a cache hit with zero cost | `cache_hit=1` |
 | 5 | Parser chosen with a written ADR | `docs/decisions/0001-pdf-parser.md` |
-| 6 | Q-01 to Q-04 answered or explicitly assumed | `docs/decisions/0000-scope.md` |
+| 6 | Q-01 to Q-04 and Q-08/Q-09 answered or explicitly assumed | `docs/decisions/0000-scope.md` |
 | 7 | No secrets in git history | `git log -p | grep -i key` shows nothing sensitive |
 
 ---
@@ -694,7 +710,8 @@ class FakeProvider:
 | --- | --- | --- |
 | Cache never hits | Request ID or timestamp included in the hashed payload | Hash only model + content + params |
 | Cached answer returned after changing model | Model name missing from key | Include model in key |
-| Neo4j container restarts repeatedly | Too much memory configured | Lower heap/page cache |
+| TigerGraph container slow, restarts or services not running | Too little Docker memory; services not started | Raise Docker memory; `gadmin status` / `gadmin start all` (**Verify**) |
+| `pyTigerGraph` auth or 401/403 errors on Savanna | Password vs. secret/token mismatch | Use the token flow for your deployment (**Verify** in pyTigerGraph docs) |
 | `ImportError: fitz` | Different PyMuPDF import name or a conflicting package named `fitz` | Check PyMuPDF docs; uninstall the unrelated `fitz` package if present |
 | Cost always 0 | Model name in `pricing` doesn't exactly match the model string | Copy the exact string |
 | Committed `.env` by mistake | `.gitignore` added too late | Rotate the key immediately; remove from history |

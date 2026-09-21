@@ -38,6 +38,7 @@ Record in `docs/submission.md`:
 - Required diagram format.
 - Deadline with time zone.
 - Anything about using pre-existing code or data (confirm your project complies).
+- TigerGraph requirements: which products/features must be used (GSQL, `pyTigerGraph`, Savanna, TigerGraph's GraphRAG project, vector search), any required tags or write-up sections about the TigerGraph usage, and whether the judges expect a TigerGraph-hosted demo. Q-09 in the PRD tracks this.
 
 ### Step 2 — Choose the hero questions (from the test set)
 
@@ -52,7 +53,7 @@ Selection criteria for each:
 | H1 | All three succeed (simple fact) | Filter single-fact questions where all three are correct; pick the cleanest |
 | H2 | RAG fails, GraphRAG succeeds (multi-hop) | Failures page: pipeline=RAG failed, GraphRAG correct, category multi-hop; label `missed_hop` or `retrieval_miss` for RAG |
 | H3 | Only the agent succeeds (temporal or numeric) | Agent correct, others wrong; agent trace shows `calculate` or year-aware steps |
-| H4 | Agent fails honestly | Agent wrong with a clear label (`bad_cypher`, `budget_loop`, `entity_link_error`); trace shows why |
+| H4 | Agent fails honestly | Agent wrong with a clear label (`bad_query`, `budget_loop`, `entity_link_error`); trace shows why |
 | Backup | One extra for each slot | In case something renders badly |
 
 Add all hero questions to `data/samples/cached_answers.jsonl` so they work in demo mode.
@@ -62,10 +63,10 @@ Add all hero questions to `data/samples/cached_answers.jsonl` so they work in de
 | Time | Scene | Screen | Narration points |
 | --- | --- | --- | --- |
 | 0:00–0:20 | Problem | Title slide + one example of a hidden link | Risk hides in relationships across filings; reading one report at a time misses them |
-| 0:20–0:50 | Architecture | `docs/architecture.png` | Filings → verified graph with page-level provenance → three pipelines → evaluation |
+| 0:20–0:50 | Architecture | `docs/architecture.png` | Filings → verified graph in **TigerGraph** with page-level provenance → three pipelines → evaluation |
 | 0:50–1:10 | H1 | Question inspector | All three get simple facts right, with citations |
-| 1:10–1:40 | H2 | Inspector + subgraph | RAG retrieved text about each company separately; GraphRAG followed the shared-director link |
-| 1:40–2:15 | H3 | Inspector + agent trace | Agent found the entity, filtered by year, summed with the calculator, verifier checked every claim |
+| 1:10–1:40 | H2 | Inspector + subgraph (optionally the same query in GraphStudio) | RAG retrieved text about each company separately; GraphRAG followed the shared-director link with a GSQL traversal in TigerGraph |
+| 1:40–2:15 | H3 | Inspector + agent trace | Agent found the entity, called TigerGraph queries (year-filtered traversal, accumulator total), used the calculator, verifier checked every claim |
 | 2:15–2:35 | H4 | Inspector + trace | Where the agent failed and why; the label on the Failures page |
 | 2:35–3:15 | Results | Overview + Trade-offs | Who wins per category (with CIs); what the agent costs in time and money |
 | 3:15–3:35 | Trust | Data quality panel | Extraction precision, resolution precision, verified gold set, known biases |
@@ -98,6 +99,7 @@ Watch the final video and tick:
 - [ ] Shows where each approach fails (including the agent).
 - [ ] Shows the metrics dashboard.
 - [ ] Shows the architecture.
+- [ ] Shows TigerGraph in use (GraphStudio schema/graph view or GSQL query and result) and says what TigerGraph contributes.
 - [ ] Every number on screen matches `docs/results.md`.
 - [ ] No claims about companies beyond cited facts; neutral wording.
 - [ ] Within the time limit.
@@ -107,6 +109,7 @@ Watch the final video and tick:
 - [ ] README headline table matches `docs/results.md` and the dashboard.
 - [ ] Video link in README.
 - [ ] Architecture diagram in README and `docs/`.
+- [ ] README section on TigerGraph usage: schema, installed queries, vector search mode (native or fallback), TigerGraph version, and how to reproduce.
 - [ ] License present.
 - [ ] `docs/` contains PRD, TRD, ARCHITECTURE, phases, decisions, data-quality, evaluation, results.
 - [ ] Tag the release: `v1.0-submission`.

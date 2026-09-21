@@ -1,6 +1,6 @@
 # Phase 6 — GraphRAG (single pass)
 
-> **Accuracy note.** Cypher and procedure names are sketches; verify for your Neo4j version. Community detection availability depends on libraries/editions — verify before relying on it.
+> **Accuracy note.** GSQL and query names are sketches; verify for your TigerGraph version. Community detection through TigerGraph's graph algorithm library depends on version/edition — verify before relying on it.
 
 ---
 
@@ -92,15 +92,15 @@ Question: {question}
 
 Why include `fiscal_years`: time filters cut the subgraph drastically and improve precision.
 
-Fallback if the call fails: use all relation types, no year filter, and do full-text lookup on capitalized phrases in the question.
+Fallback if the call fails: use all relation types, no year filter, and do entity lookup (SQLite FTS5) on capitalized phrases in the question.
 
 ### Step 2 — Linking (`linking.py`)
 
 For each mention:
-1. Escape Lucene special characters; build query: each token with `~` for fuzzy, joined with AND for multi-token names (**Verify** Lucene/full-text syntax in Neo4j docs).
-2. `fulltext_entities(query, kind, limit=5)` (Phase 3 queries).
+1. Build an FTS5 query from the mention: quote the phrase (escaping quotes), and also try the tokens joined with AND for multi-token names. Fuzziness comes from the RapidFuzz re-rank, not from the index.
+2. `entity_search(query, kind, limit=5)` (Phase 3 queries: SQLite FTS5 over `entities`, then RapidFuzz re-rank).
 3. Choose the top candidate if:
-    - Its score is clearly higher than the second (e.g. ratio ≥ 1.2), **and**
+    - Its re-rank score is clearly higher than the second (e.g. gap ≥ 5 points), **and**
     - `fuzz.token_set_ratio(norm(mention), norm(candidate.name or alias)) ≥ 85`.
 4. Otherwise, if two candidates are close, keep both (max 2) and let expansion + the answer model disambiguate; record `ambiguous` in the trace.
 5. No acceptable candidate → `unlinked` in the trace.
@@ -127,31 +127,31 @@ If the result is empty, use all types.
 
 ### Step 4 — Expansion (`expand.py`)
 
-Hop 1: all allowed relationships from each linked node.
+Expansion is one call to the installed GSQL query `entity_neighbors` (Phase 3, Step 7), so the traversal, filtering and fan-out caps run inside TigerGraph.
 
-```cypher
-UNWIND $ids AS id
-MATCH (s {entity_id: id})-[r]-(n)
-WHERE type(r) IN $types
-  AND ($fys IS NULL OR r.fiscal_year IS NULL OR r.fiscal_year IN $fys)
-WITH s, r, n
-ORDER BY coalesce(r.fiscal_year, '') DESC
-WITH s, collect({r: r, n: n})[0..$fanout] AS rows      // per-node fan-out cap
-UNWIND rows AS row
-RETURN s.entity_id AS src, type(row.r) AS rel, properties(row.r) AS rprops,
-       startNode(row.r).entity_id AS start_id, endNode(row.r).entity_id AS end_id,
-       labels(row.n)[0] AS nlabel, row.n.entity_id AS nid,
-       coalesce(row.n.name, row.n.nature, row.n.summary) AS nname, properties(row.n) AS nprops
+Hop 1: all allowed edge types from each linked vertex.
+
+```gsql
+CREATE QUERY expand_hop(SET<VERTEX> seeds, SET<STRING> edge_types, SET<STRING> fys,
+                        INT fanout = 50) FOR GRAPH Interlock SYNTAX v2 {
+  // For each seed, walk edges whose type is in edge_types and whose fiscal_year is in fys
+  // (or has none), keep at most `fanout` per seed (newest fiscal_year first), and PRINT
+  // rows: src, edge_type, edge attributes (incl. edge_id, doc_id, page, quote),
+  // start_id, end_id, neighbor type, neighbor id, neighbor name/nature/summary.
+  // Edge-type filtering by a runtime set is written as one SELECT per type, or with
+  // e.type IN edge_types (Verify support in your version). Per-seed caps use a
+  // HeapAccum or per-vertex counter accumulator.
+}
 ```
 
 Notes:
-- `RelatedPartyTxn` and `RegulatoryAction` nodes don't have `entity_id`; use `txn_id`/`order_id`. Handle with `coalesce(row.n.entity_id, row.n.txn_id, row.n.order_id)`.
-- When the hop reaches a `RelatedPartyTxn`, automatically include the transaction's **other** `PARTY_TO` edge (the counterparty). Otherwise a transaction node without its counterparty is useless. Treat "company → txn → counterparty" as one logical hop.
+- `RelatedPartyTxn` and `RegulatoryAction` vertices have `txn_id`/`order_id` as their primary id. Every GSQL vertex exposes its id uniformly (`v.id`, **Verify**), so use that and the vertex type name (`v.type`) instead of `coalesce(...)`.
+- When the hop reaches a `RelatedPartyTxn`, automatically include the transaction's **other** `PARTY_TO` edge (the counterparty; traverse `HAS_PARTY` from the transaction). Otherwise a transaction vertex without its counterparty is useless. Treat "company → txn → counterparty" as one logical hop.
 
-Hop 2: repeat from the hop-1 neighbor set, with:
+Hop 2: repeat from the hop-1 neighbor set (`hops=2` in `entity_neighbors`, which reuses the accumulators from hop 1), with:
 - The same relation types, **excluding** `IN_SECTOR` and `AUDITED_BY` unless those types were explicitly requested (they are hubs).
 - A smaller fan-out.
-- Skip neighbors that are hubs: nodes with degree above a threshold (e.g. top 1% by degree) — compute degree once and store as `n.degree` during Phase 3 load.
+- Skip neighbors that are hubs: vertices with degree above a threshold (e.g. top 1% by degree). GSQL can read the degree of a vertex directly (`v.outdegree()`, **Verify**); compute the threshold once after the build, store it in config/run metadata, and pass it as a query parameter.
 
 Parameters (start values, tune on dev):
 
@@ -248,15 +248,15 @@ Store triples' `edge_id`s in `evidence` so the dashboard can highlight the subgr
 ### Step 10 — Global questions without community summaries (default)
 
 Letting an LLM choose aggregation queries at question time would make GraphRAG agentic, blurring the comparison. Keep it single-pass and simple:
-- For `is_global=true`, retrieve a precomputed **dataset statistics** evidence pack: per-sector counts (companies, auditor changes per year, regulatory actions, total RPT), top-N persons by board seats, etc. Precompute these once after the graph build (`graph/stats.py`) as evidence items with provenance "computed from graph at build <run_id>".
+- For `is_global=true`, retrieve a precomputed **dataset statistics** evidence pack: per-sector counts (companies, auditor changes per year, regulatory actions, total RPT), top-N persons by board seats, etc. Precompute these once after the graph build (`graph/stats.py`, using GSQL accumulator queries) as evidence items with provenance "computed from graph at build <run_id>".
 - This is transparent and honest; report it in the README as GraphRAG's global strategy.
 
 ### Step 11 — Optional: community summaries (`global_mode.py`)
 
 Only after everything else works (secondary goal SG-2):
-1. Build a projection of Company/Person nodes with DIRECTOR_OF, HOLDS_STAKE, SUBSIDIARY_OF, PARTY_TO links.
-2. Run community detection (Leiden or Louvain) with a Python graph library (e.g. networkx has Louvain community functions; igraph + leidenalg for Leiden) or Neo4j Graph Data Science if your edition includes it. **Verify** availability and function names.
-3. For each community: collect its facts (capped), ask the helper LLM for a neutral summary with citations to edge IDs; store as `Community` nodes with `summary` and an embedding.
+1. Build a projection of Company/Person vertices with DIRECTOR_OF, HOLDS_STAKE, SUBSIDIARY_OF, PARTY_TO links.
+2. Run community detection (Louvain or Label Propagation) with **TigerGraph's graph algorithm library** (install it from TigerGraph's GDS/graph-algorithms repository and run it on this graph; **Verify** availability, edition and query names). Fallback: export the projection and use a Python library (networkx Louvain; igraph + leidenalg for Leiden).
+3. For each community: collect its facts (capped), ask the helper LLM for a neutral summary with citations to edge IDs; store as `Community` vertices (schema change: add the vertex type, a `HAS_MEMBER` edge, and a vector attribute for the summary embedding) with `summary`.
 4. Global questions: vector-search community summaries; answer from the top ones.
 5. Evaluate on the global category; keep only if it beats the statistics pack.
 
@@ -278,7 +278,7 @@ Only after everything else works (secondary goal SG-2):
 
 | Test | Expectation |
 | --- | --- |
-| Lucene escaping | Names with special characters don't break queries |
+| FTS escaping | Names with quotes and special characters don't break entity lookup |
 | Linking decision | Clear winner linked; close scores → up to 2 kept + `ambiguous`; low scores → `unlinked` |
 | Relation keyword rules | "pledged shares" adds HOLDS_STAKE |
 | Expansion caps | Never more than `max_triples`; fan-out respected; hubs skipped at hop 2 |
@@ -295,7 +295,7 @@ Only after everything else works (secondary goal SG-2):
 | Situation | Behavior |
 | --- | --- |
 | Helper call fails | Keyword/capitalization fallback; trace notes it |
-| Neo4j timeout on expansion | Retry once with smaller fan-out; then fallback to vector evidence |
+| TigerGraph timeout on expansion | Retry once with smaller fan-out; then fallback to vector evidence |
 | Empty subgraph | Fallback to vector evidence |
 | Invalid answer JSON | Same repair-once logic as RAG |
 

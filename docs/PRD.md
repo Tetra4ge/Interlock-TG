@@ -19,7 +19,8 @@ It is built for a hackathon whose brief requires:
 1. A working Agentic GraphRAG system.
 2. Answers produced three ways (RAG, GraphRAG, Agentic GraphRAG).
 3. A demonstration of where each approach succeeds or fails.
-4. Submission of a GitHub repo, architecture diagram, demo video and metrics dashboard.
+4. **TigerGraph as the graph database.** The hackathon is organised by TigerGraph, so the knowledge graph, graph traversal and (if the installed version supports it) vector search must run on TigerGraph, queried with GSQL.
+5. Submission of a GitHub repo, architecture diagram, demo video and metrics dashboard.
 
 This is a standalone project. It shares no code, data or components with any other project.
 
@@ -167,7 +168,7 @@ Priority: **P0** = must ship; **P1** = should ship; **P2** = nice to have.
 | --- | --- | --- |
 | FR-15 | The system shall resolve mentions to canonical entities using DIN/CIN/auditor registration numbers first, fuzzy matching second. | P0 |
 | FR-16 | The system shall log every merge decision with method, score and reason. | P0 |
-| FR-17 | The system shall load entities and relations into a graph database with time and value properties. | P0 |
+| FR-17 | The system shall load entities and relations into TigerGraph (schema defined in GSQL) with time and value properties. | P0 |
 | FR-18 | The system shall attach provenance (document, page, quote, extraction run) to every fact edge. | P0 |
 | FR-19 | The system shall store chunk embeddings in a vector index linked to the entities they mention. | P0 |
 | FR-20 | The system shall rebuild the complete graph from raw files with one command. | P0 |
@@ -247,6 +248,7 @@ Exact latency and cost numbers are set after the first baseline run, because the
 ### 7.2 Hackathon success
 
 - All four deliverables submitted.
+- TigerGraph is visibly central: the graph lives in TigerGraph, GraphRAG and the agent traverse it with GSQL queries, and the submission explains why a native graph engine helps on multi-hop questions.
 - Demo video shows at least one question where each pipeline behaves differently, plus one honest agent failure.
 - Repository starts with one command on a clean machine.
 
@@ -298,6 +300,8 @@ Exact latency and cost numbers are set after the first baseline run, because the
 | Q-05 | Must the demo be publicly hosted? | If yes: add VM deployment in Phase 9. |
 | Q-06 | Is a specific metric or benchmark required? | If yes: add it to the scorers first. |
 | Q-07 | Are there sponsor LLM providers? | If yes: set as default model in config; no redesign. |
+| Q-08 | Which TigerGraph deployment do we use (TigerGraph Savanna cloud, or Community/Developer edition in Docker) and does that version support native vector attributes? | If no vector support: keep chunk embeddings in a local index (FAISS or NumPy) keyed by `chunk_id`, and keep everything else in TigerGraph. |
+| Q-09 | Does the hackathon provide a TigerGraph instance, credits or required starter kit/GraphRAG repo? | If yes: use it as the default environment; adapt Phase 0 setup only. |
 
 ---
 
@@ -314,6 +318,8 @@ Exact latency and cost numbers are set after the first baseline run, because the
 | Agent unreliable during demo | Medium | High | Budgets, verifier, cached demo answers, recorded video |
 | Misrepresenting real companies | Low | High | Cited facts only; neutral wording; no scores |
 | Scope creep | High | Medium | Non-goals; cut order |
+| TigerGraph learning curve (GSQL, schema changes need a schema-change job) | High | Medium | Phase 0 spike; freeze the schema early; keep queries in versioned `.gsql` files |
+| TigerGraph vector or free-tier limits (memory, storage, version) | Medium | Medium | Check limits in Phase 0; fallback local vector index; small sample graph for the demo |
 
 ---
 

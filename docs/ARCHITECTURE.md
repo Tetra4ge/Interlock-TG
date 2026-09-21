@@ -46,7 +46,7 @@ flowchart TB
         CLI[CLI: build + eval commands]
         API[API service: FastAPI]
         DASH[Dashboard: Streamlit]
-        NEO[(Neo4j: graph + vector + full-text)]
+        TG[(TigerGraph: graph + vectors, GSQL queries)]
         SQL[(SQLite: run store)]
         FS[(Filesystem: raw PDFs, parsed JSON, LLM cache)]
     end
@@ -64,8 +64,8 @@ flowchart TB
 | CLI | Python (`interlock.cli`) | On-demand commands | Fetch, parse, extract, resolve, load, embed, eval |
 | API | FastAPI + Uvicorn | Long-running (Compose service) | Serve pipelines, runs, metrics, subgraphs |
 | Dashboard | Streamlit | Long-running (Compose service) | Five pages for judges |
-| Neo4j | Neo4j Community | Long-running (Compose service) | Entities, relations, chunks, embeddings, indexes |
-| SQLite | File | Embedded | Documents, records, questions, runs, scores, traces |
+| TigerGraph | TigerGraph (Community/Developer edition in Docker, or Savanna cloud) | Long-running (Compose service or hosted) | Entities, relations, chunks, embeddings; installed GSQL queries for traversal, aggregation and vector search |
+| SQLite | File | Embedded | Documents, records, questions, runs, scores, traces, entity-name FTS5 index |
 | Filesystem | Local disk | — | Raw PDFs, intermediate JSON, LLM cache |
 
 ---
@@ -89,7 +89,7 @@ flowchart LR
     G --> RES[Entity resolver]
     RES --> L[Graph loader]
     CH --> E[Embedder]
-    L --> NEO[(Neo4j)]
+    L --> TG[(TigerGraph)]
     E --> NEO
 ```
 
@@ -105,7 +105,7 @@ flowchart LR
 | Extractor | sections | `records` rows (candidate) | doc_id + section + prompt version | Zero if cached |
 | Grounding + validation | records | status accepted/rejected/review | record_id | Negligible |
 | Resolver | accepted records | `entities`, `merge_log` | mention_id | Seconds |
-| Loader | entities + records | Neo4j nodes/edges | entity_id / edge_id (MERGE) | Seconds–minutes |
+| Loader | entities + records | TigerGraph vertices/edges (upsert) | entity_id / edge_id (upsert by primary id + discriminator) | Seconds–minutes |
 | Embedder | chunks | `Chunk.embedding` | chunk_id + model | Zero if cached |
 
 ### 4.3 Data lineage
@@ -139,7 +139,7 @@ flowchart TD
     GR --> RET
     AG --> TOOLS[Agent tools]
     TOOLS --> RET
-    RET --> NEO[(Neo4j)]
+    RET --> TG[(TigerGraph)]
     RAG --> GW[LLM gateway]
     GR --> GW
     AG --> GW
@@ -150,7 +150,7 @@ flowchart TD
     EVAL --> SQL
 ```
 
-**Retrieval services** are shared functions used by all pipelines and tools: `vector_search`, `fulltext_entity_search`, `expand_subgraph`, `chunks_for_entities`, `get_evidence`. Sharing them guarantees the pipelines differ only in *how* they use retrieval, not in retrieval quality.
+**Retrieval services** are shared functions used by all pipelines and tools: `vector_search`, `entity_search` (SQLite FTS5 + fuzzy), `expand_subgraph`, `chunks_for_entities`, `get_evidence`. Sharing them guarantees the pipelines differ only in *how* they use retrieval, not in retrieval quality.
 
 ### 5.2 Request sequence: `/compare`
 
@@ -184,10 +184,10 @@ sequenceDiagram
 sequenceDiagram
     participant P as RAG
     participant E as Embedder
-    participant N as Neo4j
+    participant N as TigerGraph
     participant L as LLM gateway
     P->>E: embed(question)
-    P->>N: vector search top 20
+    P->>N: vector search top 20 (GSQL vector query)
     P->>P: optional rerank, fit to evidence budget
     P->>L: answer prompt (question + chunks)
     L-->>P: structured answer
@@ -200,10 +200,10 @@ sequenceDiagram
 sequenceDiagram
     participant P as GraphRAG
     participant L as LLM gateway
-    participant N as Neo4j
+    participant N as TigerGraph
     P->>L: extract mentions + relation types (helper)
-    P->>N: full-text entity lookup
-    P->>N: expand 1-2 hops, capped
+    P->>P: entity lookup (SQLite FTS5 + fuzzy)
+    P->>N: installed GSQL query: expand 1-2 hops, capped
     P->>N: chunks MENTIONing subgraph entities + vector rank
     P->>P: serialize triples + chunks within budget
     P->>L: answer prompt
@@ -270,17 +270,17 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph Compose[docker compose]
-        neo4j[neo4j service: ports 7474, 7687; volume neo4j_data]
+        tigergraph[tigergraph service: ports 14240 (GraphStudio/Admin), 9000 (REST++); volume tg_data — or Savanna cloud instance]
         api[api service: port 8000; mounts data/, db/]
         dash[dashboard service: port 8501]
     end
     dash --> api
-    api --> neo4j
+    api --> tigergraph
 ```
 
 | Mode | How | Data |
 | --- | --- | --- |
-| Development | Neo4j in Compose; code runs from the host with uv | Full data |
+| Development | TigerGraph in Compose (or Savanna); code runs from the host with uv | Full data |
 | Demo (judges) | All three services in Compose | Committed sample graph + cached answers; works without LLM key for stored questions |
 | Hosted (optional) | Same Compose file on one VM; basic auth in front | Sample or full graph |
 
@@ -292,11 +292,11 @@ flowchart TB
 | --- | --- |
 | Configuration | YAML + `.env` → one typed `Settings` object |
 | Identity of things | Content hashes for documents; official IDs (DIN/CIN/FRN) for entities; deterministic ids for chunks and edges |
-| Idempotency | Every stage keyed; MERGE in graph; skip-if-done in CLI |
+| Idempotency | Every stage keyed; upserts in graph (primary id + edge discriminator); skip-if-done in CLI |
 | Provenance | doc_id + page + quote on every fact edge; run_id on every record and edge |
 | Caching | LLM responses by content hash on disk; embeddings by chunk_id + model |
 | Fairness | Shared prompts, shared retrieval services, one evidence budget, one answer model |
-| Security | Read-only agent graph access, write-clause filter, AST calculator, untrusted-text wrapping, secrets in env |
+| Security | Read-only agent graph access (allow-listed installed GSQL queries, read-only role), AST calculator, untrusted-text wrapping, secrets in env |
 | Observability | JSON logs, `traces`, `llm_calls`, run metadata, `/health` |
 | Error handling | Explicit statuses; review queue; retries with backoff in gateway and fetcher |
 | Reproducibility | Versioned questions and prompts; run config + git commit stored; cached calls |
@@ -311,7 +311,7 @@ Write one short file per decision in `docs/decisions/`.
 | --- | --- | --- |
 | 0001 | PDF parser choice (decided in Phase 0 bake-off) | Pending |
 | 0002 | Modular monolith, not microservices | Accepted |
-| 0003 | Neo4j holds graph, full-text and vector indexes | Accepted |
+| 0003 | TigerGraph (required by the hackathon) holds the graph and, if supported, vectors; GSQL installed queries for traversal; entity-name search in SQLite FTS5 | Accepted |
 | 0004 | SQLite for run store | Accepted |
 | 0005 | Own LLM gateway with content-hash cache | Accepted |
 | 0006 | Hand-written agent state machine (LangGraph if needs grow) | Accepted |
@@ -319,6 +319,7 @@ Write one short file per decision in `docs/decisions/`.
 | 0008 | Time modeled as edge properties; related-party transactions as nodes | Accepted |
 | 0009 | Embedding model chosen by recall@10 on own questions | Pending (Phase 3) |
 | 0010 | Streamlit dashboard; FastAPI optional | Accepted |
+| 0011 | TigerGraph deployment (Savanna vs Docker), version, native vector support or local fallback, GSQL spike results | Pending (Phase 0) |
 
 ADR template:
 
@@ -343,7 +344,7 @@ Status: Proposed | Accepted | Superseded by ADR-XXXX
 For the required architecture diagram, combine sections 4.1, 5.1 and 5.5 into one image:
 
 - Left: offline build pipeline.
-- Middle: Neo4j + SQLite.
+- Middle: TigerGraph + SQLite.
 - Right: three pipelines side by side, with the agent's loop shown as an inset.
 - Bottom: evaluation runner → dashboard.
 
