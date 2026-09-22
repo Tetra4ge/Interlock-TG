@@ -22,7 +22,7 @@ Detailed build documentation for Interlock: an Agentic GraphRAG system over Indi
 | 5 | [phase-05-evaluation-set-and-runner.md](phases/phase-05-evaluation-set-and-runner.md) | Verified question set, scorers, calibrated judge, runner, statistics |
 | 6 | [phase-06-graphrag.md](phases/phase-06-graphrag.md) | GraphRAG pipeline, tuned on dev, evaluated on test |
 | 7 | [phase-07-agentic-graphrag.md](phases/phase-07-agentic-graphrag.md) | Agent with tools, guardrails, calculator, verifier, budgets |
-| 8 | [phase-08-api-and-dashboard.md](phases/phase-08-api-and-dashboard.md) | API and five-page dashboard, demo mode |
+| 8 | [phase-08-api-and-dashboard.md](../phases/phase-08-api-and-dashboard.md) | API and five-page Next.js dashboard, demo mode |
 | 9 | [phase-09-hardening.md](phases/phase-09-hardening.md) | Tests, Docker, seeding, CI, README, results, fresh-clone test |
 | 10 | [phase-10-demo-and-submission.md](phases/phase-10-demo-and-submission.md) | Demo video and submission |
 

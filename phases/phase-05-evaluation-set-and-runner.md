@@ -57,7 +57,7 @@ src/interlock/eval/
 │   └── unanswerable.yaml
 ├── generate.py          # templates + GSQL gold queries → candidate questions
 ├── paraphrase.py        # natural wording via helper LLM
-├── verify_ui.py         # Streamlit page for PDF verification
+├── verify_ui.py         # Verification UI helper (or Next.js /verify page)
 ├── split.py             # stratified dev/test split + freeze
 ├── normalize.py         # answer normalizers
 ├── scorers.py           # exact, set F1, numeric, abstention, citation, evidence recall
@@ -197,9 +197,9 @@ Add by hand:
 - Unanswerable (~15%): outside scope, not collected, false premise.
 - A few "tricky" answerable ones: two companies with similar names; a director with a common surname; a question needing the consolidated vs standalone distinction (only if your data supports it).
 
-### Step 6 — Verification against PDFs (`eval/verify_ui.py`)
+### Step 6 — Verification against PDFs (`eval/verify_ui.py` or frontend)
 
-Streamlit page:
+Verification page / UI:
 1. Shows the question, gold answer, and for each gold evidence item: the PDF page text (from parsed JSON) with the quote highlighted, plus a link/path to open the PDF at that page.
 2. Buttons: **Correct**, **Fix answer** (edit gold), **Drop** (with reason).
 3. Records `verified=True` and `verification_note`.

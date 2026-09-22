@@ -16,7 +16,7 @@
 
 | Layer | Technology | Status | Why (short) |
 | --- | --- | --- | --- |
-| Language | Python 3.11+ | Required | Best ecosystem for PDF, LLM, graph, eval, dashboard |
+| Language | Python 3.11+ (backend/pipelines) & TypeScript (frontend) | Required | Best ecosystem for PDF, LLM, graph, eval; Next.js for interactive web app |
 | Package manager | uv | Required | Fast, lockfile, simple commands |
 | Data models | Pydantic v2 | Required | One typed schema for LLM output, validation, API |
 | HTTP client | httpx | Required | Timeouts, retries control, sync/async |
@@ -33,7 +33,7 @@
 | Fuzzy matching | RapidFuzz | Required | Fast string similarity |
 | Agent | Hand-written state machine with native tool calling | Required | Transparent, fair, educational |
 | API | FastAPI + Uvicorn | Recommended | Typed, async, auto docs |
-| Dashboard | Streamlit (+ Plotly charts, pyvis graph view) | Required | Python-only dashboard |
+| Dashboard | Next.js (TypeScript, React, Tailwind CSS, Recharts / Plotly.js, React Flow / Cytoscape) | Required | Modern, responsive web dashboard |
 | Tests | pytest | Required | Standard |
 | Lint/format | Ruff | Required | One fast tool |
 | Types | mypy or Pyright | Required | Catches schema mismatches |
@@ -46,7 +46,7 @@ Full reasoning, alternatives and trade-offs for every row are in section 1.2.
 
 | Decision | Alternatives considered | Why not selected | Learning value |
 | --- | --- | --- | --- |
-| **Python** | TypeScript, Go, Java | Weaker PDF/table and evaluation tooling; second language for the dashboard | Typed Python, packaging, async |
+| **Python + TypeScript** | Python-only, TypeScript-only, Go | Python has the best tooling for PDF/LLM/evaluation; TypeScript + React/Next.js provides a responsive, stateful frontend without Streamlit rerun overhead | Modern modular web architecture |
 | **TigerGraph** | Neo4j; Memgraph; PostgreSQL + Apache AGE; ArangoDB; NetworkX | **Not a free choice: the hackathon is organised by TigerGraph and requires it.** It also suits the project: deep multi-hop traversal with accumulators (e.g. summing pledged stake or transaction values along paths) runs inside the database | Graph modeling, GSQL, accumulators, installed queries |
 | **Vectors inside TigerGraph** | Qdrant, pgvector, Chroma, FAISS | Keeps chunk-to-entity links and vector search in one engine. Fallback if the deployed version lacks native vectors (Q-08): a local FAISS/NumPy index keyed by `chunk_id`, everything else stays in TigerGraph | Vector attributes, ANN search |
 | **SQLite FTS5 for entity names** | Lucene-style index in the graph DB, Elasticsearch | TigerGraph has no built-in full-text index; entities are few (thousands) so FTS5 plus RapidFuzz is enough | Full-text search basics |
@@ -56,7 +56,7 @@ Full reasoning, alternatives and trade-offs for every row are in section 1.2.
 | **Hand-written agent** | LangGraph, LlamaIndex agents, CrewAI | Framework prompts and abstractions hide behavior; for a comparison project transparency matters. Move to LangGraph if you need pause/resume or many branches | How agents actually work |
 | **Custom GraphRAG** | Microsoft GraphRAG package; TigerGraph's own GraphRAG project (`tigergraph/graphrag`) | They build or assume their own graph structures; ours is typed with provenance. Read TigerGraph's GraphRAG repo for ideas and for the hackathon's expectations (**Verify** APIs), and cite it as related work | Graph retrieval design |
 | **FastAPI** | Flask; no API | Flask lacks built-in typing; no-API is acceptable fallback | API design |
-| **Streamlit** | React/Next.js, Gradio, Grafana | Much more work; weaker dashboards; ops-focused | Data visualization |
+| **Next.js** | Streamlit, Gradio, Grafana, plain React SPA | Streamlit script reruns limit complex multi-panel state and graph interaction; Next.js gives full UI control, Tailwind styling, rich network graph canvas, and clean API integration | Modern full-stack architecture |
 | **No queue/cache service/K8s** | Redis, Celery, Kubernetes | No need at single-machine scale | Knowing when *not* to add infrastructure |
 
 ### 1.3 LLM roles
@@ -119,9 +119,13 @@ interlock/
 │   │   └── agent/           # state, loop, tools, guardrails, calculator, verifier
 │   ├── eval/                # questions, generator, scorers, judge, taxonomy, runner, stats
 │   └── api/                 # FastAPI app
-├── dashboard/
-│   ├── app.py
-│   └── pages/
+├── frontend/                # Next.js web dashboard (TypeScript, React, Tailwind CSS)
+│   ├── package.json
+│   ├── tailwind.config.ts
+│   ├── src/
+│   │   ├── app/             # App router pages (overview, tradeoffs, failures, inspector, live)
+│   │   ├── components/      # UI components (answer card, trace table, subgraph canvas)
+│   │   └── lib/             # API client, types, formatters
 ├── tests/
 │   ├── unit/
 │   ├── integration/
@@ -146,8 +150,8 @@ interlock/
 - `pipelines` → `llm`, `graph`, `embed`, `store`.
 - `eval` → `pipelines`, `store`, `llm`.
 - `api` → `pipelines`, `eval` (read), `store`.
-- `dashboard` → `api` (or `store` + `pipelines` if API is dropped).
-- No module imports from `api` or `dashboard`.
+- `frontend` → `api`.
+- No module imports from `api` or `frontend`.
 
 ---
 

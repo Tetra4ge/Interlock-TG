@@ -45,7 +45,7 @@ flowchart TB
     subgraph Host[Single machine / VM]
         CLI[CLI: build + eval commands]
         API[API service: FastAPI]
-        DASH[Dashboard: Streamlit]
+        DASH[Dashboard / Web App: Next.js]
         TG[(TigerGraph: graph + vectors, GSQL queries)]
         SQL[(SQLite: run store)]
         FS[(Filesystem: raw PDFs, parsed JSON, LLM cache)]
@@ -63,7 +63,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | CLI | Python (`interlock.cli`) | On-demand commands | Fetch, parse, extract, resolve, load, embed, eval |
 | API | FastAPI + Uvicorn | Long-running (Compose service) | Serve pipelines, runs, metrics, subgraphs |
-| Dashboard | Streamlit | Long-running (Compose service) | Five pages for judges |
+| Dashboard | Next.js (React, Tailwind CSS, TypeScript) | Long-running (Compose service) | Five pages for judges |
 | TigerGraph | TigerGraph (Community/Developer edition in Docker, or Savanna cloud) | Long-running (Compose service or hosted) | Entities, relations, chunks, embeddings; installed GSQL queries for traversal, aggregation and vector search |
 | SQLite | File | Embedded | Documents, records, questions, runs, scores, traces, entity-name FTS5 index |
 | Filesystem | Local disk | — | Raw PDFs, intermediate JSON, LLM cache |
@@ -272,7 +272,7 @@ flowchart TB
     subgraph Compose[docker compose]
         tigergraph[tigergraph service: ports 14240 (GraphStudio/Admin), 9000 (REST++); volume tg_data — or Savanna cloud instance]
         api[api service: port 8000; mounts data/, db/]
-        dash[dashboard service: port 8501]
+        dash[dashboard service: port 3000]
     end
     dash --> api
     api --> tigergraph
@@ -318,7 +318,7 @@ Write one short file per decision in `docs/decisions/`.
 | 0007 | Custom GraphRAG over typed schema | Accepted |
 | 0008 | Time modeled as edge properties; related-party transactions as nodes | Accepted |
 | 0009 | Embedding model chosen by recall@10 on own questions | Pending (Phase 3) |
-| 0010 | Streamlit dashboard; FastAPI optional | Accepted |
+| 0010 | Next.js dashboard (React, Tailwind CSS); FastAPI required | Accepted |
 | 0011 | TigerGraph deployment (Savanna vs Docker), version, native vector support or local fallback, GSQL spike results | Pending (Phase 0) |
 
 ADR template:

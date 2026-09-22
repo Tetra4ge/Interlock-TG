@@ -73,7 +73,7 @@ src/interlock/extract/
 ├── units.py           # lakh/crore/million conversions
 ├── validate.py        # business rules
 └── review.py          # queue helpers
-dashboard/pages/99_review_queue.py  # Streamlit review UI
+frontend/src/app/review-queue/page.tsx  # Next.js review UI (or CLI tool)
 tests/fixtures/labeled_pages/*.json
 tests/unit/test_clean.py, test_sections.py, test_chunk.py,
           test_grounding.py, test_units.py, test_validate.py
@@ -389,9 +389,9 @@ Implement each rule as a small function returning `(ok, reason)`:
 | `required_fields` | all | names non-empty, evidence present | reject |
 | `name_is_not_role` | directors | person_name doesn't look like a role ("Chairman", "Company Secretary") | reject |
 
-### Step 13 — Review queue UI (`dashboard/pages/99_review_queue.py`)
+### Step 13 — Review queue UI (`frontend/src/app/review-queue/page.tsx` or CLI)
 
-Streamlit page:
+Next.js page or CLI:
 1. Select filter: record type, reason.
 2. For the current item show: the record as a form (editable fields), the reason, the source page text with the quote highlighted (or "not found").
 3. Buttons: **Accept**, **Save fix**, **Reject**.

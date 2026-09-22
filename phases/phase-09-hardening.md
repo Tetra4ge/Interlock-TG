@@ -99,7 +99,6 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev          # Verify flags
 
 COPY src ./src
-COPY dashboard ./dashboard
 COPY config ./config
 COPY scripts ./scripts
 COPY data/samples ./data/samples
@@ -146,12 +145,12 @@ services:
     depends_on:
       tigergraph: {condition: service_healthy}
 
-  dashboard:
-    build: .
-    command: ["dashboard"]
+  frontend:
+    build:
+      context: ./frontend
     environment:
-      API_URL: "http://api:8000"
-    ports: ["127.0.0.1:8501:8501"]
+      NEXT_PUBLIC_API_URL: "http://localhost:8000"
+    ports: ["127.0.0.1:3000:3000"]
     depends_on: [api]
 
 volumes:
@@ -173,9 +172,6 @@ case "${1:-api}" in
     uv run python -m interlock.cli db-migrate
     uv run python -m interlock.cli seed-runs   # import sample run results if run store empty
     exec uv run uvicorn interlock.api.main:app --host 0.0.0.0 --port 8000
-    ;;
-  dashboard)
-    exec uv run streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
     ;;
   *) exec "$@" ;;
 esac
@@ -283,7 +279,7 @@ Small table: category × pipeline accuracy (with CIs) + cost/latency row. Link t
 ## Quick start (demo, no API key needed)
     git clone … && cd interlock
     docker compose up --build
-    open http://localhost:8501
+    open http://localhost:3000
 
 ## Live questions (needs an LLM API key)
     cp .env.example .env   # add LLM_API_KEY

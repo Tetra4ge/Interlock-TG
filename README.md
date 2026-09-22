@@ -32,7 +32,7 @@ This project is built for a hackathon organised by TigerGraph, so TigerGraph is 
 
 ## Planned stack
 
-Python 3.11+ (uv, Pydantic v2, httpx) · PyMuPDF + pdfplumber · **TigerGraph** (graph, GSQL installed queries, vector search; `pyTigerGraph` client) · SQLite FTS5 for entity-name lookup · SQLite run store · custom LLM gateway with cache and cost cap · hand-written agent state machine · FastAPI · Streamlit dashboard · pytest, Ruff, mypy · Docker Compose.
+Python 3.11+ (uv, Pydantic v2, httpx) · PyMuPDF + pdfplumber · **TigerGraph** (graph, GSQL installed queries, vector search; `pyTigerGraph` client) · SQLite FTS5 for entity-name lookup · SQLite run store · custom LLM gateway with cache and cost cap · hand-written agent state machine · FastAPI · Next.js dashboard (TypeScript, React, Tailwind CSS) · pytest, Ruff, mypy · Docker Compose.
 
 ## Architecture
 
@@ -103,7 +103,7 @@ flowchart LR
     API --> GR
     API --> AGENT
     API --> SQL
-    DASH[Streamlit dashboard: 5 pages] --> API
+    DASH[Next.js dashboard: 5 pages] --> API
     SQL --> DASH
 ```
 
