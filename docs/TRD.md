@@ -162,9 +162,9 @@ All configuration is in YAML under `config/` and secrets in `.env`. `settings.py
 ### 3.1 `.env.example`
 
 ```
-LLM_PROVIDER=anthropic            # or openai, google, local
+LLM_PROVIDER=groq                 # free-tier provider; or google, local
 LLM_API_KEY=
-JUDGE_API_KEY=                    # if judge uses a different provider
+JUDGE_API_KEY=                    # if judge uses a different free-tier provider
 EMBEDDING_API_KEY=                # if using a hosted embedding API
 TG_HOST=http://localhost           # or your TigerGraph Savanna URL
 TG_GRAPH=Interlock
@@ -183,28 +183,28 @@ LOG_LEVEL=INFO
 
 ```yaml
 extractor:
-  provider: anthropic
-  model: "<fill from provider docs>"
+  provider: groq
+  model: "<fill from Groq's free-tier model list>"
   temperature: 0
   max_output_tokens: 4096
 answerer:
-  provider: anthropic
+  provider: groq
   model: "<fill>"
   temperature: 0
   max_output_tokens: 1500
 judge:
-  provider: openai
+  provider: groq
   model: "<fill>"
   temperature: 0
 helper:
-  provider: anthropic
+  provider: groq
   model: "<fill: small model>"
   temperature: 0
 embedding:
-  provider: local            # or hosted provider name
+  provider: local            # or a free-tier hosted provider
   model: "<fill after recall test>"
   dimensions: 768            # must match the model; Verify
-pricing_usd_per_million_tokens:   # fill from provider pricing pages
+pricing_usd_per_million_tokens:   # free-tier models are $0; fill in if you swap in a paid one
   "<model-name>": {input: 0.0, output: 0.0}
 ```
 

@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS entities (
   aliases_json TEXT NOT NULL DEFAULT '[]'
 );
 
--- Entity-name search (TigerGraph has no built-in full-text index); rebuilt from `entities` by the build
+-- Entity-name search (TigerGraph has no built-in full-text index) - rebuilt from `entities` by the build
 CREATE VIRTUAL TABLE IF NOT EXISTS entities_fts USING fts5(
   entity_id UNINDEXED, kind UNINDEXED, name, aliases
 );

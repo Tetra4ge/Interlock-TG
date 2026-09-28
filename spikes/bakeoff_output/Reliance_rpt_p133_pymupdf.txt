@@ -1,0 +1,521 @@
+=== TEXT ===
+	
+(ii)	
+Balances as on March 31, 2024 with Related Parties:
+(C in crore)
+Sr. 
+No.
+Nature of Balances
+Associates / 
+Joint Ventures
+Key Managerial 
+Personnel / 
+Relative
+Others
+Total
+1
+Loans and Advances 
+ 559 
+ -   
+ -   
+ 559 
+ 470 
+ -   
+ -   
+ 470 
+2
+Deposits 
+ 194 
+ -   
+ 353   
+ 547
+ 575 
+ -   
+353   
+ 928 
+3
+Unsecured Loans 
+ 85 
+ -   
+ -   
+ 85 
+ 80 
+ -   
+ -   
+ 80 
+4
+Financial Guarantees 
+ 5,350 
+ -   
+ -   
+ 5,350 
+ 1,900 
+ -   
+ -   
+ 1,900 
+5
+Investments 
+ 18,073 
+ -   
+ -   
+ 18,073
+ 13,646 
+ -   
+ -   
+ 13,646 
+6
+Trade Receivables 
+1,017
+ -   
+ 58 
+1,075
+ 1,251 
+ -   
+39
+ 1,290 
+7
+Trade and Other Payables
+ 744
+ -   
+92
+ 836
+ 1,260
+ -   
+297
+ 1,557 
+8
+Other Financial Assets 
+ 214 
+ -   
+ -   
+214
+ 271 
+ -   
+ -   
+ 271 
+9
+Other Current Assets 
+ 15 
+ -   
+ -   
+ 15 
+ 2 
+ -   
+ -   
+ 2 
+	
+	
+Figures in italic represents balance as on 31st March, 2023.
+	
+(iii)	 Disclosure in respect of Major Related Party Transactions during the year ended 31st March, 2024
+(C in crore)
+Particulars
+2023-24
+2022-23
+1
+Purchase of Property, Plant and Equipment and Other Intangible Assets
+Associates
+Dunzo Digital Private Limited
+ 64   
+-
+Future101 Design Private Limited
+ -   
+ 1 
+Jamnagar Utilities & Power Private Limited
+ -   
+ 1 
+Sterling and Wilson Renewable Energy Limited
+ 12 
+ - 
+Joint Ventures
+Football Sports Development Limited
+ -   
+ 22 
+Sanmina-SCI India Private Limited 
+ 111 
+ 299 
+Sintex Industries Limited
+ 3 
+ - 
+Enterprise over which Key Managerial Personnel / Relatives are able to exercise 
+significant influence
+Sikka Ports & Terminals Limited
+ 1 
+ 1 
+2
+Purchase / Subscription of Investments
+Associates
+Circle E Retail Private Limited @ 
+ 27 
+ - 
+Clayfin Technologies Private Limited
+ -   
+ 11 
+Dunzo Digital Private Limited
+ -   
+ 200 
+Gaurav Overseas Private Limited
+ -   
+ 1 
+Jamnagar Utilities & Power Private Limited
+ -   
+ 2 
+Neolync Solutions Private Limited
+ 20 
+ 20 
+	
+	
+@ Relationship established during the year.
+	
+	
+* Ceased to be related party during the year.
+(C in crore)
+Particulars
+2023-24
+2022-23
+Joint Ventures
+Alok Industries Limited
+ 3,300 
+ - 
+BAM DLR Data Center Services Private Limited @
+ 9 
+ - 
+BAM DLR Chennai Private Limited @ 
+ 273 
+ - 
+BAM DLR Mumbai Private Limited @ 
+ 134 
+ - 
+BAM DLR Network Services Private Limited @ 
+ 2 
+ - 
+Clarks Footwear Private Limited (Formerly known as Clarks Reliance Footwear 
+Private Limited)
+ -   
+ 2 
+Diesel Fashion India Reliance Private Limited
+ -   
+ 4 
+Reliance International Leasing IFSC Limited @
+ 3 
+ - 
+Reliance-Vision Express Private Limited
+ 10 
+ 10 
+Ryohin-Keikaku Reliance India Private Limited
+ 4 
+ 3 
+Sanmina-SCI India Private Limited 
+ -   
+ 1,763 
+Sintex Industries Limited
+ -   
+ 1,500 
+TCO Reliance India Private Limited
+ 15 
+ - 
+Companies under Common Control #
+Jio Financial Services Limited (Formerly known as Reliance Strategic Investments Limited) @
+ 3 
+ - 
+Jio Payments Bank Limited *
+ -   
+ 80 
+Reliance Services and Holdings Limited *
+ -   
+ 703 
+3
+Sale / Redemption of Investments
+Joint Venture
+Sodium-ion Batteries Pty Limited
+1
+-
+4
+Loans and Advances, Deposits Given / (Returned)
+Associates
+Ashwani Commercials Private Limited *
+ -   
+ (3) 
+Carin Commercials Private Limited *
+ -   
+ (68) 
+Centura Agro Private Limited *
+ -   
+(2) 
+Chander Commercials Private Limited *
+ -   
+ 4 
+Creative Agrotech Private Limited *
+ -   
+ 1 
+DEN ADN Network Private Limited
+ (1) 
+ - 
+Dunzo Digital Private Limited
+ 26 
+ - 
+Gujarat Chemical Port Limited
+ (15) 
+ (16) 
+Honeywell Properties Private Limited *
+(1) 
+ 6 
+Kaniska Commercials Private Limited *
+ -   
+ 1 
+Netravati Commercials Private Limited *
+ -   
+ 1 
+NexWafe GmbH
+ 87 
+ - 
+Prakhar Commercials Private Limited *
+ (10) 
+ (19) 
+Rakshita Commercials Private Limited *
+ -   
+ 1 
+Reliance Realty Limited
+ (4) 
+ - 
+Joint Ventures
+Alok Industries Limited
+8
+ - 
+Brooks Brothers India Private Limited
+ -   
+ 1 
+Diesel Fashion India Reliance Private Limited
+ 1 
+ - 
+	
+	
+@ Relationship established during the year.
+# Shri Mukesh D Ambani and his family comprising Smt. Nita M Ambani, Ms. Isha M Ambani, Shri Akash M Ambani and Shri Anant M Ambani 
+together and collectively control both RIL and JFS by exercise of voting rights.
+	
+	
+* Ceased to be related party during the year.
+262
+Reliance Industries Limited
+263
+Integrated Annual Report 2023-24
+Notes
+to the Consolidated Financial Statements for the year ended 31st March, 2024
+
+=== TABLES ===
+-- table 0 --
+Particulars | 2023-24 | 2022-23
+Joint Ventures
+Alok Industries Limited
+BAM DLR Data Center Services Private Limited @
+BAM DLR Chennai Private Limited @
+BAM DLR Mumbai Private Limited @
+BAM DLR Network Services Private Limited @
+Clarks Footwear Private Limited (Formerly known as Clarks Reliance Footwear
+Private Limited)
+Diesel Fashion India Reliance Private Limited
+Reliance International Leasing IFSC Limited @
+Reliance-Vision Express Private Limited
+Ryohin-Keikaku Reliance India Private Limited
+Sanmina-SCI India Private Limited
+Sintex Industries Limited
+TCO Reliance India Private Limited
+Companies under Common Control #
+Jio Financial Services Limited (Formerly known as Reliance Strategic Investments Limited) @
+Jio Payments Bank Limited *
+Reliance Services and Holdings Limited *
+3 Sale / Redemption of Investments
+Joint Venture
+Sodium-ion Batteries Pty Limited
+4 Loans and Advances, Deposits Given / (Returned)
+Associates
+Ashwani Commercials Private Limited *
+Carin Commercials Private Limited *
+Centura Agro Private Limited *
+Chander Commercials Private Limited *
+Creative Agrotech Private Limited *
+DEN ADN Network Private Limited
+Dunzo Digital Private Limited
+Gujarat Chemical Port Limited
+Honeywell Properties Private Limited *
+Kaniska Commercials Private Limited *
+Netravati Commercials Private Limited *
+NexWafe GmbH
+Prakhar Commercials Private Limited *
+Rakshita Commercials Private Limited *
+Reliance Realty Limited
+Joint Ventures
+Alok Industries Limited
+Brooks Brothers India Private Limited
+Diesel Fashion India Reliance Private Limited |  | -
+-
+-
+-
+-
+2
+4
+-
+10
+3
+1,763
+1,500
+-
+-
+80
+703
+-
+(3)
+(68)
+(2)
+4
+1
+-
+-
+(16)
+6
+1
+1
+-
+(19)
+1
+-
+-
+1
+-
+ |  | 
+ | 3,300 | 
+ | 9 | 
+ | 273 | 
+ | 134 | 
+ | 2 | 
+ | - | 
+ | - | 
+ | 3 | 
+ | 10 | 
+ | 4 | 
+ | - | 
+ | - | 
+ | 15 | 
+ |  | 
+ | 3 | 
+ | - | 
+ | - | 
+ |  | 
+ |  | 
+ | 1 | 
+ |  | 
+ |  | 
+ | - | 
+ | - | 
+ | - | 
+ | - | 
+ | - | 
+ | (1) | 
+ | 26 | 
+ | (15) | 
+ | (1) | 
+ | - | 
+ | - | 
+ | 87 | 
+ | (10) | 
+ | - | 
+ | (4) | 
+ |  | 
+ | 8 | 
+ | - | 
+ | 1 | 
+-- table 1 --
+Sr.
+No. | Nature of Balances | Associates /
+Joint Ventures | Key Managerial
+Personnel /
+Relative | Others | Total
+1 Loans and Advances 559 - - 559
+470 - - 470
+2 Deposits 194 - 353 547
+575 - 353 928
+3 Unsecured Loans 85 - - 85
+80 - - 80
+4 Financial Guarantees 5,350 - - 5,350
+1,900 - - 1,900
+5 Investments 18,073 - - 18,073
+13,646 - - 13,646
+6 Trade Receivables 1,017 - 58 1,075
+1,251 - 39 1,290
+7 Trade and Other Payables 744 - 92 836
+1,260 - 297 1,557
+8 Other Financial Assets 214 - - 214
+271 - - 271
+9 Other Current Assets 15 - - 15 |  | 559 | - | - | 559
+ |  | 15 | - | - | 15
+-- table 2 --
+194 | - | 353 | 547
+-- table 3 --
+85 | - | - | 85
+-- table 4 --
+5,350 | - | - | 5,350
+-- table 5 --
+18,073 | - | - | 18,073
+-- table 6 --
+1,017 | - | 58 | 1,075
+-- table 7 --
+744 | - | 92 | 836
+-- table 8 --
+214 | - | - | 214
+-- table 9 --
+Particulars | 2023-24 | 2022-23
+1 Purchase of Property, Plant and Equipment and Other Intangible Assets
+Associates
+Dunzo Digital Private Limited
+Future101 Design Private Limited
+Jamnagar Utilities & Power Private Limited
+Sterling and Wilson Renewable Energy Limited
+Joint Ventures
+Football Sports Development Limited
+Sanmina-SCI India Private Limited
+Sintex Industries Limited
+Enterprise over which Key Managerial Personnel / Relatives are able to exercise
+significant influence
+Sikka Ports & Terminals Limited
+2 Purchase / Subscription of Investments
+Associates
+Circle E Retail Private Limited @
+Clayfin Technologies Private Limited
+Dunzo Digital Private Limited
+Gaurav Overseas Private Limited
+Jamnagar Utilities & Power Private Limited
+Neolync Solutions Private Limited |  | -
+1
+1
+-
+22
+299
+-
+1
+-
+11
+200
+1
+2
+20
+ |  | 
+ |  | 
+ | 64 | 
+ | - | 
+ | - | 
+ | 12 | 
+ |  | 
+ | - | 
+ | 111 | 
+ | 3 | 
+ |  | 
+ | 1 | 
+ |  | 
+ |  | 
+ | 27 | 
+ | - | 
+ | - | 
+ | - | 
+ | - | 
+ | 20 | 

@@ -1,0 +1,24 @@
+# Page ranges used for the Phase 0 parser bake-off (docs/decisions/0001-pdf-parser.md).
+# governance: board-of-directors / committee composition table (names, DIN, category, attendance)
+# rpt: related-party-transactions note or annexure
+reports:
+  - name: NSE (National Stock Exchange of India) — Integrated Annual Report FY24
+    file: data/inbox/01_NSE_AnnualReport_FY24.pdf
+    governance: 60 # Key Management Personnel table
+    rpt: 67 # Annexure 1 to Board's Report — Form AOC-2, related party contracts
+  - name: Reliance Industries Limited — Integrated Annual Report 2023-24
+    file: data/inbox/02_RIL_AnnualReport_2023-24.pdf
+    governance: 37 # CSR & Governance Committee composition table
+    rpt: 133 # Balances with Related Parties as on March 31, 2024
+  - name: Wipro Limited — Annual Report FY23
+    file: data/inbox/03_Wipro_AnnualReport_FY23.pdf
+    governance: 133 # Corporate Governance Report — director DIN/designation/directorships table
+    rpt: 231 # Significant related party transactions, year ended March 31 2023/2022
+  - name: Bajaj Finance Limited — Annual Report FY2022
+    file: data/inbox/04_BajajFinance_AnnualReport.pdf
+    governance: 75 # Table 1: Composition of the Board and attendance record of directors
+    rpt: 242 # Notes to standalone financial statements — related party transactions
+  - name: Sun Pharmaceutical Industries Limited — Annual Report FY23
+    file: data/inbox/05_SunPharma_AnnualReport_2023.pdf
+    governance: 64 # Board Meetings and attendance table
+    rpt: 192 # Notes to Standalone Financial Statements — related party transactions

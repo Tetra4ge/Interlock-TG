@@ -282,7 +282,7 @@ Exact latency and cost numbers are set after the first baseline run, because the
 | ID | Assumption |
 | --- | --- |
 | A-01 | The team may choose its own domain and data. |
-| A-02 | Paid LLM APIs are allowed within a modest budget. |
+| A-02 | Free-tier LLM APIs (e.g., Groq) are used; no paid LLM budget is required. |
 | A-03 | Development runs on one laptop; optional small VM for hosting. |
 | A-04 | Filings are publicly downloadable; terms of use to be confirmed. |
 | A-05 | English-language filings only. |
@@ -294,7 +294,7 @@ Exact latency and cost numbers are set after the first baseline run, because the
 | ID | Question | Impact if the answer differs from assumption |
 | --- | --- | --- |
 | Q-01 | Does the "core challenge" specify a dataset or domain? | If yes: replace Phases 1–3 (data and schema); pipelines, evaluation and dashboard stay. |
-| Q-02 | Are paid LLM APIs allowed; what is the budget? | If no: local open-weight models; smaller eval set; lower extraction quality expected. |
+| Q-02 | Are free-tier LLM APIs (e.g., Groq) sufficient, or is a paid budget available? | If free-tier only: local open-weight models as fallback; smaller eval set; lower extraction quality expected. |
 | Q-03 | Do exchange/regulator sites allow automated download? | If no: manual inbox path only. |
 | Q-04 | Are director identification numbers available in filings? | If no: fuzzy resolution with lower, reported precision. |
 | Q-05 | Must the demo be publicly hosted? | If yes: add VM deployment in Phase 9. |

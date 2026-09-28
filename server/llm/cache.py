@@ -1,7 +1,11 @@
 import hashlib
 import json
+from pathlib import Path
 
-from server.llm.models import LLMRequest
+from server.llm.models import LLMRequest, LLMResponse
+
+ROOT = Path(__file__).resolve().parent.parent.parent
+CACHE_DIR = ROOT / "data/cache/llm"
 
 
 def generate_cache_key(req: LLMRequest) -> str:
@@ -13,3 +17,23 @@ def generate_cache_key(req: LLMRequest) -> str:
     # Serialize to JSON deterministically
     key_str = json.dumps(data, sort_keys=True)
     return hashlib.sha256(key_str.encode("utf-8")).hexdigest()
+
+
+def _cache_path(key: str) -> Path:
+    return CACHE_DIR / f"{key}.json"
+
+
+def get_cached(key: str) -> LLMResponse | None:
+    path = _cache_path(key)
+    if not path.exists():
+        return None
+    return LLMResponse(**json.loads(path.read_text()))
+
+
+def put_cached(key: str, response: LLMResponse) -> None:
+    """Atomic write: a crash mid-write leaves no partial cache file behind."""
+    path = _cache_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(response.model_dump_json(indent=2))
+    tmp.replace(path)

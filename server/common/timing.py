@@ -1,11 +1,11 @@
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Any
 
-
-from typing import Generator, Dict, Any
 
 @contextmanager
-def timer() -> Generator[Dict[str, Any], None, None]:
+def timer() -> Generator[dict[str, Any], None, None]:
     """
     A context manager to track elapsed time in milliseconds.
     Usage:

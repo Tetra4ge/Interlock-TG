@@ -6,6 +6,7 @@ data/raw/
 data/parsed/
 data/extracted/
 data/cache/
+data/inbox/*.pdf
 db/*.db
 db/*.sqlite
 

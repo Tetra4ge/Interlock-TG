@@ -10,7 +10,7 @@
 | --- | --- |
 | Goal | A working development environment, a running TigerGraph (Docker or Savanna) with a proven GSQL schema/upsert/query/vector spike, a settings system, a run store, an LLM gateway that caches/logs/costs every call, and an evidence-based PDF parser choice |
 | Why | TigerGraph is mandatory for the hackathon and GSQL is new to most people, so the riskiest graph assumptions (schema syntax, multi-endpoint edges, discriminators, vector support, free-tier limits) are tested on day one. Every later phase depends on these. The gateway makes all LLM work cheap to repeat and fair to compare. The parser spike prevents discovering in Phase 2 that your parser breaks the tables you need |
-| Prerequisites | A laptop with Git, Docker Desktop (or Docker Engine + Compose), Python 3.11+, an LLM API key |
+| Prerequisites | A laptop with Git, Docker Desktop (or Docker Engine + Compose), Python 3.11+, a free-tier LLM API key (e.g., from Groq) |
 | Produces | Repo skeleton, `Settings`, Turso DB migrations, `LLMGateway`, TigerGraph connectivity and spike results (ADR-0011), ADR-0001 (parser), answers to open questions Q-01–Q-04 |
 | PRD links | NFR-02, NFR-05, NFR-06, NFR-07 |
 | TRD links | §1, §2, §3, §5, §7.1, §11 |
@@ -254,7 +254,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class Secrets(BaseSettings):
     model_config = SettingsConfigDict(env_file=ROOT / ".env", extra="ignore")
-    llm_provider: str = "anthropic"
+    llm_provider: str = "groq"
     llm_api_key: str = ""
     judge_api_key: str = ""
     embedding_api_key: str = ""
@@ -645,7 +645,7 @@ Optionally add one layout-aware parser (e.g. Docling). **Verify** its current AP
 | Question | How to resolve | Where to record |
 | --- | --- | --- |
 | Q-01 Dataset given? | Read the hackathon brief, FAQ, Discord/announcements | `docs/decisions/0000-scope.md` |
-| Q-02 Paid APIs + budget | Rules + team budget; set `LLM_SPEND_CAP_USD` | same |
+| Q-02 Free-tier APIs + budget | Confirm Groq free-tier limits are enough; set `LLM_SPEND_CAP_USD` as a safety net | same |
 | Q-03 Download allowed? | Read terms of use and robots.txt of each source site | same |
 | Q-04 DINs available? | Search your 5 sample reports for 8-digit director IDs in the governance report | same |
 

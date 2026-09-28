@@ -1,5 +1,7 @@
 pricing_usd_per_million_tokens:
-  "gpt-4o": {input: 5.0, output: 15.0}
-  "gpt-4o-mini": {input: 0.150, output: 0.600}
-  "claude-3-5-sonnet-20240620": {input: 3.0, output: 15.0}
-  "llama3-8b-8192": {input: 0.0, output: 0.0}
+  # Groq free tier — $0 while on the free developer tier. Confirmed live via
+  # client.models.list() against our own key on 2026-09-28; re-check at
+  # https://console.groq.com/docs/models before demo day, as Groq's catalog churns.
+  "openai/gpt-oss-20b": {input: 0.0, output: 0.0}
+  "openai/gpt-oss-120b": {input: 0.0, output: 0.0}
+  "qwen/qwen3.8-27b": {input: 0.0, output: 0.0}
