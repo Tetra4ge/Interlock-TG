@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-import yaml  # type: ignore
+import yaml
 
 logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parent.parent.parent

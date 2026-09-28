@@ -21,20 +21,20 @@ def parse_name(name: str) -> dict[str, str | None] | None:
     return m.groupdict() if m else None
 
 
-def ingest_inbox(
-    inbox: Path = INBOX_DIR, processed: Path = PROCESSED_DIR
-) -> dict[str, int | list[str]]:
+def ingest_inbox(inbox: Path = INBOX_DIR, processed: Path = PROCESSED_DIR) -> dict:
     """Registers every well-named PDF in `inbox`, moving each into `processed/`
-    once registered. Badly-named files are reported and left in place so they
-    can be fixed and rerun."""
+    once registered. Badly-named files (including real non-PDF content saved
+    with a .pdf name) are reported and left in place so they can be fixed and
+    rerun."""
     processed.mkdir(parents=True, exist_ok=True)
-    report: dict[str, int | list[str]] = {"registered": 0, "duplicates": 0, "bad_names": []}
+    registered = 0
+    duplicates = 0
+    bad_names: list[str] = []
 
     for f in sorted(inbox.glob("*.pdf")):
         meta = parse_name(f.name)
         if meta is None:
-            assert isinstance(report["bad_names"], list)
-            report["bad_names"].append(f.name)
+            bad_names.append(f.name)
             continue
 
         company_id = None if meta["company"] == "ORDER" else meta["company"]
@@ -49,14 +49,13 @@ def ingest_inbox(
                 source_url=None,
             )
         except ValueError:
-            # Not a real PDF (e.g. an HTML error page saved with a .pdf name).
-            # Leave it in the inbox for manual inspection rather than silently
-            # dropping it or moving it to processed/ as if it succeeded.
-            assert isinstance(report["bad_names"], list)
-            report["bad_names"].append(f.name)
+            bad_names.append(f.name)
             continue
 
-        report["registered" if created else "duplicates"] += 1  # type: ignore[operator]
+        if created:
+            registered += 1
+        else:
+            duplicates += 1
         f.rename(processed / f.name)
 
-    return report
+    return {"registered": registered, "duplicates": duplicates, "bad_names": bad_names}

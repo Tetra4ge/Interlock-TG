@@ -84,9 +84,7 @@ def already_have(company_id: str | None, doc_type: str, fiscal_year: str | None)
         conn.close()
 
 
-def list_documents(
-    *, company_id: str | None = None, doc_type: str | None = None
-) -> list[dict]:
+def list_documents(*, company_id: str | None = None, doc_type: str | None = None) -> list[dict]:
     """Registered documents, optionally filtered. Used by the coverage report."""
     conn = connect()
     try:
