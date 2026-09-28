@@ -13,7 +13,7 @@ dependencies = [
     "pdfplumber>=0.10.0",
     "rapidfuzz>=3.0.0",
     "libsql-client",
-    "openai>=1.0.0"
+    "groq>=1.7.0",
 ]
 
 [dependency-groups]
@@ -36,3 +36,13 @@ strict = false
 warn_unused_ignores = true
 disallow_untyped_defs = true
 packages = ["server"]
+
+[[tool.mypy.overrides]]
+module = ["libsql_client", "pyTigerGraph", "pyTigerGraph.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+markers = [
+    "integration: requires a live external service (TigerGraph, real LLM API)",
+]

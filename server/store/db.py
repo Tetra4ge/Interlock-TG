@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import libsql_client
 
@@ -6,7 +7,6 @@ from server.settings import settings
 
 MIGRATIONS = Path(__file__).parent / "migrations"
 
-from typing import Any
 
 def connect() -> Any:
     """

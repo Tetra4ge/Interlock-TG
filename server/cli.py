@@ -14,7 +14,9 @@ def main() -> None:
     subparsers.add_parser("db-migrate", help="Run Turso/libSQL database migrations")
 
     # llm-ping command
-    ping_parser = subparsers.add_parser("llm-ping", help="Ping the LLM Gateway to test config and DB logging")
+    ping_parser = subparsers.add_parser(
+        "llm-ping", help="Ping the LLM Gateway to test config and DB logging"
+    )
     ping_parser.add_argument("message", type=str, help="Message to send to the LLM")
     
     args = parser.parse_args()
@@ -25,10 +27,10 @@ def main() -> None:
         print("Done. Migrations applied.")
         
     elif args.command == "llm-ping":
-        print("Sending message to LLM (openai: gpt-4o-mini)...")
+        print("Sending message to LLM (groq: llama-3.1-8b-instant)...")
         req = LLMRequest(
-            provider="openai",
-            model="gpt-4o-mini",
+            provider="groq",
+            model="llama-3.1-8b-instant",
             messages=[LLMMessage(role="user", content=args.message)],
             max_tokens=100
         )

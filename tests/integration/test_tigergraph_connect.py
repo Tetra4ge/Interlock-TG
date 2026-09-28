@@ -28,8 +28,10 @@ def test_tigergraph_spike(tg_conn):
     CREATE VERTEX Company (PRIMARY_ID id STRING, name STRING)
     CREATE VERTEX Person (PRIMARY_ID id STRING, name STRING)
     
-    CREATE DIRECTED EDGE WORKS_FOR (FROM Person, TO Company, role STRING) WITH REVERSE_EDGE="WORKS_FOR_REV"
-    CREATE DIRECTED EDGE MULTI_EDGE (FROM Person, TO Company | FROM Company, TO Company) WITH DISCRIMINATOR(discriminator STRING)
+    CREATE DIRECTED EDGE WORKS_FOR (FROM Person, TO Company, role STRING)
+        WITH REVERSE_EDGE="WORKS_FOR_REV"
+    CREATE DIRECTED EDGE MULTI_EDGE (FROM Person, TO Company | FROM Company, TO Company)
+        WITH DISCRIMINATOR(discriminator STRING)
     
     CREATE GRAPH SpikeGraph (Company, Person, WORKS_FOR, WORKS_FOR_REV, MULTI_EDGE)
     """
@@ -50,8 +52,12 @@ def test_tigergraph_spike(tg_conn):
     tg_conn.upsertVertex("Person", "p1", attributes={"name": "Alice"})
     tg_conn.upsertVertex("Person", "p2", attributes={"name": "Bob"})
     
-    tg_conn.upsertEdge("Person", "p1", "WORKS_FOR", "Company", "c1", attributes={"role": "Engineer"})
-    tg_conn.upsertEdge("Person", "p2", "WORKS_FOR", "Company", "c1", attributes={"role": "Manager"})
+    tg_conn.upsertEdge(
+        "Person", "p1", "WORKS_FOR", "Company", "c1", attributes={"role": "Engineer"}
+    )
+    tg_conn.upsertEdge(
+        "Person", "p2", "WORKS_FOR", "Company", "c1", attributes={"role": "Manager"}
+    )
     
     # Check counts
     v_count = tg_conn.getVertexCount("Person")
@@ -63,8 +69,12 @@ def test_tigergraph_spike(tg_conn):
     
     # 3. Test multi-endpoint edge with discriminator
     # Insert two edges of the same type between the same vertices with different discriminators
-    tg_conn.upsertEdge("Person", "p1", "MULTI_EDGE", "Company", "c1", attributes={"discriminator": "type_a"})
-    tg_conn.upsertEdge("Person", "p1", "MULTI_EDGE", "Company", "c1", attributes={"discriminator": "type_b"})
+    tg_conn.upsertEdge(
+        "Person", "p1", "MULTI_EDGE", "Company", "c1", attributes={"discriminator": "type_a"}
+    )
+    tg_conn.upsertEdge(
+        "Person", "p1", "MULTI_EDGE", "Company", "c1", attributes={"discriminator": "type_b"}
+    )
     
     # Confirm both exist by checking edge count
     edge_count = tg_conn.getEdgeCount("MULTI_EDGE")

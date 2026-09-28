@@ -1,12 +1,12 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from server.common.logging import get_logger
 from server.llm.cache import generate_cache_key
 from server.llm.models import LLMRequest, LLMResponse
 from server.llm.pricing import calculate_cost
-from server.llm.providers.openai_provider import OpenAIProvider
+from server.llm.providers.groq_provider import GroqProvider
 from server.store.db import connect
 
 logger = get_logger(__name__)
@@ -15,7 +15,7 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # Register supported providers
 PROVIDERS = {
-    "openai": OpenAIProvider,
+    "groq": GroqProvider,
 }
 
 def call_llm(request: LLMRequest) -> LLMResponse:
@@ -86,7 +86,7 @@ def _log_to_db(cache_key: str, request: LLMRequest, response: LLMResponse) -> No
                 response.latency_ms, 
                 int(response.cache_hit), 
                 response.error,
-                datetime.now(timezone.utc).isoformat()
+                datetime.now(UTC).isoformat()
             ]
         )
     except Exception as e:

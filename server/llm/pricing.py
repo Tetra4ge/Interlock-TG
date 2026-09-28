@@ -24,4 +24,6 @@ def calculate_cost(model: str, tokens_in: int, tokens_out: int) -> float:
     rates = PRICING_TABLE.get(model)
     if not rates:
         return 0.0
-    return (tokens_in * rates.get("input", 0) / 1_000_000) + (tokens_out * rates.get("output", 0) / 1_000_000)
+    input_cost = tokens_in * rates.get("input", 0) / 1_000_000
+    output_cost = tokens_out * rates.get("output", 0) / 1_000_000
+    return input_cost + output_cost
