@@ -32,7 +32,7 @@ This project is built for a hackathon organised by TigerGraph, so TigerGraph is 
 
 ## Planned stack
 
-Python 3.11+ (uv, Pydantic v2, httpx) · PyMuPDF + pdfplumber · **TigerGraph** (graph, GSQL installed queries, vector search; `pyTigerGraph` client) · SQLite FTS5 for entity-name lookup · SQLite run store · custom LLM gateway with cache and cost cap · hand-written agent state machine · FastAPI · Next.js dashboard (TypeScript, React, Tailwind CSS) · pytest, Ruff, mypy · Docker Compose.
+Python 3.11+ (uv, Pydantic v2, httpx) · PyMuPDF + pdfplumber · **TigerGraph** (graph, GSQL installed queries, vector search; `pyTigerGraph` client) · Turso (libSQL) FTS5 for entity-name lookup · Turso (libSQL) run store · custom LLM gateway with cache and cost cap · hand-written agent state machine · FastAPI · Next.js dashboard (TypeScript, React, Tailwind CSS) · pytest, Ruff, mypy · Docker Compose.
 
 ## Architecture
 
@@ -65,7 +65,7 @@ flowchart LR
     subgraph STORE[Storage]
         direction TB
         TG[(TigerGraph: graph + vectors)]
-        SQL[(SQLite: run store, traces, scores)]
+        SQL[(Turso DB / libSQL: run store, traces, scores)]
         CACHE[(LLM cache)]
     end
 
@@ -107,7 +107,7 @@ flowchart LR
     SQL --> DASH
 ```
 
-**Reading the diagram:** the offline pipeline turns PDFs into a grounded graph and vector index; the three pipelines share one retrieval layer and one LLM gateway, so they differ only in *how* they use retrieval; the evaluation runner scores all three into SQLite, which feeds the dashboard. Detailed sequences (RAG, GraphRAG, agent loop, `/compare`, evaluation flow) are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+**Reading the diagram:** the offline pipeline turns PDFs into a grounded graph and vector index; the three pipelines share one retrieval layer and one LLM gateway, so they differ only in *how* they use retrieval; the evaluation runner scores all three into Turso DB, which feeds the dashboard. Detailed sequences (RAG, GraphRAG, agent loop, `/compare`, evaluation flow) are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Deliverables
 
@@ -120,7 +120,7 @@ Full index in [docs/README.md](docs/README.md).
 | Document | Contents |
 | --- | --- |
 | [PRD](docs/PRD.md) | Problem, users, goals, requirements (FR/NFR), success metrics, scope, risks, open questions |
-| [TRD](docs/TRD.md) | Stack decisions, repo layout, config, data models, SQLite and TigerGraph (GSQL) schemas, interfaces, API, security, testing |
+| [TRD](docs/TRD.md) | Stack decisions, repo layout, config, data models, Turso (libSQL) and TigerGraph (GSQL) schemas, interfaces, API, security, testing |
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | Context, containers, build pipeline, online layer, agent loop, deployment, ADRs |
 | [Phases 0–10](docs/phases/) | Ordered build plan, each with steps, tests, exit criteria and hand-off |
 

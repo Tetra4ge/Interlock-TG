@@ -47,13 +47,13 @@ flowchart TB
         API[API service: FastAPI]
         DASH[Dashboard / Web App: Next.js]
         TG[(TigerGraph: graph + vectors, GSQL queries)]
-        SQL[(SQLite: run store)]
+        SQL[(Turso DB / libSQL: run store)]
         FS[(Filesystem: raw PDFs, parsed JSON, LLM cache)]
     end
     DASH --> API
-    API --> NEO
+    API --> TG
     API --> SQL
-    CLI --> NEO
+    CLI --> TG
     CLI --> SQL
     CLI --> FS
     API --> FS
@@ -65,7 +65,7 @@ flowchart TB
 | API | FastAPI + Uvicorn | Long-running (Compose service) | Serve pipelines, runs, metrics, subgraphs |
 | Dashboard | Next.js (React, Tailwind CSS, TypeScript) | Long-running (Compose service) | Five pages for judges |
 | TigerGraph | TigerGraph (Community/Developer edition in Docker, or Savanna cloud) | Long-running (Compose service or hosted) | Entities, relations, chunks, embeddings; installed GSQL queries for traversal, aggregation and vector search |
-| SQLite | File | Embedded | Documents, records, questions, runs, scores, traces, entity-name FTS5 index |
+| Turso DB | libSQL (cloud or local file) | Embedded / Cloud Service | Documents, records, questions, runs, scores, traces, entity-name FTS5 index |
 | Filesystem | Local disk | — | Raw PDFs, intermediate JSON, LLM cache |
 
 ---
@@ -146,11 +146,11 @@ flowchart TD
     GW --> CACHE[(LLM cache)]
     GW --> PROV[LLM provider]
     PIPES --> TR[Tracer]
-    TR --> SQL[(SQLite)]
+    TR --> SQL[(Turso DB)]
     EVAL --> SQL
 ```
 
-**Retrieval services** are shared functions used by all pipelines and tools: `vector_search`, `entity_search` (SQLite FTS5 + fuzzy), `expand_subgraph`, `chunks_for_entities`, `get_evidence`. Sharing them guarantees the pipelines differ only in *how* they use retrieval, not in retrieval quality.
+**Retrieval services** are shared functions used by all pipelines and tools: `vector_search`, `entity_search` (Turso DB FTS5 + fuzzy), `expand_subgraph`, `chunks_for_entities`, `get_evidence`. Sharing them guarantees the pipelines differ only in *how* they use retrieval, not in retrieval quality.
 
 ### 5.2 Request sequence: `/compare`
 
@@ -161,7 +161,7 @@ sequenceDiagram
     participant R as RAG
     participant G as GraphRAG
     participant Ag as Agent
-    participant S as SQLite
+    participant S as Turso DB
     U->>A: POST /compare {question}
     A->>A: request_id = new id
     par
@@ -202,7 +202,7 @@ sequenceDiagram
     participant L as LLM gateway
     participant N as TigerGraph
     P->>L: extract mentions + relation types (helper)
-    P->>P: entity lookup (SQLite FTS5 + fuzzy)
+    P->>P: entity lookup (Turso DB FTS5 + fuzzy)
     P->>N: installed GSQL query: expand 1-2 hops, capped
     P->>N: chunks MENTIONing subgraph entities + vector rank
     P->>P: serialize triples + chunks within budget
@@ -311,8 +311,8 @@ Write one short file per decision in `docs/decisions/`.
 | --- | --- | --- |
 | 0001 | PDF parser choice (decided in Phase 0 bake-off) | Pending |
 | 0002 | Modular monolith, not microservices | Accepted |
-| 0003 | TigerGraph (required by the hackathon) holds the graph and, if supported, vectors; GSQL installed queries for traversal; entity-name search in SQLite FTS5 | Accepted |
-| 0004 | SQLite for run store | Accepted |
+| 0003 | TigerGraph (required by the hackathon) holds the graph and, if supported, vectors; GSQL installed queries for traversal; entity-name search in Turso DB FTS5 | Accepted |
+| 0004 | Turso DB (libSQL) for production cloud & local run store | Accepted |
 | 0005 | Own LLM gateway with content-hash cache | Accepted |
 | 0006 | Hand-written agent state machine (LangGraph if needs grow) | Accepted |
 | 0007 | Custom GraphRAG over typed schema | Accepted |
@@ -344,7 +344,7 @@ Status: Proposed | Accepted | Superseded by ADR-XXXX
 For the required architecture diagram, combine sections 4.1, 5.1 and 5.5 into one image:
 
 - Left: offline build pipeline.
-- Middle: TigerGraph + SQLite.
+- Middle: TigerGraph + Turso DB.
 - Right: three pipelines side by side, with the agent's loop shown as an inset.
 - Bottom: evaluation runner → dashboard.
 

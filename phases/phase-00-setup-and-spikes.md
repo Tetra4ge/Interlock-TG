@@ -11,7 +11,7 @@
 | Goal | A working development environment, a running TigerGraph (Docker or Savanna) with a proven GSQL schema/upsert/query/vector spike, a settings system, a run store, an LLM gateway that caches/logs/costs every call, and an evidence-based PDF parser choice |
 | Why | TigerGraph is mandatory for the hackathon and GSQL is new to most people, so the riskiest graph assumptions (schema syntax, multi-endpoint edges, discriminators, vector support, free-tier limits) are tested on day one. Every later phase depends on these. The gateway makes all LLM work cheap to repeat and fair to compare. The parser spike prevents discovering in Phase 2 that your parser breaks the tables you need |
 | Prerequisites | A laptop with Git, Docker Desktop (or Docker Engine + Compose), Python 3.11+, an LLM API key |
-| Produces | Repo skeleton, `Settings`, SQLite migrations, `LLMGateway`, TigerGraph connectivity and spike results (ADR-0011), ADR-0001 (parser), answers to open questions Q-01–Q-04 |
+| Produces | Repo skeleton, `Settings`, Turso DB migrations, `LLMGateway`, TigerGraph connectivity and spike results (ADR-0011), ADR-0001 (parser), answers to open questions Q-01–Q-04 |
 | PRD links | NFR-02, NFR-05, NFR-06, NFR-07 |
 | TRD links | §1, §2, §3, §5, §7.1, §11 |
 
@@ -120,6 +120,7 @@ data/raw/
 data/parsed/
 data/extracted/
 data/cache/
+db/*.db
 db/*.sqlite
 # python
 __pycache__/
@@ -264,7 +265,8 @@ class Secrets(BaseSettings):
     tg_secret: str = ""
     tg_restpp_port: int = 9000
     tg_gs_port: int = 14240
-    sqlite_path: str = "db/interlock.sqlite"
+    turso_database_url: str = "file:db/interlock.db"
+    turso_auth_token: str = ""
     llm_spend_cap_usd: float = 25.0
     log_level: str = "INFO"
 
@@ -365,39 +367,41 @@ def timer():
         t["ms"] = int((time.perf_counter() - start) * 1000)
 ```
 
-### Step 7 — Run store with migrations
+### Step 7 — Run store with Turso DB migrations
 
 1. Put the full schema from TRD §5 in `store/migrations/0001_init.sql`.
 2. `store/db.py`:
 
 ```python
-import sqlite3
 from pathlib import Path
+import libsql
 
 MIGRATIONS = Path(__file__).parent / "migrations"
 
-def connect(path: str) -> sqlite3.Connection:
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")      # better concurrent reads
-    conn.execute("PRAGMA foreign_keys=ON")
+def connect(url: str, auth_token: str | None = None):
+    if url.startswith("file:"):
+        path = url.removeprefix("file:")
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+    conn = libsql.connect(database=url, auth_token=auth_token or None)
     return conn
 
-def migrate(conn: sqlite3.Connection) -> None:
+def migrate(conn) -> None:
     conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)")
-    applied = {r[0] for r in conn.execute("SELECT version FROM schema_version")}
+    applied = {r[0] for r in conn.execute("SELECT version FROM schema_version").fetchall()}
     for f in sorted(MIGRATIONS.glob("*.sql")):
         v = int(f.name.split("_")[0])
         if v not in applied:
-            conn.executescript(f.read_text())
+            for stmt in f.read_text().split(";"):
+                stmt = stmt.strip()
+                if stmt:
+                    conn.execute(stmt)
             conn.execute("INSERT INTO schema_version(version) VALUES (?)", (v,))
             conn.commit()
 ```
 
 Why migrations: when you add a column in Phase 5, you add `0002_*.sql` instead of deleting your database.
 
-**Verify it worked:** `uv run python -c "from interlock.store.db import connect, migrate; c=connect('db/interlock.sqlite'); migrate(c)"` then open the file with any SQLite viewer and see the tables.
+**Verify it worked:** `uv run python -c "from interlock.store.db import connect, migrate; c=connect('file:db/interlock.db'); migrate(c)"` then query the tables or view in Turso dashboard / libSQL shell.
 
 ### Step 8 — TigerGraph client
 
@@ -426,7 +430,7 @@ def run_installed(conn, name: str, params: dict | None = None, timeout_ms: int =
     return conn.runInstalledQuery(name, params or {}, timeout=timeout_ms)   # Verify signature
 ```
 
-**Verify it worked:** `get_conn(cfg).echo()` succeeds and `conn.getVertexTypes()` (after the schema exists) returns the expected list. Full-text-style lookups are not done here; see Phase 3 (SQLite FTS5).
+**Verify it worked:** `get_conn(cfg).echo()` succeeds and `conn.getVertexTypes()` (after the schema exists) returns the expected list. Full-text-style lookups are not done here; see Phase 3 (Turso DB FTS5).
 
 ### Step 9 — LLM gateway
 
@@ -720,4 +724,4 @@ class FakeProvider:
 
 ## 0.9 Hand-off to Phase 1
 
-Phase 1 needs: `Settings`, SQLite with `documents` and `fetch_attempts` tables, logging, `sha256_bytes`, and the CLI entry point. All are now in place.
+Phase 1 needs: `Settings`, Turso DB with `documents` and `fetch_attempts` tables, logging, `sha256_bytes`, and the CLI entry point. All are now in place.

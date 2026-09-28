@@ -361,7 +361,7 @@ Write 10 questions by hand across categories (not part of the eval set — these
 | --- | --- | --- |
 | 1 | `AnswerResult` and shared prompts finalized (v1) | Files exist; versions recorded |
 | 2 | RAG answers 10 smoke questions with valid citations where answerable | `hl ask` output |
-| 3 | Every step appears in `traces` | SQLite query by request_id |
+| 3 | Every step appears in `traces` | Turso DB query by request_id |
 | 4 | Reranker decision recorded | ADR-0011 |
 | 5 | Tests pass | `make test` |
 

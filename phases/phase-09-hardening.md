@@ -109,7 +109,7 @@ USER app
 ENTRYPOINT ["bash", "scripts/entrypoint.sh"]
 ```
 
-`.dockerignore`: `.git`, `.venv`, `data/raw`, `data/parsed`, `data/cache`, `db/*.sqlite`, `__pycache__`, `.env`.
+`.dockerignore`: `.git`, `.venv`, `data/raw`, `data/parsed`, `data/cache`, `db/*.db`, `db/*.sqlite`, `__pycache__`, `.env`.
 
 Local embedding model: if you use a local embedding model, the API container must load it at startup. Either download it during the image build (larger image, offline-safe) or on first start into a mounted cache volume. Document the choice; the first start may be slow.
 

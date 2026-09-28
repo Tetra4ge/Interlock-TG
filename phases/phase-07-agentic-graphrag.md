@@ -157,7 +157,7 @@ All tools:
 
 `search_text` reuses the shared vector search (+ reranker if enabled) with metadata filters; each chunk → evidence.
 
-`find_entity` reuses Phase 6 linking (SQLite FTS5 + fuzzy), returns candidates (not evidence — they are lookups, not facts).
+`find_entity` reuses Phase 6 linking (Turso DB FTS5 + fuzzy), returns candidates (not evidence — they are lookups, not facts).
 
 `get_evidence` returns the quote/page for an edge_id or chunk_id and logs it as evidence if not already logged.
 

@@ -47,7 +47,7 @@ GSQL is TigerGraph's query language. A query is written once, **installed** (com
 A vector attribute stores an embedding on a vertex; a vector search returns the vertices whose embeddings are most similar to a query vector (approximate nearest neighbour, cosine here). Support depends on the TigerGraph version (**Verify**, ADR-0011). Fallback if unsupported: local FAISS/NumPy index keyed by `chunk_id`; everything else stays in TigerGraph.
 
 ### Entity-name search (no graph full-text index)
-TigerGraph has no built-in full-text index (**Verify**). Name → entity lookup is done over the `entities` table in SQLite with an FTS5 index on `name` and `aliases`, then RapidFuzz re-ranking. Entities are few (thousands), so this is fast and simple.
+TigerGraph has no built-in full-text index (**Verify**). Name → entity lookup is done over the `entities` table in Turso DB with an FTS5 index on `name` and `aliases`, then RapidFuzz re-ranking. Entities are few (thousands), so this is fast and simple.
 
 ---
 
@@ -366,7 +366,7 @@ Write and test these now; Phases 4–7 reuse them. Each graph function calls an 
 | Function | Purpose | Sketch |
 | --- | --- | --- |
 | `vector_search(qvec, k, filters)` | Top-k chunks, optional company/year/section filter | `vector_chunks` query (or local index); over-fetch k×3 then filter |
-| `entity_search(text, kind, limit)` | Name → entity candidates | SQLite FTS5 query on `entities` (escape FTS syntax characters in user text, use quoted phrases), then RapidFuzz re-rank |
+| `entity_search(text, kind, limit)` | Name → entity candidates | Turso DB FTS5 query on `entities` (escape FTS syntax characters in user text, use quoted phrases), then RapidFuzz re-rank |
 | `neighbors(entity_id, rel_types, hops, fy)` | Bounded expansion | `entity_neighbors` query |
 | `shared_directors(ids, fy)` | Common directors between companies | `shared_directors` query |
 | `path_between(a, b, max_hops)` | Bounded shortest path | `path_between` query |
@@ -386,7 +386,7 @@ Sanity checks to run in GraphStudio (or via `conn`) after loading:
 
 `hl build-graph` runs, in order, skipping completed work:
 
-1. `migrate` (SQLite) and `schema` (TigerGraph schema and installed queries, skipped if unchanged)
+1. `migrate` (Turso DB) and `schema` (TigerGraph schema and installed queries, skipped if unchanged)
 2. `parse` all registered documents
 3. `sections` + `chunk`
 4. `extract` (resumable, cached)
@@ -394,7 +394,7 @@ Sanity checks to run in GraphStudio (or via `conn`) after loading:
 6. `load` nodes, edges, chunks
 7. `mentions`
 8. `embed` + vector attribute (or local vector index)
-9. `entity-index`: rebuild the SQLite FTS5 table from `entities`
+9. `entity-index`: rebuild the Turso DB FTS5 table from `entities`
 
 Flags: `--from <step>` to restart from a step; `--reset-graph` to wipe the graph's data first (`CLEAR GRAPH STORE` in GSQL, or drop and recreate the graph; **Verify** the current command and that it only affects this graph). This is destructive: the command must print what it will delete and require `--yes`.
 
@@ -435,7 +435,7 @@ Include chunk embeddings for those companies (this can be large; keep the sample
 | Loader idempotency | Load twice → identical node/edge counts |
 | Provenance completeness | Query returns 0 fact edges missing doc/page |
 | Graph queries on fixture graph | Known 2-hop answer returned; `neighbors` respects hop and type filters |
-| FTS escaping | Names with `&`, `(`, `-`, quotes don't crash the SQLite FTS5 query |
+| FTS escaping | Names with `&`, `(`, `-`, quotes don't crash the Turso DB FTS5 query |
 
 Fixture graph: 5 companies, 8 persons, 1 audit firm, 1 regulatory action, 4 transactions — small enough to reason about by hand.
 

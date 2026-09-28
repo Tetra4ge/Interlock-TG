@@ -92,13 +92,13 @@ Question: {question}
 
 Why include `fiscal_years`: time filters cut the subgraph drastically and improve precision.
 
-Fallback if the call fails: use all relation types, no year filter, and do entity lookup (SQLite FTS5) on capitalized phrases in the question.
+Fallback if the call fails: use all relation types, no year filter, and do entity lookup (Turso DB FTS5) on capitalized phrases in the question.
 
 ### Step 2 — Linking (`linking.py`)
 
 For each mention:
 1. Build an FTS5 query from the mention: quote the phrase (escaping quotes), and also try the tokens joined with AND for multi-token names. Fuzziness comes from the RapidFuzz re-rank, not from the index.
-2. `entity_search(query, kind, limit=5)` (Phase 3 queries: SQLite FTS5 over `entities`, then RapidFuzz re-rank).
+2. `entity_search(query, kind, limit=5)` (Phase 3 queries: Turso DB FTS5 over `entities`, then RapidFuzz re-rank).
 3. Choose the top candidate if:
     - Its re-rank score is clearly higher than the second (e.g. gap ≥ 5 points), **and**
     - `fuzz.token_set_ratio(norm(mention), norm(candidate.name or alias)) ≥ 85`.

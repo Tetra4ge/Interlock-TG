@@ -77,7 +77,7 @@ tests/integration/test_api.py
 
 ### Step 1 — Shared context (`api/deps.py`)
 
-Create once at startup: settings, SQLite connection factory (one connection per request/thread), TigerGraph connection (`pyTigerGraph`; one shared read-only connection/token), LLM gateway, embedding model (loaded once), pipelines registry.
+Create once at startup: settings, Turso DB connection / client, TigerGraph connection (`pyTigerGraph`; one shared read-only connection/token), LLM gateway, embedding model (loaded once), pipelines registry.
 
 Use FastAPI's lifespan hook to build and close these.
 
@@ -109,7 +109,7 @@ class CompareIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"tigergraph": ctx.tigergraph_ok(), "sqlite": ctx.sqlite_ok(), "llm_key": bool(ctx.settings.secrets.llm_api_key)}
+    return {"tigergraph": ctx.tigergraph_ok(), "turso": ctx.turso_ok(), "llm_key": bool(ctx.settings.secrets.llm_api_key)}
 
 @app.post("/ask")
 def ask(body: AskIn):

@@ -26,8 +26,8 @@
 | Graph DB (+ vectors) | **TigerGraph** (Savanna cloud or Community/Developer edition in Docker; 4.2+ recommended for native vector attributes — **Verify**) | Required (hackathon organiser's platform) | Native parallel graph engine, GSQL multi-hop traversal and accumulators, installed queries |
 | Graph query language | GSQL (installed, parameterized queries kept as `.gsql` files) | Required | TigerGraph's query language; versioned in git |
 | Graph driver | `pyTigerGraph` (REST++ / GSQL server) | Required | Official Python client: schema, upserts, installed and interpreted queries |
-| Entity-name lookup | SQLite FTS5 over `entities` (name + aliases) | Required | TigerGraph has no built-in full-text index (**Verify**); the run store already holds every entity |
-| Run store | SQLite (stdlib `sqlite3`) | Required | Zero setup |
+| Entity-name lookup | Turso DB / libSQL FTS5 over `entities` (name + aliases) | Required | TigerGraph has no built-in full-text index (**Verify**); Turso DB already holds every entity |
+| Run store | Turso DB / libSQL (`libsql-client` or local libSQL) | Required | Cloud-native deployment with local dev parity |
 | LLM access | Own gateway over one provider SDK | Required | Caching, cost, fairness, logging in one place |
 | Embeddings | Chosen by recall test (hosted API or sentence-transformers) | Required | Measured on own data |
 | Fuzzy matching | RapidFuzz | Required | Fast string similarity |
@@ -49,8 +49,8 @@ Full reasoning, alternatives and trade-offs for every row are in section 1.2.
 | **Python + TypeScript** | Python-only, TypeScript-only, Go | Python has the best tooling for PDF/LLM/evaluation; TypeScript + React/Next.js provides a responsive, stateful frontend without Streamlit rerun overhead | Modern modular web architecture |
 | **TigerGraph** | Neo4j; Memgraph; PostgreSQL + Apache AGE; ArangoDB; NetworkX | **Not a free choice: the hackathon is organised by TigerGraph and requires it.** It also suits the project: deep multi-hop traversal with accumulators (e.g. summing pledged stake or transaction values along paths) runs inside the database | Graph modeling, GSQL, accumulators, installed queries |
 | **Vectors inside TigerGraph** | Qdrant, pgvector, Chroma, FAISS | Keeps chunk-to-entity links and vector search in one engine. Fallback if the deployed version lacks native vectors (Q-08): a local FAISS/NumPy index keyed by `chunk_id`, everything else stays in TigerGraph | Vector attributes, ANN search |
-| **SQLite FTS5 for entity names** | Lucene-style index in the graph DB, Elasticsearch | TigerGraph has no built-in full-text index; entities are few (thousands) so FTS5 plus RapidFuzz is enough | Full-text search basics |
-| **SQLite run store** | PostgreSQL, DuckDB | Postgres is overkill; DuckDB optional later for analytics | Relational schema design |
+| **Turso DB FTS5 for entity names** | Lucene-style index in the graph DB, Elasticsearch | TigerGraph has no built-in full-text index; entities are few (thousands) so FTS5 plus RapidFuzz is enough | Full-text search basics |
+| **Turso DB run store** | PostgreSQL, DuckDB, local SQLite | Cloud libSQL provides seamless cloud deployment and local dev parity without file lock/mount issues | Relational schema design, cloud DB |
 | **PyMuPDF + pdfplumber** | Docling, Unstructured, Camelot, vision LLM | Heavier or narrower; decided by a bake-off in Phase 0 | Document AI realities |
 | **Own LLM gateway** | LiteLLM, LangChain model wrappers | Extra dependency; less control over caching and cost. LiteLLM can sit inside the gateway if you switch providers often | Caching, retries, cost control |
 | **Hand-written agent** | LangGraph, LlamaIndex agents, CrewAI | Framework prompts and abstractions hide behavior; for a comparison project transparency matters. Move to LangGraph if you need pause/resume or many branches | How agents actually work |
@@ -97,13 +97,13 @@ interlock/
 │   ├── samples/             # committed small demo graph + cached answers
 │   └── cache/llm/           # gitignored LLM response cache
 ├── db/
-│   └── interlock.sqlite  # gitignored run store
+│   └── interlock.db         # gitignored local database file (if local libSQL used)
 ├── src/interlock/
 │   ├── __init__.py
 │   ├── settings.py
 │   ├── cli.py
 │   ├── common/              # ids, logging, timing, errors
-│   ├── store/               # SQLite access + migrations
+│   ├── store/               # Turso DB / libSQL access + migrations
 │   ├── ingest/              # fetcher, registry, inbox
 │   ├── parse/               # pdf text, tables, cleaning, sections, chunking
 │   ├── extract/             # schemas, prompts, runner, grounding, validation
@@ -173,7 +173,8 @@ TG_PASSWORD=change-me
 TG_SECRET=                        # optional: for token auth on Savanna (Verify)
 TG_RESTPP_PORT=9000               # cloud deployments may use 443 (Verify)
 TG_GS_PORT=14240
-SQLITE_PATH=db/interlock.sqlite
+TURSO_DATABASE_URL=libsql://your-db.turso.io   # or file:db/interlock.db for local dev
+TURSO_AUTH_TOKEN=your-auth-token               # optional for local file
 LLM_SPEND_CAP_USD=25
 LOG_LEVEL=INFO
 ```
@@ -251,7 +252,7 @@ eval:
 
 ## 4. Data models (Pydantic)
 
-These are the canonical contracts. Field names are used identically in SQLite, the graph, the API and the dashboard.
+These are the canonical contracts. Field names are used identically in Turso DB, the graph, the API and the dashboard.
 
 ### 4.1 Documents and chunks
 
@@ -427,7 +428,7 @@ class AnswerResult(BaseModel):
 
 ---
 
-## 5. Run store schema (SQLite)
+## 5. Run store schema (Turso DB / libSQL)
 
 ```sql
 CREATE TABLE IF NOT EXISTS documents (
@@ -640,7 +641,7 @@ Installed queries (files under `src/interlock/graph/gsql/queries/`, each install
 
 GSQL accumulators (`SumAccum`, `SetAccum`, ...) do the joins and totals in the database; the numerical and multi-hop question categories rely on them.
 
-**No full-text index in the graph.** Entity-name lookup uses SQLite FTS5 over the `entities` table (`name`, `aliases`), followed by RapidFuzz re-ranking. `aliases_text` is still stored on vertices (aliases joined by `" | "`) for display and debugging.
+**No full-text index in the graph.** Entity-name lookup uses Turso DB FTS5 over the `entities` table (`name`, `aliases`), followed by RapidFuzz re-ranking. `aliases_text` is still stored on vertices (aliases joined by `" | "`) for display and debugging.
 
 ---
 
@@ -712,7 +713,7 @@ class Pipeline(Protocol):
 
 | Method | Path | Request | Response |
 | --- | --- | --- | --- |
-| GET | `/health` | — | `{tigergraph: bool, sqlite: bool, llm_key: bool}` |
+| GET | `/health` | — | `{tigergraph: bool, turso: bool, llm_key: bool}` |
 | POST | `/ask` | `{question, pipeline}` | `AnswerResult` |
 | POST | `/compare` | `{question}` | `{request_id, results: {rag, graphrag, agent}}` (each `AnswerResult` or `{status:"error", error}`) |
 | GET | `/runs` | — | list of runs |
