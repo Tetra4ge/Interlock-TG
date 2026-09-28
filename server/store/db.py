@@ -16,11 +16,9 @@ def connect() -> Any:
     if url.startswith("file:"):
         path = url.removeprefix("file:")
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    
-    return libsql_client.create_client_sync(
-        url=url,
-        auth_token=settings.turso_auth_token or None
-    )
+
+    return libsql_client.create_client_sync(url=url, auth_token=settings.turso_auth_token or None)
+
 
 def migrate() -> None:
     """
@@ -30,7 +28,7 @@ def migrate() -> None:
     conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)")
     rs = conn.execute("SELECT version FROM schema_version")
     applied = {r[0] for r in rs.rows}
-    
+
     for f in sorted(MIGRATIONS.glob("*.sql")):
         v = int(f.name.split("_")[0])
         if v not in applied:

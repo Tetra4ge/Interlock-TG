@@ -9,6 +9,7 @@ except ImportError as e:
     print(f"Required package missing: {e}. Ensure pymupdf and pdfplumber are installed.")
     sys.exit(1)
 
+
 def run_bakeoff(pdf_path: str):
     path = Path(pdf_path)
     if not path.exists():
@@ -16,7 +17,7 @@ def run_bakeoff(pdf_path: str):
         return
 
     print(f"=== Parser Bakeoff: {path.name} ===")
-    
+
     # 1. PyMuPDF (fitz)
     print("\n[1] PyMuPDF (fitz) Extraction")
     start = time.perf_counter()
@@ -26,7 +27,7 @@ def run_bakeoff(pdf_path: str):
         pages = len(doc)
         doc.close()
         t = (time.perf_counter() - start) * 1000
-        
+
         print(f"  Time  : {t:.2f} ms")
         print(f"  Pages : {pages}")
         print(f"  Output: {first_page_text[:120].replace(chr(10), ' ')}...")
@@ -41,12 +42,13 @@ def run_bakeoff(pdf_path: str):
             first_page_text = pdf.pages[0].extract_text() if len(pdf.pages) > 0 else ""
             pages = len(pdf.pages)
         t = (time.perf_counter() - start) * 1000
-        
+
         print(f"  Time  : {t:.2f} ms")
         print(f"  Pages : {pages}")
         print(f"  Output: {first_page_text[:120].replace(chr(10), ' ')}...")
     except Exception as e:
         print(f"  Failed: {e}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

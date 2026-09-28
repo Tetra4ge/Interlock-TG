@@ -31,7 +31,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+
 def get_settings() -> Settings:
     return Settings()
+
 
 settings = get_settings()

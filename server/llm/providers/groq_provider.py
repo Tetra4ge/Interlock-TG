@@ -1,11 +1,44 @@
+import json
 import time
 from typing import Any
 
+import groq
 from groq import Groq
 
-from server.llm.models import LLMRequest, LLMResponse
-from server.llm.providers.base import BaseLLMProvider
+from server.llm.models import LLMRequest, LLMResponse, ToolCall
+from server.llm.providers.base import BaseLLMProvider, FatalError, RetryableError
 from server.settings import settings
+
+# Errors worth retrying with backoff: rate limits, transient server/connection issues.
+_RETRYABLE = (
+    groq.RateLimitError,
+    groq.InternalServerError,
+    groq.APIConnectionError,
+    groq.APITimeoutError,
+)
+# Errors that will never succeed on retry: bad credentials or a malformed request.
+_FATAL = (
+    groq.AuthenticationError,
+    groq.PermissionDeniedError,
+    groq.BadRequestError,
+    groq.NotFoundError,
+)
+
+
+def _to_groq_tools(tools: list) -> list[dict] | None:
+    if not tools:
+        return None
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t.name,
+                "description": t.description,
+                "parameters": t.parameters,
+            },
+        }
+        for t in tools
+    ]
 
 
 class GroqProvider(BaseLLMProvider):
@@ -23,23 +56,37 @@ class GroqProvider(BaseLLMProvider):
         }
         if request.json_mode:
             kwargs["response_format"] = {"type": "json_object"}
+        groq_tools = _to_groq_tools(request.tools)
+        if groq_tools:
+            kwargs["tools"] = groq_tools
 
         try:
             res = self.client.chat.completions.create(**kwargs)
-            latency = int((time.perf_counter() - start_time) * 1000)
+        except _FATAL as e:
+            raise FatalError(str(e)) from e
+        except _RETRYABLE as e:
+            raise RetryableError(str(e)) from e
 
-            content = res.choices[0].message.content or ""
-            tokens_in = res.usage.prompt_tokens if res.usage else 0
-            tokens_out = res.usage.completion_tokens if res.usage else 0
+        latency = int((time.perf_counter() - start_time) * 1000)
 
-            return LLMResponse(
-                content=content,
-                tokens_in=tokens_in,
-                tokens_out=tokens_out,
-                latency_ms=latency,
+        message = res.choices[0].message
+        content = message.content or ""
+        tokens_in = res.usage.prompt_tokens if res.usage else 0
+        tokens_out = res.usage.completion_tokens if res.usage else 0
+
+        tool_calls = [
+            ToolCall(
+                id=tc.id,
+                name=tc.function.name,
+                arguments=json.loads(tc.function.arguments or "{}"),
             )
-        except Exception as e:
-            latency = int((time.perf_counter() - start_time) * 1000)
-            return LLMResponse(
-                content="", tokens_in=0, tokens_out=0, latency_ms=latency, error=str(e)
-            )
+            for tc in (message.tool_calls or [])
+        ]
+
+        return LLMResponse(
+            content=content,
+            tool_calls=tool_calls,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            latency_ms=latency,
+        )
