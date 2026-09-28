@@ -1,1 +1,26 @@
+# secrets
+.env
+
+# data (large / regenerable)
+data/raw/
+data/parsed/
+data/extracted/
+data/cache/
+db/*.db
+db/*.sqlite
+
+# python
+__pycache__/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# node / frontend
+dashboard/node_modules/
+dashboard/.next/
+
+# os/editor
 .DS_Store
+.idea/
+.vscode/
