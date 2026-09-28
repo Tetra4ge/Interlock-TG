@@ -1,4 +1,4 @@
-.PHONY: setup lint type test up down
+.PHONY: setup lint type test test-integration up down
 
 setup:
 	uv sync
@@ -12,6 +12,9 @@ type:
 
 test:
 	uv run pytest -q
+
+test-integration:
+	uv run pytest -q -m integration
 
 up:
 	docker compose up -d tigergraph

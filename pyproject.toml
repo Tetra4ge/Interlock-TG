@@ -54,6 +54,11 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+# Excluded by default: TG_HOST now points at a live TigerGraph Savanna workspace
+# (see .env), and the integration test drops/recreates a graph + installs a
+# query every run -- several seconds of real cloud compute against trial
+# credits per invocation. Run explicitly with: uv run pytest -m integration
+addopts = "-m 'not integration'"
 markers = [
     "integration: requires a live external service (TigerGraph, real LLM API)",
 ]
