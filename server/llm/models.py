@@ -1,5 +1,6 @@
-from typing import List, Optional
+
 from pydantic import BaseModel
+
 
 class LLMMessage(BaseModel):
     role: str
@@ -8,7 +9,7 @@ class LLMMessage(BaseModel):
 class LLMRequest(BaseModel):
     provider: str
     model: str
-    messages: List[LLMMessage]
+    messages: list[LLMMessage]
     temperature: float = 0.0
     max_tokens: int = 1000
     json_mode: bool = False
@@ -20,4 +21,4 @@ class LLMResponse(BaseModel):
     cost_usd: float = 0.0
     latency_ms: int = 0
     cache_hit: bool = False
-    error: Optional[str] = None
+    error: str | None = None

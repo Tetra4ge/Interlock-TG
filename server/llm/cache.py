@@ -1,6 +1,8 @@
 import hashlib
 import json
+
 from server.llm.models import LLMRequest
+
 
 def generate_cache_key(req: LLMRequest) -> str:
     """

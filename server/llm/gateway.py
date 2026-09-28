@@ -1,12 +1,13 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
-from datetime import datetime
-from server.llm.models import LLMRequest, LLMResponse
-from server.llm.cache import generate_cache_key
-from server.llm.pricing import calculate_cost
-from server.store.db import connect
-from server.llm.providers.openai_provider import OpenAIProvider
+
 from server.common.logging import get_logger
+from server.llm.cache import generate_cache_key
+from server.llm.models import LLMRequest, LLMResponse
+from server.llm.pricing import calculate_cost
+from server.llm.providers.openai_provider import OpenAIProvider
+from server.store.db import connect
 
 logger = get_logger(__name__)
 CACHE_DIR = Path("data/cache/llm")
@@ -62,7 +63,7 @@ def call_llm(request: LLMRequest) -> LLMResponse:
     
     return response
 
-def _log_to_db(cache_key: str, request: LLMRequest, response: LLMResponse):
+def _log_to_db(cache_key: str, request: LLMRequest, response: LLMResponse) -> None:
     """
     Inserts a metadata record of the LLM call to the run store.
     """
@@ -85,7 +86,7 @@ def _log_to_db(cache_key: str, request: LLMRequest, response: LLMResponse):
                 response.latency_ms, 
                 int(response.cache_hit), 
                 response.error,
-                datetime.utcnow().isoformat()
+                datetime.now(timezone.utc).isoformat()
             ]
         )
     except Exception as e:

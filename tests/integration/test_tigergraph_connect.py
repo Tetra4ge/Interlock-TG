@@ -1,6 +1,9 @@
-import pytest
 import time
+
+import pytest
+
 from server.graph.client import get_tg_connection
+
 
 @pytest.fixture(scope="module")
 def tg_conn():

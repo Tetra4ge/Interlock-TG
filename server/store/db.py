@@ -1,10 +1,14 @@
 from pathlib import Path
+
 import libsql_client
+
 from server.settings import settings
 
 MIGRATIONS = Path(__file__).parent / "migrations"
 
-def connect():
+from typing import Any
+
+def connect() -> Any:
     """
     Connect to Turso DB or local libSQL DB using libsql-client.
     """

@@ -1,5 +1,7 @@
-import pyTigerGraph as tg
 import logging
+
+import pyTigerGraph as tg
+
 from server.settings import settings
 
 logger = logging.getLogger(__name__)

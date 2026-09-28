@@ -1,18 +1,22 @@
 import time
+
 from openai import OpenAI
-from server.settings import settings
+
 from server.llm.models import LLMRequest, LLMResponse
 from server.llm.providers.base import BaseLLMProvider
+from server.settings import settings
+
 
 class OpenAIProvider(BaseLLMProvider):
-    def __init__(self):
+    def __init__(self) -> None:
         self.client = OpenAI(api_key=settings.openai_api_key)
         
     def generate(self, request: LLMRequest) -> LLMResponse:
         start_time = time.perf_counter()
         
+        from typing import Any
         # Prepare kwargs
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "model": request.model,
             "messages": [{"role": m.role, "content": m.content} for m in request.messages],
             "temperature": request.temperature,

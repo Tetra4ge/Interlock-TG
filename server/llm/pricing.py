@@ -1,6 +1,7 @@
-from pathlib import Path
-import yaml
 import logging
+from pathlib import Path
+
+import yaml  # type: ignore
 
 logger = logging.getLogger(__name__)
 CONFIG_PATH = Path("config/models.yaml")
@@ -9,7 +10,7 @@ def load_pricing() -> dict:
     if not CONFIG_PATH.exists():
         return {}
     try:
-        with open(CONFIG_PATH, "r") as f:
+        with open(CONFIG_PATH) as f:
             data = yaml.safe_load(f)
             return data.get("pricing_usd_per_million_tokens", {})
     except Exception as e:

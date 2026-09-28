@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
+
 from server.llm.models import LLMRequest, LLMResponse
+
 
 class BaseLLMProvider(ABC):
     @abstractmethod

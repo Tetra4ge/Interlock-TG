@@ -1,8 +1,9 @@
-import logging
 import json
+import logging
 import sys
 
-def get_logger(name: str):
+
+def get_logger(name: str) -> logging.Logger:
     """
     Returns a configured JSON logger.
     """
@@ -12,7 +13,7 @@ def get_logger(name: str):
         handler = logging.StreamHandler(sys.stdout)
         
         class JSONFormatter(logging.Formatter):
-            def format(self, record):
+            def format(self, record: logging.LogRecord) -> str:
                 log_record = {
                     "level": record.levelname,
                     "name": record.name,

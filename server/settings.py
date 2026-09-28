@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     # TigerGraph
     tg_host: str
@@ -28,6 +29,6 @@ class Settings(BaseSettings):
     )
 
 def get_settings() -> Settings:
-    return Settings()
+    return Settings()  # type: ignore
 
 settings = get_settings()

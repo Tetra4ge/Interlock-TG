@@ -1,10 +1,12 @@
 import argparse
 import sys
+
 from server.llm.gateway import call_llm
-from server.llm.models import LLMRequest, LLMMessage
+from server.llm.models import LLMMessage, LLMRequest
 from server.store.db import migrate
 
-def main():
+
+def main() -> None:
     parser = argparse.ArgumentParser(description="Interlock-TG CLI")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -23,7 +25,7 @@ def main():
         print("Done. Migrations applied.")
         
     elif args.command == "llm-ping":
-        print(f"Sending message to LLM (openai: gpt-4o-mini)...")
+        print("Sending message to LLM (openai: gpt-4o-mini)...")
         req = LLMRequest(
             provider="openai",
             model="gpt-4o-mini",
@@ -37,7 +39,7 @@ def main():
         else:
             print(f"\n✅ Response: {res.content}")
             
-        print(f"\nStats:")
+        print("\nStats:")
         print(f"  Cache Hit: {res.cache_hit}")
         print(f"  Tokens   : {res.tokens_in} in / {res.tokens_out} out")
         print(f"  Latency  : {res.latency_ms} ms")
