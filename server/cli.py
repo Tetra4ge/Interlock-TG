@@ -27,10 +27,10 @@ def main() -> None:
         print("Done. Migrations applied.")
 
     elif args.command == "llm-ping":
-        print("Sending message to LLM (groq: llama-3.1-8b-instant)...")
+        print("Sending message to LLM (groq: openai/gpt-oss-20b)...")
         req = LLMRequest(
             provider="groq",
-            model="llama-3.1-8b-instant",
+            model="openai/gpt-oss-20b",
             messages=[LLMMessage(role="user", content=args.message)],
             max_tokens=100,
         )

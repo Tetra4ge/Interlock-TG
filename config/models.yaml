@@ -1,6 +1,7 @@
 pricing_usd_per_million_tokens:
-  # Groq free tier — $0 while on the free developer tier. Verify current
-  # model IDs at https://console.groq.com/docs/models before demo day.
-  "llama-3.1-8b-instant": {input: 0.0, output: 0.0}
-  "llama-3.1-70b-versatile": {input: 0.0, output: 0.0}
+  # Groq free tier — $0 while on the free developer tier. Confirmed live via
+  # client.models.list() against our own key on 2026-09-28; re-check at
+  # https://console.groq.com/docs/models before demo day, as Groq's catalog churns.
+  "openai/gpt-oss-20b": {input: 0.0, output: 0.0}
   "openai/gpt-oss-120b": {input: 0.0, output: 0.0}
+  "qwen/qwen3.8-27b": {input: 0.0, output: 0.0}
