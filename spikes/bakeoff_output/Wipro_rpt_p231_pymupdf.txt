@@ -1,0 +1,217 @@
+=== TEXT ===
+	
+The following are the significant related party transactions during the year ended March 31, 2023 and 2022:
+Year ended
+March 31, 2023
+Year ended 
+March 31, 2022
+Sales of goods and services
+Wipro, LLC
+ H 65,715 
+ H 50,593 
+Wipro Solutions Canada Limited
+6,993 
+4,167 
+Wipro Arabia Limited
+2,817 
+2,474 
+Wipro Gallagher Solutions, LLC
+2,271 
+1,632 
+Wipro Networks Pte Limited
+1,832 
+2,022 
+Wipro Technologies GmbH
+1,545 
+2,306 
+Wipro Holdings (UK) Limited
+1,327 
+1,100 
+Infocrossing, LLC
+1,306 
+618 
+Wipro Japan KK
+1,240 
+1,437 
+Wipro Technologies Australia Pty Ltd
+1,198 
+691 
+Wipro Technologies SA DE CV
+1,054 
+699 
+Wipro Information Technology Netherlands BV.
+1,016 
+333 
+HealthPlan Services, Inc.
+1,004 
+1,074 
+Wipro IT Services Bangladesh Limited
+887 
+890 
+Wipro Technologies South Africa (Proprietary) Limited
+701 
+493 
+Wipro Appirio, Inc.
+579 
+586 
+Wipro Doha LLC
+374 
+399 
+PT. WT Indonesia
+320 
+445 
+Purchase of services
+Wipro Technologies GmbH
+ H 7,456 
+ H 5,643 
+Wipro Appirio, Inc.
+4,624 
+4,616 
+Wipro Business Solutions GmbH
+4,613 
+5,717 
+Wipro, LLC
+4,201 
+3,451 
+Wipro Technologies SA DE CV
+3,671 
+2,851 
+Wipro Philippines, Inc.
+3,619 
+3,103 
+Wipro Technologies SRL
+2,654 
+2,572 
+Wipro Technology Solutions S.R.L
+1,807 
+1,789 
+Wipro do Brasil Technologia Ltda
+1,730 
+1,448 
+Wipro IT Services Poland SP Z.O.O
+1,667 
+1,768 
+Wipro VLSI Design Services India Private Limited
+1,559 
+1,223 
+The Capital Markets Company (UK) Ltd
+1,557 
+73 
+Wipro Portugal S.A.
+1,482 
+1,342 
+Wipro Insurance Solutions, LLC
+1,311 
+- 
+Wipro Chengdu Limited
+936 
+1,221 
+Wipro Networks Pte Limited
+796 
+446 
+Wipro Solutions Canada Limited
+759 
+93 
+Wipro (Dalian) Limited
+694 
+574 
+Wipro VLSI Design Services, LLC
+577 
+47 
+Designit Denmark A/S
+414 
+449 
+(C in millions, except share and per share data, unless otherwise stated)
+Notes to the Standalone Financial Statements 
+Standalone Financial Statement under Ind AS
+Ambitions Realized.
+228
+Reporting Context
+Our Capabilities
+Governance and Leadership
+Performance Overview
+
+=== TABLES ===
+-- table 0 --
+ | Year ended
+March 31, 2023 | Year ended
+March 31, 2022
+H 50,593
+4,167
+2,474
+1,632
+2,022
+2,306
+1,100
+618
+1,437
+691
+699
+333
+1,074
+890
+493
+586
+399
+445
+H 5,643
+4,616
+5,717
+3,451
+2,851
+3,103
+2,572
+1,789
+1,448
+1,768
+1,223
+73
+1,342
+-
+1,221
+446
+93
+574
+47
+449
+Sales of goods and services |  | 
+Wipro, LLC | H 65,715 | 
+Wipro Solutions Canada Limited | 6,993 | 
+Wipro Arabia Limited | 2,817 | 
+Wipro Gallagher Solutions, LLC | 2,271 | 
+Wipro Networks Pte Limited | 1,832 | 
+Wipro Technologies GmbH | 1,545 | 
+Wipro Holdings (UK) Limited | 1,327 | 
+Infocrossing, LLC | 1,306 | 
+Wipro Japan KK | 1,240 | 
+Wipro Technologies Australia Pty Ltd | 1,198 | 
+Wipro Technologies SA DE CV | 1,054 | 
+Wipro Information Technology Netherlands BV. | 1,016 | 
+HealthPlan Services, Inc. | 1,004 | 
+Wipro IT Services Bangladesh Limited | 887 | 
+Wipro Technologies South Africa (Proprietary) Limited | 701 | 
+Wipro Appirio, Inc. | 579 | 
+Wipro Doha LLC | 374 | 
+PT. WT Indonesia | 320 | 
+ |  | 
+Purchase of services |  | 
+Wipro Technologies GmbH | H 7,456 | 
+Wipro Appirio, Inc. | 4,624 | 
+Wipro Business Solutions GmbH | 4,613 | 
+Wipro, LLC | 4,201 | 
+Wipro Technologies SA DE CV | 3,671 | 
+Wipro Philippines, Inc. | 3,619 | 
+Wipro Technologies SRL | 2,654 | 
+Wipro Technology Solutions S.R.L | 1,807 | 
+Wipro do Brasil Technologia Ltda | 1,730 | 
+Wipro IT Services Poland SP Z.O.O | 1,667 | 
+Wipro VLSI Design Services India Private Limited | 1,559 | 
+The Capital Markets Company (UK) Ltd | 1,557 | 
+Wipro Portugal S.A. | 1,482 | 
+Wipro Insurance Solutions, LLC | 1,311 | 
+Wipro Chengdu Limited | 936 | 
+Wipro Networks Pte Limited | 796 | 
+Wipro Solutions Canada Limited | 759 | 
+Wipro (Dalian) Limited | 694 | 
+Wipro VLSI Design Services, LLC | 577 | 
+Designit Denmark A/S | 414 | 

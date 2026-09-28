@@ -1,0 +1,94 @@
+=== TEXT ===
+Reporting Context Our Capabilities Governance and Leadership Performance Overview
+Standalone Financial Statement under Ind AS
+Notes to the Standalone Financial Statements
+(C in millions, except share and per share data, unless otherwise stated)
+The following are the significant related party transactions during the year ended March 31, 2023 and 2022:
+Year ended Year ended
+March 31, 2023 March 31, 2022
+Sales of goods and services
+Wipro, LLC H 65,715 H 50,593
+Wipro Solutions Canada Limited 6,993 4,167
+Wipro Arabia Limited 2,817 2,474
+Wipro Gallagher Solutions, LLC 2,271 1,632
+Wipro Networks Pte Limited 1,832 2,022
+Wipro Technologies GmbH 1,545 2,306
+Wipro Holdings (UK) Limited 1,327 1,100
+Infocrossing, LLC 1,306 618
+Wipro Japan KK 1,240 1,437
+Wipro Technologies Australia Pty Ltd 1,198 691
+Wipro Technologies SA DE CV 1,054 699
+Wipro Information Technology Netherlands BV. 1,016 333
+HealthPlan Services, Inc. 1,004 1,074
+Wipro IT Services Bangladesh Limited 887 890
+Wipro Technologies South Africa (Proprietary) Limited 701 493
+Wipro Appirio, Inc. 579 586
+Wipro Doha LLC 374 399
+PT. WT Indonesia 320 445
+Purchase of services
+Wipro Technologies GmbH H 7,456 H 5,643
+Wipro Appirio, Inc. 4,624 4,616
+Wipro Business Solutions GmbH 4,613 5,717
+Wipro, LLC 4,201 3,451
+Wipro Technologies SA DE CV 3,671 2,851
+Wipro Philippines, Inc. 3,619 3,103
+Wipro Technologies SRL 2,654 2,572
+Wipro Technology Solutions S.R.L 1,807 1,789
+Wipro do Brasil Technologia Ltda 1,730 1,448
+Wipro IT Services Poland SP Z.O.O 1,667 1,768
+Wipro VLSI Design Services India Private Limited 1,559 1,223
+The Capital Markets Company (UK) Ltd 1,557 73
+Wipro Portugal S.A. 1,482 1,342
+Wipro Insurance Solutions, LLC 1,311 -
+Wipro Chengdu Limited 936 1,221
+Wipro Networks Pte Limited 796 446
+Wipro Solutions Canada Limited 759 93
+Wipro (Dalian) Limited 694 574
+Wipro VLSI Design Services, LLC 577 47
+Designit Denmark A/S 414 449
+228 Ambitions Realized.
+=== TABLES ===
+-- table 0 --
+Year ended
+March 31, 2023
+
+H 65,715
+6,993
+2,817
+2,271
+1,832
+1,545
+1,327
+1,306
+1,240
+1,198
+1,054
+1,016
+1,004
+887
+701
+579
+374
+320
+
+
+H 7,456
+4,624
+4,613
+4,201
+3,671
+3,619
+2,654
+1,807
+1,730
+1,667
+1,559
+1,557
+1,482
+1,311
+936
+796
+759
+694
+577
+414

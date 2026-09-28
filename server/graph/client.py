@@ -20,6 +20,8 @@ def get_tg_connection(graphname: str | None = None) -> tg.TigerGraphConnection:
         graphname=gn,
         username=settings.tg_username,
         password=settings.tg_password,
+        restppPort=settings.tg_restpp_port,
+        gsPort=settings.tg_gs_port,
     )
 
     # Handle Authentication

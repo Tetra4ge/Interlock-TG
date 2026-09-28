@@ -1,0 +1,185 @@
+=== TEXT ===
+ANNEXURE – 1 TO BOARD’S REPORT
+Particulars of contracts/arrangements made with related parties: Form No. AOC - 2
+(Pursuant to clause (h) of sub-section (3) of section 134 of the Companies Act, 2013 and
+Rule 8(2) of the Companies (Accounts) Rules, 2014)
+Form for disclosure of particulars of contracts/arrangement entered into by the Company with related parties referred 
+to in sub-section (1) of Section 188 of the Companies Act, 2013 including certain arm’s length transactions under fourth 
+proviso thereto
+1.	 Details of Contracts or Arrangements or Transactions not at Arm’s Length Basis:
+	
+There were no contracts or arrangements or transactions entered into during the financial year ended March 31, 2024, 
+which were not at arm’s length basis.
+2.	 Details of Material Contracts or Arrangement or Transactions at Arm’s Length Basis:
+	
+In terms of Company’ Policy on Materiality and Dealing with Related Party Transactions, a transaction with a related 
+party shall be considered material, if the transaction(s) to be entered into individually or taken together with previous 
+transactions during a financial year, exceeds rupees one thousand Crores or ten per cent of the annual consolidated 
+turnover of the Company as per the last audited financial statements of the Company, whichever is lower. Accordingly, 
+the following information is furnished.
+	
+(a)	 Name(s) of the related party and nature of relationship: Refer Annexure to AOC - 2
+	
+(b)	 Nature of contracts/arrangements/transactions: Refer Annexure to AOC - 2
+	
+(c)	
+Duration of the contracts/arrangements/transactions: On-going transactions
+	
+(d)	 Salient terms of the contracts or arrangements or transactions including the value, if any: Refer Annexure to AOC - 2
+	
+(e)	
+Date(s) of approval by the Board, if any: The transactions were on arms’ length basis and in ordinary course of 
+business, hence the approval of the Board was not required.
+	
+(f)	
+Amount paid as advances, if any: NIL
+For and on behalf of the Board of Directors
+Ashishkumar Chauhan
+S Ravindran
+Place: Mumbai
+Managing Director and CEO
+Public Interest Director
+Date: May 03, 2024
+DIN: 00898469
+DIN: 09778966
+Annexure to Form No. AOC - 2
+a)	 Names of the Related Parties and Related Party Relationships
+Related Party
+Nature of Relationship
+Principal Activities
+% Holding
+NSE Clearing Limited
+Subsidiary Company
+Clearing and Settlement
+100%
+NSE Investments Limited
+Subsidiary Company
+Investment Entity
+100%
+(b)	 Details of Transactions (Including Service Tax/GST as Levied) with Related Parties 
+are as Follows:
+(₹ in Crores)
+Name of the Related 
+Party
+Nature of Transactions
+For the year ended 
+31.03.2024
+For the year ended 
+31.03.2023
+NSE Clearing 
+Limited
+Usage charges received
+25.18
+25.13
+Usage charges paid for interoperability
+1.66
+1.66
+Space and Infrastructure usage charges received
+6.81
+4.45
+Recovery of Electronic Bidding Platform income
+0.85
+0.84
+Reimbursement received for expenses on staff on deputation
+0.09
+6.60
+Transfer of retiral benefits on transfer of employees
+2.38
+-
+Reimbursement received for other expenses incurred
+81.35
+71.50
+Reimbursement paid for CAMS charges
+1.67
+0.11
+Reimbursement paid for asset purchase
+0.85
+-
+Dividend received
+22.50
+180.00
+Clearing and Settlement charges paid
+1,315.80
+710.92
+Logo Sharing Income
+23.68
+-
+Contribution to Core SGF
+1,937.25
+4.00
+Investment in equity share capital
+1,400.00
+-
+Closing balance (Credit)/Debit
+(69.82)
+(44.11)
+NSE Investments 
+Limited
+Space and Infrastructure usage charges received
+0.08
+0.08
+Reimbursement received for expenses on staff on deputation
+0.02
+1.65
+Transfer of retiral benefits on transfer of employees
+0.17
+-
+Logo Sharing Income
+6.91
+-
+Reimbursement received for other expenses incurred
+0.29
+0.44
+Dividend Received
+219.90
+653.28
+Closing balance (Credit)/Debit
+0.95
+0.48
+For and on behalf of the Board of Directors
+Ashishkumar Chauhan
+S Ravindran
+Place: Mumbai
+Managing Director and CEO
+Public Interest Director
+Date: May 03, 2024
+DIN: 00898469
+DIN: 09778966
+130
+131
+Integrated Annual Report 2023-24
+National Stock Exchange of India Limited
+Corporate 
+Overview
+Statutory 
+Reports
+Financial 
+Statements
+
+=== TABLES ===
+-- table 0 --
+For the year ended
+31.03.2024 | For the year ended
+31.03.2023
+25.18 | 25.13
+1.66 | 1.66
+6.81 | 4.45
+0.85 | 0.84
+0.09 | 6.60
+2.38 | -
+81.35 | 71.50
+1.67 | 0.11
+0.85 | -
+22.50 | 180.00
+1,315.80 | 710.92
+23.68 | -
+1,937.25 | 4.00
+1,400.00 | -
+(69.82) | (44.11)
+0.08 | 0.08
+0.02 | 1.65
+0.17 | -
+6.91 | -
+0.29 | 0.44
+219.90 | 653.28
+0.95 | 0.48

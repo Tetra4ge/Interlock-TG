@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     tg_password: str = "tigergraph"
     tg_secret: str = ""
     tg_graph: str = "SpikeGraph"
+    tg_restpp_port: int = 9000
+    tg_gs_port: int = 14240
 
     # Database (Turso)
     turso_database_url: str = "file:db/interlock.db"
