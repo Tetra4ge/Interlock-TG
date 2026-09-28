@@ -1,0 +1,18 @@
+services:
+  tigergraph:
+    image: tigergraph/community:latest
+    ports:
+      - "14240:14240"
+      - "9000:9000"
+    ulimits:
+      nofile: 1000000
+    volumes:
+      - tg_data:/home/tigergraph/tigergraph/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/echo || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  tg_data:
