@@ -8,16 +8,19 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 CONFIG_PATH = ROOT / "config/models.yaml"
 
 
-def load_pricing() -> dict:
-    if not CONFIG_PATH.exists():
+def load_pricing(path: Path = CONFIG_PATH) -> dict:
+    """Load the pricing table from YAML.
+
+    Deliberately does NOT swallow parse errors: a malformed models.yaml means
+    the gateway can no longer price calls, so the spend cap can no longer
+    protect the user. Failing fast at startup with a clear message beats
+    silently treating every model as free.
+    """
+    if not path.exists():
         return {}
-    try:
-        with open(CONFIG_PATH) as f:
-            data = yaml.safe_load(f)
-            return data.get("pricing_usd_per_million_tokens", {})
-    except Exception as e:
-        logger.error(f"Error loading pricing: {e}")
-        return {}
+    with open(path) as f:
+        data = yaml.safe_load(f)
+    return data.get("pricing_usd_per_million_tokens", {}) if data else {}
 
 
 PRICING_TABLE = load_pricing()

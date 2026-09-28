@@ -1,11 +1,9 @@
-import json
 import random
 import time
 from datetime import UTC, datetime
-from pathlib import Path
 
 from server.common.logging import get_logger
-from server.llm.cache import generate_cache_key
+from server.llm.cache import generate_cache_key, get_cached, put_cached
 from server.llm.models import LLMRequest, LLMResponse
 from server.llm.pricing import calculate_cost
 from server.llm.providers.base import BaseLLMProvider, FatalError, RetryableError
@@ -14,9 +12,6 @@ from server.settings import settings
 from server.store.db import connect
 
 logger = get_logger(__name__)
-ROOT = Path(__file__).resolve().parent.parent.parent
-CACHE_DIR = ROOT / "data/cache/llm"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # Register supported providers
 PROVIDERS = {
@@ -45,8 +40,8 @@ def _get_spent_usd() -> float:
     if _spent_usd is None:
         conn = connect()
         try:
-            rs = conn.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls")
-            _spent_usd = float(rs.rows[0][0]) if rs.rows else 0.0
+            rows = conn.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls").fetchall()
+            _spent_usd = float(rows[0][0]) if rows else 0.0
         except Exception as e:
             logger.warning(f"Could not load prior LLM spend, assuming $0: {e}")
             _spent_usd = 0.0
@@ -66,19 +61,18 @@ def call_llm(request: LLMRequest) -> LLMResponse:
 
     # 1. Generate stable Cache Key
     cache_key = generate_cache_key(request)
-    cache_file = CACHE_DIR / f"{cache_key}.json"
 
     # 2. Check File Cache
-    if cache_file.exists():
-        try:
-            data = json.loads(cache_file.read_text())
-            res = LLMResponse(**data)
-            res.cache_hit = True
-            res.cost_usd = 0.0  # Cache hits cost $0
-            _log_to_db(cache_key, request, res)
-            return res
-        except Exception as e:
-            logger.warning(f"Failed to read cache file {cache_file}: {e}")
+    try:
+        cached = get_cached(cache_key)
+    except Exception as e:
+        logger.warning(f"Failed to read cache entry {cache_key}: {e}")
+        cached = None
+    if cached is not None:
+        cached.cache_hit = True
+        cached.cost_usd = 0.0  # Cache hits cost $0
+        _log_to_db(cache_key, request, cached)
+        return cached
 
     # 3. Offline mode: CI/tests must never make a real call
     if settings.llm_offline:
@@ -107,7 +101,7 @@ def call_llm(request: LLMRequest) -> LLMResponse:
 
     # 7. Save to File Cache if no error
     if not response.error:
-        cache_file.write_text(response.model_dump_json(indent=2))
+        put_cached(cache_key, response)
 
     # 8. Save audit trail to Turso DB (llm_calls table)
     _log_to_db(cache_key, request, response)
@@ -168,6 +162,7 @@ def _log_to_db(
                 datetime.now(UTC).isoformat(),
             ],
         )
+        conn.commit()
     except Exception as e:
         logger.error(f"Failed to log LLM call to DB: {e}")
     finally:
