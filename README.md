@@ -236,6 +236,16 @@ uv run hl review
 # Measure and report extraction metrics (Phase 2)
 uv run hl evaluate --run-id "test-run-1"
 
+# Run the end-to-end ingestion and Graph construction pipeline (Phase 3)
+uv run hl build-graph
+
+# Automatically generate the docs/data-quality.md report (Phase 3)
+uv run hl quality
+
+# Export/Import a sample graph to JSONL for one-command demos (Phase 3)
+uv run hl export-sample
+uv run hl import-sample
+
 # Inspect acquired dataset coverage & filing inventory
 uv run hl coverage
 

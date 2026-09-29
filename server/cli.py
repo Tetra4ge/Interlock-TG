@@ -78,6 +78,10 @@ def main() -> None:
     # quality command
     subparsers.add_parser("quality", help="Generate the docs/data-quality.md report")
 
+    # sample graph commands
+    subparsers.add_parser("export-sample", help="Export a subset of the TigerGraph graph to JSONL")
+    subparsers.add_parser("import-sample", help="Import the sample graph JSONL back into TigerGraph")
+
     args = parser.parse_args()
 
     if args.command == "db-migrate":
@@ -227,6 +231,14 @@ def main() -> None:
         from server.reporting.quality import generate_quality_report
         generate_quality_report()
         print("Data quality report generated at docs/data-quality.md")
+
+    elif args.command == "export-sample":
+        from server.graph.export import export_sample
+        export_sample()
+        
+    elif args.command == "import-sample":
+        from server.graph.export import import_sample
+        import_sample()
 
     else:
         parser.print_help()
