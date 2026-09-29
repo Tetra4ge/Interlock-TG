@@ -42,3 +42,27 @@ the regulator's order database by company/director name, save relevant PDFs into
 `data/inbox/` as `ORDER__regulatory_order__<date>__<slug>.pdf`, and track them in
 `data/orders_index.csv`. A second pass happens after Phase 3 once director names are
 known from extraction.
+
+### Regulatory orders — Phase 1 search result (2026-09-29)
+
+Searched sebi.gov.in (robots.txt allows crawling; order pages fetched by hand at low rate)
+for orders dated within FY2021-22 to FY2023-24 that name a selected company. Registered:
+
+- 2022-02-14 — Adjudication order, Bhushan Steel Ltd (now Tata BSL Ltd, merged into Tata Steel) → `TATASTEEL`
+- 2022-08-30 — Adjudication order, Usha Martin Ltd and Tata Steel Long Products Ltd (merged into Tata Steel) → `TATASTEEL`
+
+The Tata Motors orders (2017, 2018) are indexed for context but fall outside the FY range and are
+not registered as documents.
+
+**No in-range order found** for: Bajaj Finance, Bajaj Finserv, Bajaj Auto, Bajaj Holdings,
+Tata Power, Tata Consumer. (Bajaj Auto appears in a 2020 UPSI-leak order against third parties,
+out of range; Bajaj Finserv has only 2024 informal guidance, which is not an enforcement order.)
+This is a real finding, not a gap to fill: those companies simply have no `NAMED_IN` edges.
+The search is repeated after Phase 3 once director names are known.
+
+## Placeholders for unavailable data
+
+Shareholding and RPT-disclosure filings are on bot-protected exchange sites (see above). They
+stay `manual_needed` in `fetch_attempts`; no placeholder documents are created, so nothing
+downstream mistakes an empty file for real data. Phase 2 draws related-party and pledge
+information from the annual reports instead (ADR-0001).

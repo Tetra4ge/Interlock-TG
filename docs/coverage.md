@@ -7,14 +7,14 @@
 | BAJAJ-AUTO | Bajaj Auto Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
 | BAJAJHLDNG | Bajaj Holdings & Investment Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
 | TATAMOTORS | Tata Motors Limited | ✅ | ✅ | ✅ | 0 | 0 | 2 |
-| TATASTEEL | Tata Steel Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
+| TATASTEEL | Tata Steel Limited | ✅ | ✅ | ✅ | 0 | 0 | 2 |
 | TATAPOWER | Tata Power Company Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
 | TATACONSUM | Tata Consumer Products Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
 
 ## Totals
 
-- Registered documents: 24
-- Fetch attempts by outcome: manual_needed=240
+- Registered documents: 26
+- Fetch attempts by outcome: manual_needed=288
 
 ## Spot-check notes
 
@@ -44,3 +44,8 @@ downloaded completely (matched `Content-Length`) but the PDF itself was corrupt
 the source CDN, not a download error on our end. Recovered via an alternate CMS-hosted URL
 (`cms-assets.bajajfinserv.in/is/content/bajajfinance/annual-report-for-fy-2022pdf`), which
 parses cleanly at 390 pages.
+
+Note on the two SEBI orders registered for `TATASTEEL` (2022-02-14, 2022-08-30): opened with
+PyMuPDF and confirmed each names Tata Steel (via Bhushan Steel/Tata BSL and Tata Steel Long
+Products, both subsidiaries merged into Tata Steel Limited) and carries a 2022 order date,
+within the FY2021-22–FY2023-24 window. See `docs/sources.md` for the search and source URLs.
