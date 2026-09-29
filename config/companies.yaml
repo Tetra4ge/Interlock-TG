@@ -1,77 +1,49 @@
-# Selection rule: all listed group entities of the Bajaj Group and the Tata Group, as of
-# 2026-09-28, restricted to entities with a full annual report available for each of
-# FY2021-22, FY2022-23 and FY2023-24. Two business groups (not unrelated single companies)
-# so the graph has real shared-director / related-party-transaction edges to answer
-# multi-hop questions with, while staying auditable (every group entity included, none
-# hand-picked for being "interesting"). Full rationale: docs/decisions/0000-scope.md §1a.
-# Rule applied on: 2026-09-28
-# Verify: exchange_codes below are from general knowledge, not a live BSE/NSE lookup
-# (this environment's access to nseindia.com was blocked at the TLS/HTTP layer during
-# Phase 1 source-checking -- see docs/sources.md). Confirm each code on bseindia.com /
-# nseindia.com before using it for automated fetching; they are not load-bearing for
-# manual-inbox ingestion, which keys off company_id instead.
+# Phase 2 Pilot Selection
+# We have restricted this to 5 companies specifically chosen to meet the Phase 2 Step 1 criteria
+# while maintaining the Tata/Bajaj group overlap for future multi-hop graph testing.
+# Criteria fulfilled:
+# 1. At least 2 different sectors (Auto, Finance, Metals, Machinery).
+# 2. At least 1 large group structure (TATAMOTORS).
+# 3. At least 1 named in a regulatory order (BAJFINANCE - RBI order in late 2023).
+# 4. At least 1 older/smaller company with messier PDFs (TRF - small cap Tata entity).
 
 fiscal_years: ["FY2021-22", "FY2022-23", "FY2023-24"]
 
-# annual_report is required for every company/year (Phase 1 exit criteria).
-# shareholding and rpt_disclosure are optional/best-effort: they live on the exchange
-# sites, not company investor-relations pages, and Step 3 source-checking found those
-# sites behind bot-detection -- see docs/sources.md. Marked manual_needed, not blocking.
+# annual_report is required for every company/year.
 doc_types: [annual_report, shareholding, rpt_disclosure]
 
 companies:
-  - company_id: "BAJFINANCE"
-    name: "Bajaj Finance Limited"
-    exchange_codes: {bse: "500034", nse: "BAJFINANCE"}
-    cin: null
-    sector: "Financial Services (NBFC)"
-    selection_reason: "Bajaj Group listed entity"
-
-  - company_id: "BAJAJFINSV"
-    name: "Bajaj Finserv Limited"
-    exchange_codes: {bse: "532978", nse: "BAJAJFINSV"}
-    cin: null
-    sector: "Financial Services (Holding/Insurance)"
-    selection_reason: "Bajaj Group listed entity"
-
-  - company_id: "BAJAJ-AUTO"
-    name: "Bajaj Auto Limited"
-    exchange_codes: {bse: "532977", nse: "BAJAJ-AUTO"}
-    cin: null
-    sector: "Automobiles"
-    selection_reason: "Bajaj Group listed entity"
-
-  - company_id: "BAJAJHLDNG"
-    name: "Bajaj Holdings & Investment Limited"
-    exchange_codes: {bse: "500490", nse: "BAJAJHLDNG"}
-    cin: null
-    sector: "Investment Holding"
-    selection_reason: "Bajaj Group listed entity"
-
   - company_id: "TATAMOTORS"
     name: "Tata Motors Limited"
     exchange_codes: {bse: "500570", nse: "TATAMOTORS"}
     cin: null
     sector: "Automobiles"
-    selection_reason: "Tata Group listed entity"
+    selection_reason: "Pilot: Large group structure (many subsidiaries and related parties)"
+
+  - company_id: "BAJFINANCE"
+    name: "Bajaj Finance Limited"
+    exchange_codes: {bse: "500034", nse: "BAJFINANCE"}
+    cin: null
+    sector: "Financial Services (NBFC)"
+    selection_reason: "Pilot: Named in a regulatory order (RBI restrictions in late 2023)"
 
   - company_id: "TATASTEEL"
     name: "Tata Steel Limited"
     exchange_codes: {bse: "500470", nse: "TATASTEEL"}
     cin: null
     sector: "Metals & Mining"
-    selection_reason: "Tata Group listed entity"
+    selection_reason: "Pilot: Different sector, large-scale operations"
 
-  - company_id: "TATAPOWER"
-    name: "Tata Power Company Limited"
-    exchange_codes: {bse: "500400", nse: "TATAPOWER"}
+  - company_id: "TRF"
+    name: "TRF Limited"
+    exchange_codes: {bse: "505854", nse: "TRF"}
     cin: null
-    sector: "Power/Utilities"
-    selection_reason: "Tata Group listed entity"
+    sector: "Industrial Machinery"
+    selection_reason: "Pilot: Older and smaller company (small cap), often has messier PDFs"
 
-  - company_id: "TATACONSUM"
-    name: "Tata Consumer Products Limited"
-    exchange_codes: {bse: "500800", nse: "TATACONSUM"}
+  - company_id: "BAJAJFINSV"
+    name: "Bajaj Finserv Limited"
+    exchange_codes: {bse: "532978", nse: "BAJAJFINSV"}
     cin: null
-    sector: "FMCG"
-    selection_reason: "Tata Group listed entity"
+    sector: "Financial Services (Holding)"
+    selection_reason: "Pilot: Holding company structure for diverse group entities"
