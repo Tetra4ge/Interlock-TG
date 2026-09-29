@@ -261,3 +261,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to explore t
 - 📐 **[TRD (Technical Requirements Document)](docs/TRD.md):** GSQL graph schemas, libSQL tables, and data models.
 - 🏛️ **[Architecture Guide](docs/ARCHITECTURE.md):** In-depth pipeline flows, tool execution sandbox, and ADRs.
 - 📋 **[Build Phases](docs/phases/):** Step-by-step modular implementation plan (Phases 0–10).
+
+## Graph Edges across Fiscal Years
+Each fiscal year's report produces its own `DIRECTOR_OF` edge (with a different `edge_id` discriminator). This intentional schema design natively records temporal context ('was a director according to the FY2022-23 report'). Graph queries should filter on `fiscal_year` or `start_date`/`end_date` to answer period-specific temporal questions.
