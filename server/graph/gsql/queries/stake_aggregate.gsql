@@ -1,0 +1,6 @@
+CREATE QUERY stake_aggregate(VERTEX<Company> company) FOR GRAPH Interlock SYNTAX v2 {
+  SumAccum<DOUBLE> @@pledged;
+  S = {company};
+  R = SELECT h FROM S:c -(HOLDS_STAKE:e)- :h ACCUM @@pledged += e.pledged_pct;
+  PRINT @@pledged;
+}

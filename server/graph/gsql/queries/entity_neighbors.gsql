@@ -1,0 +1,22 @@
+CREATE QUERY entity_neighbors(SET<VERTEX> seeds, INT hops = 1, STRING fiscal_year = "", INT max_triples = 150) FOR GRAPH Interlock SYNTAX v2 {
+  ListAccum<STRING> @@triples;
+  SetAccum<VERTEX> @@frontier;
+  
+  Start = seeds;
+  
+  Hop1 = SELECT t FROM Start:s -(:e)- :t
+         WHERE fiscal_year == "" OR (e.type == "DIRECTOR_OF" AND e.fiscal_year == fiscal_year) OR (e.type == "PARTY_TO" AND t.type == "RelatedPartyTxn" AND t.fiscal_year == fiscal_year) OR e.type NOT IN ("DIRECTOR_OF", "PARTY_TO")
+         ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+         POST-ACCUM @@frontier += t
+         LIMIT max_triples;
+         
+  IF hops == 2 THEN
+    Start2 = @@frontier;
+    Hop2 = SELECT t FROM Start2:s -(:e)- :t
+           WHERE fiscal_year == "" OR (e.type == "DIRECTOR_OF" AND e.fiscal_year == fiscal_year) OR (e.type == "PARTY_TO" AND t.type == "RelatedPartyTxn" AND t.fiscal_year == fiscal_year) OR e.type NOT IN ("DIRECTOR_OF", "PARTY_TO")
+           ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+           LIMIT max_triples;
+  END;
+  
+  PRINT @@triples;
+}
