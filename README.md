@@ -218,8 +218,17 @@ uv run hl db-migrate
 # Acquire filings & disclosures (Phase 1)
 uv run hl fetch
 
+# Parse PDFs into structured text and tables (Phase 2)
+uv run hl parse
+
+# Detect and segment governance sections (Phase 2)
+uv run hl detect-sections
+
 # Inspect acquired dataset coverage & filing inventory
 uv run hl coverage
+
+# (Optional) Test LLM Gateway connectivity
+uv run hl llm-ping "Hello, are you working?"
 ```
 
 #### 🔹 Terminal 2: Interactive Next.js Frontend

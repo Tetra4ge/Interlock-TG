@@ -6,6 +6,7 @@ import fitz
 import pdfplumber
 
 from server.store.db import connect
+from server.parse.clean import find_furniture, clean_page_text
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +20,25 @@ def parse_document(doc_id: str, path: Path, out_dir: Path, min_chars: int) -> Pa
         if data.get("parser_version") == PARSER_VERSION:
             return out  # idempotent skip
             
-    pages, tables = [], []
+    pages_data, tables = [], []
     doc = fitz.open(path)
+    
+    # First pass: grab all text for furniture detection
+    raw_texts = []
     for i, page in enumerate(doc, start=1):
-        text = page.get_text("text")
-        pages.append({"page_no": i, "text": text,
-                      "is_probable_scan": len(text.strip()) < min_chars})
+        raw_texts.append(page.get_text("text"))
+        
+    furniture = find_furniture(raw_texts, ratio=0.6)
+    
+    # Second pass: construct page dicts with raw and cleaned text
+    for i, text in enumerate(raw_texts, start=1):
+        cleaned = clean_page_text(text, furniture)
+        pages_data.append({
+            "page_no": i, 
+            "text": text,
+            "cleaned_text": cleaned,
+            "is_probable_scan": len(text.strip()) < min_chars
+        })
                       
     with pdfplumber.open(path) as pdf:
         for i, page in enumerate(pdf.pages, start=1):
@@ -34,7 +48,7 @@ def parse_document(doc_id: str, path: Path, out_dir: Path, min_chars: int) -> Pa
                 tables.append({"page_no": i, "table_idx": t_idx, "cells": cells})
                 
     out.write_text(json.dumps({"doc_id": doc_id, "parser_version": PARSER_VERSION,
-                               "pages": pages, "tables": tables}, ensure_ascii=False))
+                               "pages": pages_data, "tables": tables}, ensure_ascii=False))
     return out
 
 

@@ -12,6 +12,7 @@ from server.ingest.sources.exchange import ExchangeAdapter
 from server.llm.gateway import call_llm
 from server.llm.models import LLMMessage, LLMRequest
 from server.parse.pdf import parse_all
+from server.parse.sections import detect_all_sections
 from server.store.db import migrate
 
 COMPANIES_YAML = Path("config/companies.yaml")
@@ -45,6 +46,9 @@ def main() -> None:
 
     # parse command
     subparsers.add_parser("parse", help="Parse registered PDFs into pages and tables")
+
+    # detect-sections command
+    subparsers.add_parser("detect-sections", help="Detect specific sections within parsed PDFs")
 
     # coverage command
     subparsers.add_parser("coverage", help="Regenerate docs/coverage.md")
@@ -89,6 +93,9 @@ def main() -> None:
     elif args.command == "parse":
         parse_all()
         print("Parsing complete.")
+
+    elif args.command == "detect-sections":
+        detect_all_sections()
 
     elif args.command == "llm-ping":
         print("Sending message to LLM (groq: openai/gpt-oss-20b)...")
