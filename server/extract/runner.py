@@ -26,6 +26,9 @@ from server.extract.schemas import (
 
 logger = logging.getLogger(__name__)
 
+class SchemaInvalidError(Exception):
+    pass
+
 SECTION_TO_TASK = {
     "governance": ["directors"],
     "board_report": ["directors"],
@@ -133,7 +136,7 @@ def llm_extract(task: str, doc_row: dict, window_pages: List[dict]) -> List[Any]
             return getattr(parsed_out2, "records", [])
         except ValidationError as e2:
             logger.error(f"Failed LLM extraction validation twice: {e2}")
-            return []
+            raise SchemaInvalidError(str(e2))
 
 def extract_document(doc_id: str, run_id: str) -> None:
     conn = connect()
@@ -153,6 +156,12 @@ def extract_document(doc_id: str, run_id: str) -> None:
     tables = parsed.get("tables", [])
     
     sections = conn.execute("SELECT kind, page_start, page_end FROM sections WHERE doc_id = ?", [doc_id]).fetchall()
+    if not sections:
+        logger.warning(f"No sections detected for {doc_id}. Flagging document.")
+        conn.execute("UPDATE documents SET status = 'flagged' WHERE doc_id = ?", [doc_id])
+        conn.commit()
+        conn.close()
+        return
     
     conn.execute(
         "INSERT OR IGNORE INTO extraction_runs (run_id, started_at, model, prompt_version, git_commit) VALUES (?, datetime('now'), ?, ?, ?)",
@@ -166,20 +175,28 @@ def extract_document(doc_id: str, run_id: str) -> None:
             
             for window in page_windows(sec_pages, max_tokens=4000):
                 recs = []
-                if task == "shareholding":
-                    window_page_nos = [p["page_no"] for p in window]
-                    window_tables = [t for t in tables if t["page_no"] in window_page_nos]
-                    
-                    for t in window_tables:
-                        from datetime import date
-                        r = parse_shareholding_table(doc_id, doc.get("company_id", ""), t["page_no"], t["cells"], date.today())
-                        if r:
-                            recs.extend(r)
-                            
-                    if not recs:
+                try:
+                    if task == "shareholding":
+                        window_page_nos = [p["page_no"] for p in window]
+                        window_tables = [t for t in tables if t["page_no"] in window_page_nos]
+                        
+                        for t in window_tables:
+                            from datetime import date
+                            r = parse_shareholding_table(doc_id, doc.get("company_id", ""), t["page_no"], t["cells"], date.today())
+                            if r:
+                                recs.extend(r)
+                                
+                        if not recs:
+                            recs = llm_extract(task, doc, window)
+                    else:
                         recs = llm_extract(task, doc, window)
-                else:
-                    recs = llm_extract(task, doc, window)
+                except SchemaInvalidError as e:
+                    record_id = str(uuid.uuid4())
+                    conn.execute(
+                        "INSERT INTO records (record_id, run_id, doc_id, record_type, payload_json, status, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [record_id, run_id, doc_id, task, "{}", "rejected", "schema_invalid"]
+                    )
+                    continue
                     
                 for rec in recs:
                     status, reason = "accepted", ""
