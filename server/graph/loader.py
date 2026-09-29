@@ -10,15 +10,20 @@ logger = logging.getLogger(__name__)
 def batched_upsert_vertices(conn: tg.TigerGraphConnection, v_type: str, rows: list[tuple[str, dict]], batch_size: int = 500) -> None:
     for i in range(0, len(rows), batch_size):
         batch = rows[i:i+batch_size]
-        conn.upsertVertices(v_type, batch)
-        # Verify accepted counts in a robust prod setting, skip for simple logging here
-        logger.info(f"Upserted {len(batch)} {v_type} vertices.")
+        try:
+            conn.upsertVertices(v_type, batch)
+            logger.info(f"Upserted {len(batch)} {v_type} vertices.")
+        except Exception as e:
+            logger.error(f"Failed to upsert {v_type} batch. Error: {e}. Row IDs: {[r[0] for r in batch]}")
         
 def batched_upsert_edges(conn: tg.TigerGraphConnection, src_type: str, e_type: str, tgt_type: str, rows: list[tuple[str, str, dict]], batch_size: int = 500) -> None:
     for i in range(0, len(rows), batch_size):
         batch = rows[i:i+batch_size]
-        conn.upsertEdges(src_type, e_type, tgt_type, batch)
-        logger.info(f"Upserted {len(batch)} {e_type} edges ({src_type}->{tgt_type}).")
+        try:
+            conn.upsertEdges(src_type, e_type, tgt_type, batch)
+            logger.info(f"Upserted {len(batch)} {e_type} edges ({src_type}->{tgt_type}).")
+        except Exception as e:
+            logger.error(f"Failed to upsert {e_type} batch. Error: {e}. Edge endpoints: {[(r[0], r[1]) for r in batch]}")
 
 def load_graph(run_id: str = "default-run") -> None:
     logger.info("Initializing Graph Loader...")
