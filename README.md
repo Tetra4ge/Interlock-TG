@@ -224,6 +224,9 @@ uv run hl parse
 # Detect and segment governance sections (Phase 2)
 uv run hl detect-sections
 
+# Break sections into token-limited overlapping chunks (Phase 2)
+uv run hl chunk
+
 # Inspect acquired dataset coverage & filing inventory
 uv run hl coverage
 
