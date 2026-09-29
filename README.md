@@ -1,89 +1,116 @@
-# Interlock — Agentic GraphRAG for Corporate Governance Networks
+<div align="center">
 
-Interlock answers natural-language questions about Indian listed companies using public disclosures (annual reports, shareholding patterns, related-party disclosures, regulatory orders). It builds a typed, time-aware knowledge graph of companies, directors, shareholders, auditors, related-party transactions and regulatory actions, then answers each question **three ways** and measures where each approach succeeds or fails:
+# 🕸️ Interlock
+### Agentic GraphRAG for Corporate Governance & Disclosure Networks
 
-| Pipeline | How it answers |
-| --- | --- |
-| **RAG** | Vector search over text chunks, one LLM call |
-| **GraphRAG** | Entity linking, bounded subgraph retrieval plus linked text, one LLM call |
-| **Agentic GraphRAG** | An agent that plans, calls graph/text/calculation tools step by step, and verifies its answer before responding |
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![TigerGraph](https://img.shields.io/badge/TigerGraph-GSQL-F78C1E?style=for-the-badge&logo=tigergraph&logoColor=white)](https://www.tigergraph.com/)
+[![Groq](https://img.shields.io/badge/Groq-Fast_Inference-F55036?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?style=for-the-badge&logo=turso&logoColor=black)](https://turso.tech/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 
-All three use the same LLM, corpus, answer rules and output format (`AnswerResult`), so differences come from the method, not the setup.
+<p align="center">
+  <b>Uncovering hidden governance risks, multi-hop board entanglements, and promoter pledge trails in Indian listed disclosures.</b>
+</p>
 
-> **Status:** documentation complete, implementation not started. Start at [Phase 0](docs/phases/phase-00-setup-and-spikes.md).
+</div>
 
-## Why
+---
 
-Governance risk often lives in relationships *between* disclosures: a director on several boards, one of which was named in a regulatory order; a pledged promoter stake spread across subsidiaries; related-party transactions with entities that share directors; an auditor change shortly after a regulatory action. Plain RAG cannot reliably join facts across documents or total values over many rows. This project quantifies that gap.
+## 📌 Overview
 
-Example questions, by category: single-fact, multi-hop, temporal, numerical, global, and unanswerable (the system must say "not found in the data").
+**Interlock** answers complex natural-language queries about Indian listed companies (NSE/BSE) by parsing and reasoning across public regulatory disclosures—including Annual Reports, Shareholding Pattern filings, Related-Party Transaction (RPT) disclosures, and SEBI regulatory orders.
 
-## Built on TigerGraph
+It constructs a **typed, temporal knowledge graph** spanning companies, directors, key managerial personnel (KMP), substantial shareholders, auditors, transactions, and regulatory actions. 
 
-This project is built for a hackathon organised by TigerGraph, so TigerGraph is the graph engine: the schema is defined in GSQL, facts are upserted through `pyTigerGraph`, and GraphRAG and the agent traverse the graph with installed, parameterized GSQL queries (multi-hop expansion, shared-director search, path finding, accumulator-based totals). Chunk embeddings live in a TigerGraph vector attribute when the deployed version supports it (fallback: local vector index). GSQL syntax and version-specific features are marked **Verify** in the docs.
+Interlock rigorously compares **three distinct AI retrieval architectures** against the exact same corpus, budget, and validation rules:
 
-## Key design points
+| Pipeline | Retrieval & Reasoning Mechanism | Target Query Complexity |
+| :--- | :--- | :--- |
+| **Standard RAG** | Vector similarity search over chunked text disclosures + single-turn LLM generation. | Single-fact lookups, general semantic search. |
+| **GraphRAG** | Named entity resolution, bounded GSQL subgraph expansion + linked context injection + single-turn LLM generation. | 1-hop & 2-hop structural relationships. |
+| **Agentic GraphRAG** | Autonomous agent equipped with graph traversal tools, AST calculators, text search, and a claim-level verification loop. | Multi-hop trails, aggregations, temporal cascades, and forensic checks. |
 
-- **Grounded facts:** every graph edge carries document, page and exact quote; records whose quote is not on the stated page are rejected.
-- **Fair comparison:** shared retrieval services, prompts, evidence budget and answer model.
-- **Verified evaluation:** 150–300 questions across 6 categories, gold answers checked against source PDFs, frozen dev/test split, bootstrap confidence intervals, failure taxonomy.
-- **Safe agent:** read-only graph access, step/token/time budgets, claim-level verifier, AST calculator, retrieved text treated as untrusted.
-- **Reproducible:** content-hash LLM cache, run config and git commit stored per run, one-command graph rebuild and evaluation.
+---
 
-## Planned stack
+## 💡 Why Interlock?
 
-Python 3.11+ (uv, Pydantic v2, httpx) · PyMuPDF + pdfplumber · **TigerGraph** (graph, GSQL installed queries, vector search; `pyTigerGraph` client) · Turso (libSQL) FTS5 for entity-name lookup · Turso (libSQL) run store · custom LLM gateway with cache and cost cap · hand-written agent state machine · FastAPI · Next.js dashboard (TypeScript, React, Tailwind CSS) · pytest, Ruff, mypy · Docker Compose.
+Corporate governance risk rarely sits isolated inside a single paragraph or filing. It emerges from **interconnected relationships across disclosures**:
+- A common independent director sitting across multiple boards where one entity faced SEBI sanctions.
+- Promoter share pledge spikes distributed across obscure holding companies and subsidiaries.
+- Material related-party transactions routed through entities sharing common beneficial ownership.
+- Sudden auditor resignations preceding adverse regulatory scrutiny.
 
-## Architecture
+> **The Problem with Plain RAG:** Traditional chunk-and-retrieve vector RAG fails to join facts across disparate documents, cannot reliably trace multi-hop paths, and frequently hallucinates numerical aggregations. **Interlock quantifies and solves this gap.**
 
-A modular monolith with two halves joined by shared storage:
+---
 
-- **Offline build pipeline (CLI):** fetch → registry → parse → sections → chunk / extract → ground + validate → entity resolution → graph load + embeddings.
-- **Online layer:** three pipelines, evaluation runner, API and a five-page dashboard (Overview, Trade-offs, Failures, Question inspector, Live ask).
+## ⚡ Powered by TigerGraph
 
-### System diagram
+Interlock leverages **TigerGraph** as its primary graph computation and vector storage engine:
+- **GSQL Schema & Graph Modelling:** Native graph schema modelling complex governance relationships with strict time attributes.
+- **High-Performance GSQL Queries:** Parameterized, installed GSQL queries for multi-hop expansion, common director discovery, shortest path detection, and accumulator-based numerical aggregations.
+- **Hybrid Vector + Graph Retrieval:** Graph topology combined with TigerGraph vector embeddings for comprehensive contextual grounding.
+- **Python Integration:** Seamless communication using `pyTigerGraph`.
+
+---
+
+## 🚀 Key Architectural Principles
+
+- **Strict Evidence Grounding:** Every extracted graph edge is immutably linked to its source document, page number, and verbatim quote. Records failing quote verification are quarantined.
+- **Controlled Benchmark Comparison:** All three pipelines share the same underlying LLM (via Groq), retrieval services, and output schemas (`AnswerResult`) to ensure objective evaluation.
+- **Safe Agent Execution:** Read-only graph query permissions, deterministic AST-based math calculators, step/token safety caps, and claim-level verification against primary documents.
+- **Deterministic & Reproducible:** Content-hashed LLM caching, frozen dev/test evaluation splits, run configurations, and one-command graph rebuilds.
+
+---
+
+## 🏗️ System Architecture
 
 ```mermaid
 flowchart LR
-    subgraph OFF[Offline build pipeline - CLI]
+    subgraph OFF[Offline Build Pipeline - CLI]
         direction TB
         CFG[companies.yaml] --> F[Fetcher]
         IN[data/inbox] --> REG[Registry]
         F --> REG
         REG --> RAW[(data/raw PDFs)]
         RAW --> P[Parser]
-        P --> S[Section detector]
+        P --> S[Section Detector]
         S --> CH[Chunker]
-        S --> X[LLM extractor]
-        X --> G[Grounding + validation]
-        G --> RQ[(Review queue)]
-        G --> RES[Entity resolver]
-        RES --> L[Graph loader]
+        S --> X[LLM Extractor]
+        X --> G[Grounding & Validation]
+        G --> RQ[(Review Queue)]
+        G --> RES[Entity Resolver]
+        RES --> L[Graph Loader]
         CH --> E[Embedder]
     end
 
-    subgraph STORE[Storage]
+    subgraph STORE[Storage Layer]
         direction TB
-        TG[(TigerGraph: graph + vectors)]
-        SQL[(Turso DB / libSQL: run store, traces, scores)]
-        CACHE[(LLM cache)]
+        TG[(TigerGraph: Graph + Vectors)]
+        SQL[(Turso DB / libSQL: Runs, Traces, Scores)]
+        CACHE[(Content-Hashed LLM Cache)]
     end
 
-    subgraph ON[Online layer]
+    subgraph ON[Online Reasoning Layer]
         direction TB
-        RET[Shared retrieval services]
-        RAG[RAG]
+        RET[Shared Retrieval Services]
+        RAG[Standard RAG]
         GR[GraphRAG]
         subgraph AGENT[Agentic GraphRAG]
             direction LR
-            PL[Plan] --> AC[Act: tools] --> OB[Observe] --> VF[Verify]
-            OB -->|need more| AC
-            VF -->|unsupported| AC
+            PL[Plan] --> AC[Act: Tools] --> OB[Observe] --> VF[Verify]
+            OB -->|Need More Data| AC
+            VF -->|Unsupported Claims| AC
         end
         RAG --> RET
         GR --> RET
         AGENT --> RET
-        GW[LLM gateway]
+        GW[LLM Gateway]
         RAG --> GW
         GR --> GW
         AGENT --> GW
@@ -93,55 +120,144 @@ flowchart LR
     E --> TG
     RET --> TG
     GW --> CACHE
-    GW --> LLM[LLM provider]
+    GW --> LLM[Groq LLM Engine]
 
-    EVAL[Evaluation runner + scorers + judge] --> RAG
+    EVAL[Evaluation Runner & Judge] --> RAG
     EVAL --> GR
     EVAL --> AGENT
     EVAL --> SQL
-    API[FastAPI] --> RAG
+    API[FastAPI Backend] --> RAG
     API --> GR
     API --> AGENT
     API --> SQL
-    DASH[Next.js dashboard: 5 pages] --> API
+    DASH[Next.js Interactive Dashboard] --> API
     SQL --> DASH
 ```
 
-**Reading the diagram:** the offline pipeline turns PDFs into a grounded graph and vector index; the three pipelines share one retrieval layer and one LLM gateway, so they differ only in *how* they use retrieval; the evaluation runner scores all three into Turso DB, which feeds the dashboard. Detailed sequences (RAG, GraphRAG, agent loop, `/compare`, evaluation flow) are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+---
 
-## Deliverables
+## 🛠️ Tech Stack
 
-GitHub repo · architecture diagram · demo video · metrics dashboard.
+| Domain | Technologies |
+| :--- | :--- |
+| **Graph & Database** | **TigerGraph** (GSQL, pyTigerGraph), **Turso / libSQL** (FTS5 search, run storage) |
+| **Inference & LLMs** | **Groq API** (Llama-3-70B / 8B), Custom Cache & Spend Cap Gateway |
+| **Backend & CLI** | **Python 3.11+**, `uv`, **FastAPI**, **Pydantic v2**, `httpx`, `pytest` |
+| **Document Processing** | **PyMuPDF**, **pdfplumber**, Custom Layout Section Detectors |
+| **Frontend Dashboard** | **Next.js 14** (App Router), **React**, **TypeScript**, **Tailwind CSS**, **Lucide Icons** |
+| **DevOps & Infrastructure** | **Docker Compose**, GitHub Actions |
 
-## Documentation
+---
 
-Full index in [docs/README.md](docs/README.md).
+## 🏁 Getting Started
 
-| Document | Contents |
-| --- | --- |
-| [PRD](docs/PRD.md) | Problem, users, goals, requirements (FR/NFR), success metrics, scope, risks, open questions |
-| [TRD](docs/TRD.md) | Stack decisions, repo layout, config, data models, Turso (libSQL) and TigerGraph (GSQL) schemas, interfaces, API, security, testing |
-| [ARCHITECTURE](docs/ARCHITECTURE.md) | Context, containers, build pipeline, online layer, agent loop, deployment, ADRs |
-| [Phases 0–10](docs/phases/) | Ordered build plan, each with steps, tests, exit criteria and hand-off |
+### 1. Prerequisites
+- **Python 3.11+** with [uv](https://docs.astral.sh/uv/) installed.
+- **Node.js 18+** and `npm`.
+- A running **TigerGraph** instance (Local Docker or TigerGraph Cloud Savanna).
+- A free **Groq API Key**.
 
-## Build plan
+---
 
-| Release | Phases |
-| --- | --- |
-| R0 Foundations | 0 Setup, TigerGraph + GSQL spike, LLM gateway, parser spike |
-| R1 Data | 1 Acquisition · 2 Extraction pilot · 3 Entity resolution + TigerGraph build (GSQL schema, loading, installed queries, vectors) |
-| R2 Baseline + Eval | 4 RAG baseline · 5 Evaluation set + runner |
-| R3 Comparison | 6 GraphRAG (GSQL traversal) · 7 Agentic GraphRAG (allow-listed GSQL query tools) |
-| R4 Presentation | 8 API + dashboard · 9 Hardening |
-| R5 Submission | 10 Demo + submission |
+### 2. Environment Configuration
 
-If time runs short, cut in this order: hosted deployment, global mode, FastAPI, OCR, company count (keep ≥ 30). Never cut: grounding check, verified test set, fair comparison, failure analysis.
+Create a `.env` file in the project root:
 
-## Getting started
+```env
+# ==========================================
+# TigerGraph Credentials (Docker or Savanna)
+# ==========================================
+TG_HOST=http://localhost
+TG_USERNAME=tigergraph
+TG_PASSWORD=tigergraph
+TG_SECRET=
+TG_GRAPH=SpikeGraph
+TG_RESTPP_PORT=9000
+TG_GS_PORT=14240
 
-1. Read the [PRD](docs/PRD.md) and settle the open questions in PRD §10 (dataset/domain, LLM budget, download permissions, hosting).
-2. Follow [Phase 0](docs/phases/phase-00-setup-and-spikes.md), then each phase in order; each has exit criteria to check before moving on.
+# ==========================================
+# Database (Turso / libSQL)
+# ==========================================
+TURSO_DATABASE_URL=file:db/interlock.db
+TURSO_AUTH_TOKEN=
 
-## Disclaimer
+# ==========================================
+# LLM Provider API Key (Groq)
+# ==========================================
+GROQ_API_KEY=your_groq_api_key_here
 
-For research and demonstration only. Not investment advice. Facts are extracted automatically from public filings and may contain errors; verify against the cited source. The system reports cited facts and does not label any company or person as risky or fraudulent.
+# ==========================================
+# Application Settings & Safety Caps
+# ==========================================
+DEMO_MODE=false
+LLM_OFFLINE=false
+LLM_SPEND_CAP_USD=25
+
+# ==========================================
+# Frontend Dashboard
+# ==========================================
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+---
+
+### 3. Running the Services
+
+The application is structured into an **Offline Data & Ingestion Pipeline** and an **Online Interactive Dashboard**.
+
+#### 🔹 Terminal 1: Python Ingestion & Processing Pipeline (CLI)
+We utilize `uv` with our custom `hl` (Hackathon LLM) command suite:
+
+```bash
+# Sync dependencies and create the virtual environment
+uv sync
+
+# Run database migrations (Turso / libSQL)
+uv run hl db-migrate
+
+# Acquire filings & disclosures (Phase 1)
+uv run hl fetch
+
+# Parse PDFs into structured text and tables (Phase 2)
+uv run hl parse
+
+# Detect and segment governance sections (Phase 2)
+uv run hl detect-sections
+
+# Break sections into token-limited overlapping chunks (Phase 2)
+uv run hl chunk
+
+# Extract typed JSON records using LLMs (Phase 2)
+uv run hl extract --run-id "test-run-1"
+
+# Interactive manual review queue CLI (Phase 2)
+uv run hl review
+
+# Measure and report extraction metrics (Phase 2)
+uv run hl evaluate --run-id "test-run-1"
+
+# Inspect acquired dataset coverage & filing inventory
+uv run hl coverage
+
+# (Optional) Test LLM Gateway connectivity
+uv run hl llm-ping "Hello, are you working?"
+```
+
+#### 🔹 Terminal 2: Interactive Next.js Frontend
+Launch the modern visualization dashboard:
+
+```bash
+cd dashboard
+npm install
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser to explore the dashboard.
+
+---
+
+## 📚 Documentation Deep Dives
+
+- 📑 **[PRD (Product Requirements Document)](docs/PRD.md):** User personas, functional requirements, and success metrics.
+- 📐 **[TRD (Technical Requirements Document)](docs/TRD.md):** GSQL graph schemas, libSQL tables, and data models.
+- 🏛️ **[Architecture Guide](docs/ARCHITECTURE.md):** In-depth pipeline flows, tool execution sandbox, and ADRs.
+- 📋 **[Build Phases](docs/phases/):** Step-by-step modular implementation plan (Phases 0–10).

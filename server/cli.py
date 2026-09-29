@@ -11,6 +11,12 @@ from server.ingest.models import CompaniesFile
 from server.ingest.sources.exchange import ExchangeAdapter
 from server.llm.gateway import call_llm
 from server.llm.models import LLMMessage, LLMRequest
+from server.parse.pdf import parse_all
+from server.parse.sections import detect_all_sections
+from server.parse.chunk import chunk_all
+from server.extract.runner import extract_all
+from server.extract.review import review_cli
+from server.extract.evaluate import evaluate_run
 from server.store.db import migrate
 
 COMPANIES_YAML = Path("config/companies.yaml")
@@ -41,6 +47,26 @@ def main() -> None:
 
     # ingest-inbox command
     subparsers.add_parser("ingest-inbox", help="Register manually-downloaded files from data/inbox")
+
+    # parse command
+    subparsers.add_parser("parse", help="Parse registered PDFs into pages and tables")
+
+    # detect-sections command
+    subparsers.add_parser("detect-sections", help="Detect specific sections within parsed PDFs")
+
+    # chunk command
+    subparsers.add_parser("chunk", help="Break parsed PDFs into token-limited chunks")
+
+    # extract command
+    extract_parser = subparsers.add_parser("extract", help="Extract typed records from documents using LLMs")
+    extract_parser.add_argument("--run-id", type=str, default="run-test", help="ID for this extraction run")
+
+    # review command
+    subparsers.add_parser("review", help="Interactive CLI to process the manual review queue")
+
+    # evaluate command
+    eval_parser = subparsers.add_parser("evaluate", help="Evaluate extraction run quality and costs")
+    eval_parser.add_argument("--run-id", type=str, default="run-test", help="ID for the extraction run to evaluate")
 
     # coverage command
     subparsers.add_parser("coverage", help="Regenerate docs/coverage.md")
@@ -81,6 +107,25 @@ def main() -> None:
     elif args.command == "coverage":
         generate_coverage()
         print("Wrote docs/coverage.md")
+
+    elif args.command == "parse":
+        parse_all()
+        print("Parsing complete.")
+
+    elif args.command == "detect-sections":
+        detect_all_sections()
+
+    elif args.command == "chunk":
+        chunk_all()
+
+    elif args.command == "extract":
+        extract_all(args.run_id)
+
+    elif args.command == "review":
+        review_cli()
+
+    elif args.command == "evaluate":
+        evaluate_run(args.run_id)
 
     elif args.command == "llm-ping":
         print("Sending message to LLM (groq: openai/gpt-oss-20b)...")

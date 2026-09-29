@@ -1,0 +1,12 @@
+{
+  "doc_id": "BAJFINANCE_2023", 
+  "page": 120, 
+  "record_type": "rpt",
+  "expected": [
+    {
+      "counterparty_name": "Bajaj Finserv Ltd", 
+      "amount_inr": 150000000,
+      "nature": "Dividend paid"
+    }
+  ]
+}
