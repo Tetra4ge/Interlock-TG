@@ -12,6 +12,8 @@ from server.llm.gateway import call_llm
 from server.settings import settings
 from server.parse.tokens import estimate_tokens
 from server.extract.grounding import check_grounding
+from server.extract.units import detect_unit, to_rupees
+from server.extract.validate import validate_record
 from server.extract.rules.shareholding_table import parse_shareholding_table
 from server.extract.schemas import (
     DirectorsOut,
@@ -180,7 +182,30 @@ def extract_document(doc_id: str, run_id: str) -> None:
                     recs = llm_extract(task, doc, window)
                     
                 for rec in recs:
-                    status, reason = check_grounding(rec, parsed)
+                    status, reason = "accepted", ""
+                    
+                    # Apply unit detection for RPT records
+                    if hasattr(rec, "amount_inr") and hasattr(rec, "amount_raw"):
+                        unit = detect_unit(getattr(rec, "amount_raw", ""))
+                        real_val = to_rupees(getattr(rec, "amount_inr", 0.0), unit)
+                        if real_val is None:
+                            status, reason = "review", "unit_unknown"
+                        else:
+                            setattr(rec, "amount_inr", real_val)
+                            
+                    if status == "accepted":
+                        status, reason = check_grounding(rec, parsed)
+                        
+                    if status == "accepted":
+                        v_status, v_reason = validate_record(rec)
+                        if v_status != "accepted":
+                            status = v_status
+                            reason = v_reason
+                            
+                    # Also mark ungrounded as 'review' instead of just 'rejected' to surface them
+                    if status == "rejected":
+                        status = "review"
+                        
                     payload_json = rec.model_dump_json() if hasattr(rec, "model_dump_json") else "{}"
                     record_id = str(uuid.uuid4())
                     
