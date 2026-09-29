@@ -1,0 +1,8 @@
+CREATE QUERY chunks_for_entities(SET<VERTEX> entities, INT max_limit = 10) FOR GRAPH Interlock SYNTAX v2 {
+  Start = entities;
+  
+  // MENTIONS edges go from Chunk to Entity. The undirected syntax -()- works well here.
+  Chunks = SELECT c FROM Start:s - (MENTIONS:e) - Chunk:c LIMIT max_limit;
+  
+  PRINT Chunks;
+}

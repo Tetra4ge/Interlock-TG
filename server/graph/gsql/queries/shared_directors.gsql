@@ -1,0 +1,17 @@
+CREATE QUERY shared_directors(SET<VERTEX<Company>> companies, STRING fiscal_year = "") FOR GRAPH Interlock SYNTAX v2 {
+  // Find directors connected to ALL companies in the input set.
+  SumAccum<INT> @company_count;
+  
+  Start = companies;
+  
+  // Traverse from Company backward across DIRECTOR_OF to Person
+  Persons = SELECT p FROM Start:c - (DIRECTOR_OF:e) - Person:p
+            WHERE fiscal_year == "" OR e.fiscal_year == fiscal_year
+            ACCUM p.@company_count += 1;
+            
+  // Filter where company_count == companies.size()
+  INT target_count = companies.size();
+  Shared = SELECT p FROM Persons:p WHERE p.@company_count == target_count;
+  
+  PRINT Shared;
+}

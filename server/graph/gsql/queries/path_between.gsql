@@ -1,0 +1,20 @@
+CREATE QUERY path_between(VERTEX source, VERTEX target, INT max_hops = 3) FOR GRAPH Interlock SYNTAX v2 {
+  // Bounded BFS shortest path
+  OrAccum @visited;
+  ListAccum<VERTEX> @path;
+  
+  Start = {source};
+  Start = SELECT s FROM Start:s ACCUM s.@visited = true, s.@path += s;
+  
+  WHILE Start.size() > 0 AND max_hops > 0 DO
+    Start = SELECT t FROM Start:s -(:e)- :t
+            WHERE t.@visited == false
+            ACCUM t.@visited = true,
+                  t.@path = s.@path + [t]
+            POST-ACCUM 
+                  IF t == target THEN
+                     PRINT t.@path
+                  END;
+    max_hops = max_hops - 1;
+  END;
+}
