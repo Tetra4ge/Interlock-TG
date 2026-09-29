@@ -6,7 +6,7 @@
 | BAJAJFINSV | Bajaj Finserv Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
 | BAJAJ-AUTO | Bajaj Auto Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
 | BAJAJHLDNG | Bajaj Holdings & Investment Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
-| TATAMOTORS | Tata Motors Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
+| TATAMOTORS | Tata Motors Limited | ✅ | ✅ | ✅ | 0 | 0 | 2 |
 | TATASTEEL | Tata Steel Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
 | TATAPOWER | Tata Power Company Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
 | TATACONSUM | Tata Consumer Products Limited | ✅ | ✅ | ✅ | 0 | 0 | 0 |
@@ -14,7 +14,7 @@
 ## Totals
 
 - Registered documents: 24
-- Fetch attempts by outcome: manual_needed=192
+- Fetch attempts by outcome: manual_needed=240
 
 ## Spot-check notes
 
