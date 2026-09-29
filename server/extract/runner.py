@@ -11,6 +11,7 @@ from server.llm.models import LLMRequest, LLMMessage
 from server.llm.gateway import call_llm
 from server.settings import settings
 from server.parse.tokens import estimate_tokens
+from server.extract.grounding import check_grounding
 from server.extract.rules.shareholding_table import parse_shareholding_table
 from server.extract.schemas import (
     DirectorsOut,
@@ -71,10 +72,6 @@ def page_windows(pages: List[dict], max_tokens: int = 4000) -> List[List[dict]]:
         windows.append(current_window)
         
     return windows
-
-def check(rec: Any, parsed: dict) -> Tuple[str, str]:
-    # Stub for Step 10
-    return "accepted", ""
 
 def format_pages_block(pages: List[dict]) -> str:
     blocks = []
@@ -183,7 +180,7 @@ def extract_document(doc_id: str, run_id: str) -> None:
                     recs = llm_extract(task, doc, window)
                     
                 for rec in recs:
-                    status, reason = check(rec, parsed)
+                    status, reason = check_grounding(rec, parsed)
                     payload_json = rec.model_dump_json() if hasattr(rec, "model_dump_json") else "{}"
                     record_id = str(uuid.uuid4())
                     
