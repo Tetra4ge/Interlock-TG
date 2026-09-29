@@ -14,6 +14,7 @@ from server.llm.models import LLMMessage, LLMRequest
 from server.parse.pdf import parse_all
 from server.parse.sections import detect_all_sections
 from server.parse.chunk import chunk_all
+from server.extract.runner import extract_all
 from server.store.db import migrate
 
 COMPANIES_YAML = Path("config/companies.yaml")
@@ -53,6 +54,10 @@ def main() -> None:
 
     # chunk command
     subparsers.add_parser("chunk", help="Break parsed PDFs into token-limited chunks")
+
+    # extract command
+    extract_parser = subparsers.add_parser("extract", help="Extract typed records from documents using LLMs")
+    extract_parser.add_argument("--run-id", type=str, default="run-test", help="ID for this extraction run")
 
     # coverage command
     subparsers.add_parser("coverage", help="Regenerate docs/coverage.md")
@@ -103,6 +108,9 @@ def main() -> None:
 
     elif args.command == "chunk":
         chunk_all()
+
+    elif args.command == "extract":
+        extract_all(args.run_id)
 
     elif args.command == "llm-ping":
         print("Sending message to LLM (groq: openai/gpt-oss-20b)...")
