@@ -233,6 +233,9 @@ uv run hl extract --run-id "test-run-1"
 # Interactive manual review queue CLI (Phase 2)
 uv run hl review
 
+# Measure and report extraction metrics (Phase 2)
+uv run hl evaluate --run-id "test-run-1"
+
 # Inspect acquired dataset coverage & filing inventory
 uv run hl coverage
 

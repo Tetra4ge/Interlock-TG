@@ -16,6 +16,7 @@ from server.parse.sections import detect_all_sections
 from server.parse.chunk import chunk_all
 from server.extract.runner import extract_all
 from server.extract.review import review_cli
+from server.extract.evaluate import evaluate_run
 from server.store.db import migrate
 
 COMPANIES_YAML = Path("config/companies.yaml")
@@ -62,6 +63,10 @@ def main() -> None:
 
     # review command
     subparsers.add_parser("review", help="Interactive CLI to process the manual review queue")
+
+    # evaluate command
+    eval_parser = subparsers.add_parser("evaluate", help="Evaluate extraction run quality and costs")
+    eval_parser.add_argument("--run-id", type=str, default="run-test", help="ID for the extraction run to evaluate")
 
     # coverage command
     subparsers.add_parser("coverage", help="Regenerate docs/coverage.md")
@@ -118,6 +123,9 @@ def main() -> None:
 
     elif args.command == "review":
         review_cli()
+
+    elif args.command == "evaluate":
+        evaluate_run(args.run_id)
 
     elif args.command == "llm-ping":
         print("Sending message to LLM (groq: openai/gpt-oss-20b)...")
