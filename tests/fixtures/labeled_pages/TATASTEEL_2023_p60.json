@@ -1,0 +1,10 @@
+{
+  "doc_id": "TATASTEEL_2023", 
+  "page": 60, 
+  "record_type": "auditor",
+  "expected": [
+    {
+      "firm_name": "Price Waterhouse & Co Chartered Accountants LLP"
+    }
+  ]
+}

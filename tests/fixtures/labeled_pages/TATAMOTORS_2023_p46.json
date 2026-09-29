@@ -1,0 +1,17 @@
+{
+  "doc_id": "TATAMOTORS_2023", 
+  "page": 46, 
+  "record_type": "directors",
+  "expected": [
+    {
+      "person_name": "Natarajan Chandrasekaran", 
+      "din": "00121863", 
+      "is_independent": false
+    },
+    {
+      "person_name": "O P Bhatt", 
+      "din": "00548091", 
+      "is_independent": true
+    }
+  ]
+}

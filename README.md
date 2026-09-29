@@ -230,6 +230,9 @@ uv run hl chunk
 # Extract typed JSON records using LLMs (Phase 2)
 uv run hl extract --run-id "test-run-1"
 
+# Interactive manual review queue CLI (Phase 2)
+uv run hl review
+
 # Inspect acquired dataset coverage & filing inventory
 uv run hl coverage
 
