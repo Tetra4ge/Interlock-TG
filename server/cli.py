@@ -4,6 +4,9 @@ from pathlib import Path
 
 import yaml
 
+from server.extract.evaluate import evaluate_run
+from server.extract.review import review_cli
+from server.extract.runner import extract_all
 from server.ingest.coverage import generate_coverage
 from server.ingest.fetcher import PoliteClient, fetch_all
 from server.ingest.inbox import ingest_inbox
@@ -11,12 +14,9 @@ from server.ingest.models import CompaniesFile
 from server.ingest.sources.exchange import ExchangeAdapter
 from server.llm.gateway import call_llm
 from server.llm.models import LLMMessage, LLMRequest
+from server.parse.chunk import chunk_all
 from server.parse.pdf import parse_all
 from server.parse.sections import detect_all_sections
-from server.parse.chunk import chunk_all
-from server.extract.runner import extract_all
-from server.extract.review import review_cli
-from server.extract.evaluate import evaluate_run
 from server.store.db import migrate
 
 COMPANIES_YAML = Path("config/companies.yaml")
@@ -69,7 +69,18 @@ def main() -> None:
     eval_parser.add_argument("--run-id", type=str, default="run-test", help="ID for the extraction run to evaluate")
 
     # coverage command
-    subparsers.add_parser("coverage", help="Regenerate docs/coverage.md")
+    # build-graph command
+    bg_parser = subparsers.add_parser("build-graph", help="Run the entire ingestion and graph build pipeline")
+    bg_parser.add_argument("--from", dest="start_from", type=str, default="migrate", help="Step to start from")
+    bg_parser.add_argument("--reset-graph", action="store_true", help="Clear the TigerGraph store first")
+    bg_parser.add_argument("--yes", action="store_true", help="Skip confirmation for --reset-graph")
+
+    # quality command
+    subparsers.add_parser("quality", help="Generate the docs/data-quality.md report")
+
+    # sample graph commands
+    subparsers.add_parser("export-sample", help="Export a subset of the TigerGraph graph to JSONL")
+    subparsers.add_parser("import-sample", help="Import the sample graph JSONL back into TigerGraph")
 
     args = parser.parse_args()
 
@@ -147,6 +158,87 @@ def main() -> None:
         print(f"  Tokens   : {res.tokens_in} in / {res.tokens_out} out")
         print(f"  Latency  : {res.latency_ms} ms")
         print(f"  Cost     : ${res.cost_usd:.6f}")
+
+    elif args.command == "build-graph":
+        if args.reset_graph:
+            if not args.yes:
+                print("WARNING: --reset-graph will CLEAR all vertices and edges from TigerGraph.")
+                ans = input("Type 'yes' to continue: ")
+                if ans.lower() != "yes":
+                    print("Aborting.")
+                    sys.exit(1)
+            from server.graph.client import get_tg_connection
+            print("Clearing graph store...")
+            conn = get_tg_connection()
+            # In TigerGraph v3/v4 CLEAR GRAPH STORE -HARD wipes data.
+            conn.gsql(f"USE GRAPH {conn.graphname}\nCLEAR GRAPH STORE -HARD")
+            print("Graph store cleared.")
+            
+        def build_entity_index() -> None:
+            from server.store.db import connect
+            db = connect()
+            print("Rebuilding FTS5 entities index...")
+            db.execute("DROP TABLE IF EXISTS entities_fts")
+            db.execute('''
+                CREATE VIRTUAL TABLE entities_fts USING fts5(
+                    entity_id UNINDEXED,
+                    canonical_name,
+                    aliases_text,
+                    kind UNINDEXED
+                )
+            ''')
+            db.execute('''
+                INSERT INTO entities_fts (entity_id, canonical_name, aliases_text, kind)
+                SELECT entity_id, canonical_name, aliases_text, kind FROM entities
+            ''')
+            db.commit()
+            db.close()
+            
+        from server.embed.index import build_vector_index
+        from server.graph.loader import load_graph
+        from server.graph.mentions_link import run_mentions_link
+        from server.graph.schema import apply_schema, install_queries
+        from server.resolve.cluster import run_clustering
+        
+        steps = [
+            ("migrate", lambda: migrate()),
+            ("schema", lambda: (apply_schema(), install_queries())),
+            ("parse", lambda: parse_all()),
+            ("sections", lambda: detect_all_sections()),
+            ("chunk", lambda: chunk_all()),
+            ("extract", lambda: extract_all("default-run")),
+            ("resolve", lambda: run_clustering()),
+            ("load", lambda: load_graph("default-run")),
+            ("mentions", lambda: run_mentions_link()),
+            ("embed", lambda: build_vector_index()),
+            ("entity-index", lambda: build_entity_index())
+        ]
+        
+        start_idx = 0
+        for i, (name, _) in enumerate(steps):
+            if name == args.start_from:
+                start_idx = i
+                break
+                
+        for i in range(start_idx, len(steps)):
+            name, func = steps[i]
+            print(f"\n--- Running Step: {name} ---")
+            func()
+            
+        print("\n✅ build-graph pipeline completed successfully!")
+
+    elif args.command == "quality":
+        from server.reporting.quality import generate_quality_report
+        generate_quality_report()
+        print("Data quality report generated at docs/data-quality.md")
+
+    elif args.command == "export-sample":
+        from server.graph.export import export_sample
+        export_sample()
+        
+    elif args.command == "import-sample":
+        from server.graph.export import import_sample
+        import_sample()
 
     else:
         parser.print_help()

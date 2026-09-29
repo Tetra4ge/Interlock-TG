@@ -236,6 +236,16 @@ uv run hl review
 # Measure and report extraction metrics (Phase 2)
 uv run hl evaluate --run-id "test-run-1"
 
+# Run the end-to-end ingestion and Graph construction pipeline (Phase 3)
+uv run hl build-graph
+
+# Automatically generate the docs/data-quality.md report (Phase 3)
+uv run hl quality
+
+# Export/Import a sample graph to JSONL for one-command demos (Phase 3)
+uv run hl export-sample
+uv run hl import-sample
+
 # Inspect acquired dataset coverage & filing inventory
 uv run hl coverage
 
@@ -261,3 +271,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to explore t
 - 📐 **[TRD (Technical Requirements Document)](docs/TRD.md):** GSQL graph schemas, libSQL tables, and data models.
 - 🏛️ **[Architecture Guide](docs/ARCHITECTURE.md):** In-depth pipeline flows, tool execution sandbox, and ADRs.
 - 📋 **[Build Phases](docs/phases/):** Step-by-step modular implementation plan (Phases 0–10).
+
+## Graph Edges across Fiscal Years
+Each fiscal year's report produces its own `DIRECTOR_OF` edge (with a different `edge_id` discriminator). This intentional schema design natively records temporal context ('was a director according to the FY2022-23 report'). Graph queries should filter on `fiscal_year` or `start_date`/`end_date` to answer period-specific temporal questions.

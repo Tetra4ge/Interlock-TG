@@ -1,0 +1,10 @@
+CREATE QUERY get_edge_by_id(STRING edge_id) FOR GRAPH Interlock SYNTAX v2 {
+  // Scans primary fact edges for a matching edge_id discriminator to return provenance.
+  SetAccum<EDGE> @@edges;
+  
+  P = SELECT s FROM Person:s - (DIRECTOR_OF:e) - Company:t WHERE e.edge_id == edge_id ACCUM @@edges += e;
+  C = SELECT s FROM Company:s - (PARTY_TO:e) - RelatedPartyTxn:t WHERE e.edge_id == edge_id ACCUM @@edges += e;
+  P2 = SELECT s FROM Person:s - (PARTY_TO:e) - RelatedPartyTxn:t WHERE e.edge_id == edge_id ACCUM @@edges += e;
+  
+  PRINT @@edges;
+}
