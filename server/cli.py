@@ -69,6 +69,8 @@ def main() -> None:
     eval_parser.add_argument("--run-id", type=str, default="run-test", help="ID for the extraction run to evaluate")
 
     # coverage command
+    subparsers.add_parser("coverage", help="Generate the docs/coverage.md report")
+
     # build-graph command
     bg_parser = subparsers.add_parser("build-graph", help="Run the entire ingestion and graph build pipeline")
     bg_parser.add_argument("--from", dest="start_from", type=str, default="migrate", help="Step to start from")
