@@ -1,33 +1,44 @@
+import json
 import logging
 import os
+from pathlib import Path
 
 import numpy as np
 
 from server.embed.provider import MODEL_NAME, embed_texts
-from server.store.db import connect
+from server.embed.query import embed_query
 
 logger = logging.getLogger(__name__)
 
 DATA_DIR = "data/vectors"
+CHUNKS_DIR = Path("data/chunks")
+
+
+def _load_all_chunks() -> list[dict]:
+    """Chunks live as data/chunks/{doc_id}_chunks.json (written by
+    chunk_all()), not a SQLite table -- there is no `chunks` table in the
+    schema."""
+    chunks: list[dict] = []
+    for f in sorted(CHUNKS_DIR.glob("*_chunks.json")):
+        chunks.extend(json.loads(f.read_text()))
+    return chunks
+
 
 def build_vector_index() -> None:
     logger.info("Initializing Vector Index Builder (NumPy Fallback Mode)...")
-    db = connect()
-    
+
     os.makedirs(DATA_DIR, exist_ok=True)
     index_path = os.path.join(DATA_DIR, f"{MODEL_NAME}_index.npz")
-    
-    logger.info("Fetching all chunks from DB...")
-    chunks = db.execute(
-        "SELECT chunk_id, text FROM chunks WHERE text IS NOT NULL AND text != ''"
-    ).fetchall()
-    
+
+    logger.info("Loading chunks from data/chunks/...")
+    chunks = [c for c in _load_all_chunks() if c.get("text")]
+
     if not chunks:
         logger.warning("No valid chunks found to embed. Skipping index build.")
         return
-        
-    chunk_ids = [str(c[0]) for c in chunks]
-    texts = [str(c[1]) for c in chunks]
+
+    chunk_ids = [str(c["chunk_id"]) for c in chunks]
+    texts = [str(c["text"]) for c in chunks]
     
     logger.info(f"Embedding {len(texts)} chunks using {MODEL_NAME}...")
     vectors = embed_texts(texts, is_query=False)
@@ -51,7 +62,7 @@ def search_vector_index(query: str, k: int = 10) -> list[tuple[str, float]]:
     chunk_ids = data["chunk_ids"]
     vectors = data["vectors"]
     
-    q_vec = embed_texts([query], is_query=True)[0]
+    q_vec = embed_query(query)
     q_vec_np = np.array(q_vec, dtype=np.float32)
     
     # Compute dot product (since embeddings are L2 normalized, dot product == cosine similarity)
