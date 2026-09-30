@@ -63,7 +63,7 @@ def load_graph(run_id: str = "default-run") -> None:
     
     logger.info("Processing Edge Relationships from Records...")
     records = db.execute("""
-        SELECT r.record_id, r.record_type, r.payload_json, r.doc_id, r.page_num, d.company_id, d.fiscal_year 
+        SELECT r.record_id, r.record_type, r.payload_json, r.doc_id, d.company_id, d.fiscal_year
         FROM records r
         JOIN documents d ON r.doc_id = d.doc_id
         WHERE r.status = 'accepted' OR r.status = 'fixed'
@@ -79,8 +79,9 @@ def load_graph(run_id: str = "default-run") -> None:
     audited_by_edges = []
     
     for row in records:
-        rec_id, rec_type, payload_json, doc_id, page_num, ctx_cid, fiscal_year = row
+        rec_id, rec_type, payload_json, doc_id, ctx_cid, fiscal_year = row
         payload = json.loads(payload_json)
+        page_num = payload.get("page")
         
         ctx_mention_id = f"{rec_id}:context_company"
         ctx_eid = mention_to_entity.get(ctx_mention_id)

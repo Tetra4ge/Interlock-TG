@@ -11,7 +11,7 @@
 ## Totals
 
 - Registered documents: 26
-- Fetch attempts by outcome: manual_needed=321
+- Fetch attempts by outcome: manual_needed=354
 
 ## Spot-check notes
 

@@ -1,4 +1,6 @@
+import json
 import logging
+from pathlib import Path
 
 import pyTigerGraph as tg
 
@@ -7,6 +9,8 @@ from server.parse.clean import normalize_for_match
 from server.store.db import connect
 
 logger = logging.getLogger(__name__)
+
+CHUNKS_DIR = Path("data/chunks")
 
 def batched_upsert_edges(
     conn: tg.TigerGraphConnection, 
@@ -56,12 +60,15 @@ def run_mentions_link() -> None:
     # 2. Load records for overlap matching
     logger.info("Mapping records to document pages...")
     records = db.execute("""
-        SELECT r.record_id, r.doc_id, r.page_num
+        SELECT r.record_id, r.doc_id, r.payload_json
         FROM records r
         WHERE r.status = 'accepted' OR r.status = 'fixed'
     """).fetchall()
-    
-    record_pages = {r[0]: (r[1], r[2]) for r in records}
+
+    record_pages = {
+        rec_id: (doc_id, json.loads(payload_json).get("page"))
+        for rec_id, doc_id, payload_json in records
+    }
     
     mlog = db.execute("SELECT mention_id, entity_id FROM merge_log").fetchall()
     
@@ -81,10 +88,19 @@ def run_mentions_link() -> None:
             page_entities[doc_id][page_num].add(eid)
             
     # 3. Load chunks and link
+    # Chunks live as data/chunks/{doc_id}_chunks.json (written by chunk_all()),
+    # not a SQLite table -- there is no `chunks` table in the schema.
     logger.info("Evaluating MENTIONS across all chunks...")
-    chunks = db.execute(
-        "SELECT chunk_id, doc_id, text, page_start, page_end FROM chunks"
-    ).fetchall()
+    doc_ids = [row[0] for row in db.execute("SELECT doc_id FROM documents").fetchall()]
+    chunks = []
+    for doc_id in doc_ids:
+        chunk_file = CHUNKS_DIR / f"{doc_id}_chunks.json"
+        if not chunk_file.exists():
+            continue
+        for c in json.loads(chunk_file.read_text()):
+            chunks.append(
+                (c["chunk_id"], doc_id, c["text"], c["page_start"], c["page_end"])
+            )
     
     mentions_company = []
     mentions_person = []
