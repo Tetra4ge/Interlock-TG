@@ -98,8 +98,10 @@ def llm_extract(task: str, doc_row: dict, window_pages: List[dict]) -> List[Any]
     
     schema_model = TASK_SCHEMAS[task]
     
-    # Use generic model from settings, or specifically hardcode a fallback
-    model = "llama3-70b-8192" 
+    # Same $0 Groq free-tier model as the shared answer step (see
+    # server/pipelines/common/answer.py) -- llama3-70b-8192 has since been
+    # decommissioned by Groq.
+    model = "openai/gpt-oss-20b"
     
     req = LLMRequest(
         provider="groq",
@@ -138,14 +140,27 @@ def llm_extract(task: str, doc_row: dict, window_pages: List[dict]) -> List[Any]
             logger.error(f"Failed LLM extraction validation twice: {e2}")
             raise SchemaInvalidError(str(e2))
 
+DOCUMENT_COLUMNS = [
+    "doc_id",
+    "company_id",
+    "doc_type",
+    "fiscal_year",
+    "source_url",
+    "file_path",
+    "fetched_at",
+    "status",
+    "error",
+]
+
+
 def extract_document(doc_id: str, run_id: str) -> None:
     conn = connect()
     doc_row = conn.execute("SELECT * FROM documents WHERE doc_id = ?", [doc_id]).fetchone()
     if not doc_row:
         conn.close()
         return
-        
-    doc = dict(doc_row)
+
+    doc = dict(zip(DOCUMENT_COLUMNS, doc_row, strict=True))
     
     parsed = load_parsed(doc_id)
     if not parsed:
@@ -165,7 +180,7 @@ def extract_document(doc_id: str, run_id: str) -> None:
     
     conn.execute(
         "INSERT OR IGNORE INTO extraction_runs (run_id, started_at, model, prompt_version, git_commit) VALUES (?, datetime('now'), ?, ?, ?)",
-        [run_id, "groq:llama3-70b", "v1", "HEAD"]
+        [run_id, "groq:openai/gpt-oss-20b", "v1", "HEAD"]
     )
     
     for section_row in sections:
@@ -196,6 +211,7 @@ def extract_document(doc_id: str, run_id: str) -> None:
                         "INSERT INTO records (record_id, run_id, doc_id, record_type, payload_json, status, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         [record_id, run_id, doc_id, task, "{}", "rejected", "schema_invalid"]
                     )
+                    conn.commit()
                     continue
                     
                 for rec in recs:
@@ -236,7 +252,8 @@ def extract_document(doc_id: str, run_id: str) -> None:
                             "INSERT INTO review_queue (record_id, reason, created_at) VALUES (?, ?, datetime('now'))",
                             [record_id, reason or ""]
                         )
-                        
+                    conn.commit()
+
     conn.execute("UPDATE documents SET status = 'extracted' WHERE doc_id = ?", [doc_id])
     conn.execute("UPDATE extraction_runs SET finished_at = datetime('now') WHERE run_id = ?", [run_id])
     conn.commit()
