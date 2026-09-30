@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 
+from server.common.ids import generate_id
 from server.extract.evaluate import evaluate_run
 from server.extract.review import review_cli
 from server.extract.runner import extract_all
@@ -83,6 +84,13 @@ def main() -> None:
     # sample graph commands
     subparsers.add_parser("export-sample", help="Export a subset of the TigerGraph graph to JSONL")
     subparsers.add_parser("import-sample", help="Import the sample graph JSONL back into TigerGraph")
+
+    # ask command
+    ask_parser = subparsers.add_parser("ask", help="Ask a question through an answer pipeline")
+    ask_parser.add_argument("question", type=str, help="The question to ask")
+    ask_parser.add_argument(
+        "--pipeline", type=str, default="rag", help="Pipeline name (default: rag)"
+    )
 
     args = parser.parse_args()
 
@@ -241,6 +249,42 @@ def main() -> None:
     elif args.command == "import-sample":
         from server.graph.export import import_sample
         import_sample()
+
+    elif args.command == "ask":
+        import server.pipelines.rag  # noqa: F401  (registers "rag")
+        from server.pipelines.base import REGISTRY
+
+        pipeline = REGISTRY.get(args.pipeline)
+        if pipeline is None:
+            print(
+                f"Unknown pipeline: {args.pipeline!r}. Available: {sorted(REGISTRY)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        request_id = generate_id()
+        result = pipeline.answer(args.question, request_id)
+
+        print(
+            f"[{result.pipeline}] status={result.status.value}  type={result.answer_type.value}  "
+            f"cost=${result.usage.cost_usd:.4f}  latency={result.usage.latency_ms / 1000:.1f}s  "
+            f"llm_calls={result.usage.llm_calls}"
+        )
+        print(f"Answer: {result.answer_short}")
+        if result.answer_long:
+            print(result.answer_long)
+        if result.citations:
+            print("Citations:")
+            for c in result.citations:
+                print(f'  - doc {c.doc_id}, p.{c.page}: "{c.quote}"')
+        print("Trace:")
+        for s in result.trace:
+            print(f"  {s.step} {s.kind:<8} {s.name:<20} {s.latency_ms:>6} ms", end="")
+            if s.tokens_in or s.tokens_out:
+                print(f"  {s.tokens_in}→{s.tokens_out} tokens", end="")
+            if s.error:
+                print(f"  ERROR: {s.error}", end="")
+            print()
 
     else:
         parser.print_help()
