@@ -1,0 +1,35 @@
+fetch:
+  delay_seconds: 3
+  timeout_seconds: 60
+  max_retries: 3
+  user_agent: "Interlock-TG research project (contact: prajwalpriyadarshan@gmail.com)"
+parse:
+  min_chars_per_page: 200 # below = possible scan
+  header_footer_repeat_ratio: 0.6
+chunk:
+  target_tokens: 500
+  max_tokens: 800
+  overlap_tokens: 60
+extract:
+  sections: [governance, related_party, auditor, board_report, subsidiaries, shareholding]
+resolve:
+  auto_merge_threshold: 95
+  review_band_low: 85
+retrieval:
+  evidence_token_budget: 6000
+  rag_top_k: 20
+  rerank_top_k: 8
+  use_reranker: false
+graphrag:
+  max_hops: 2
+  max_triples: 150
+  linked_chunks: 6
+agent:
+  max_steps: 8
+  max_tokens: 40000
+  timeout_seconds: 120
+  gsql_timeout_seconds: 10
+  gsql_max_rows: 200
+eval:
+  bootstrap_samples: 2000
+  numeric_rel_tolerance: 0.01

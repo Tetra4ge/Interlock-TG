@@ -1,9 +1,13 @@
 import hashlib
 import json
 import logging
+from pathlib import Path
+
 import pyTigerGraph as tg
 from server.graph.client import get_tg_connection
 from server.store.db import connect
+
+CHUNKS_DIR = Path("data/chunks")
 
 logger = logging.getLogger(__name__)
 
@@ -162,26 +166,26 @@ def load_graph(run_id: str = "default-run") -> None:
     batched_upsert_edges(tg, "Company", "PARTY_TO", "RelatedPartyTxn", party_to_company)
     batched_upsert_edges(tg, "Person", "PARTY_TO", "RelatedPartyTxn", party_to_person)
     logger.info("4/4 Upserting Chunks into the Graph...")
-    chunks_data = db.execute("""
-        SELECT c.chunk_id, c.doc_id, c.text, c.section, c.page_start, c.page_end, d.fiscal_year, d.company_id
-        FROM chunks c
-        JOIN documents d ON c.doc_id = d.doc_id
-    """).fetchall()
-    
+    # Chunks live as data/chunks/{doc_id}_chunks.json (written by chunk_all()),
+    # not a SQLite table -- there is no `chunks` table in the schema.
     chunk_vertices = []
     has_chunk_edges = []
-    for row in chunks_data:
-        chunk_id, doc_id, text, section, page_start, page_end, fiscal_year, company_id = row
-        chunk_vertices.append((chunk_id, {
-            "text": text,
-            "section": section,
-            "page_start": page_start,
-            "page_end": page_end,
-            "fiscal_year": fiscal_year or "",
-            "company_id": company_id or ""
-        }))
-        has_chunk_edges.append((doc_id, chunk_id, {}))
-        
+    for (doc_id,) in docs:
+        chunk_file = CHUNKS_DIR / f"{doc_id}_chunks.json"
+        if not chunk_file.exists():
+            continue
+        for c in json.loads(chunk_file.read_text()):
+            chunk_vertices.append((c["chunk_id"], {
+                "doc_id": doc_id,
+                "text": c["text"],
+                "section": c["section"],
+                "page_start": c["page_start"],
+                "page_end": c["page_end"],
+                "fiscal_year": c.get("fiscal_year") or "",
+                "company_id": c.get("company_id") or ""
+            }))
+            has_chunk_edges.append((doc_id, c["chunk_id"], {}))
+
     batched_upsert_vertices(tg, "Chunk", chunk_vertices)
     batched_upsert_edges(tg, "Document", "HAS_CHUNK", "Chunk", has_chunk_edges)
     
