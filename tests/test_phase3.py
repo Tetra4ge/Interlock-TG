@@ -254,3 +254,35 @@ def test_auditor_firn_becomes_the_entity_id():
         record_id="r1",
     )
     assert generate_exact_id(with_frn) == "A:304026E"
+
+
+def test_subsidiary_record_builds_parent_and_subsidiary_mentions():
+    import json as _json
+
+    from server.resolve import mentions as m
+
+    payload = {
+        "parent_company": "Tata Steel Limited",
+        "subsidiary_name": "Tata Steel Downstream Products Limited",
+        "evidence": {"page": 5, "quote": "wholly owned subsidiary"},
+    }
+
+    class _DB:
+        def execute(self, *_a):
+            return self
+
+        def fetchall(self):
+            return [("rec1", "subsidiaries", _json.dumps(payload), "TATASTEEL")]
+
+        def close(self):
+            pass
+
+    original = m.connect
+    m.connect = lambda: _DB()
+    try:
+        built = {mm.mention_id: mm for mm in m.build_mentions()}
+    finally:
+        m.connect = original
+    assert built["rec1:context_company"].raw_name == "Tata Steel Limited"
+    assert built["rec1:subsidiary"].raw_name == "Tata Steel Downstream Products Limited"
+    assert built["rec1:subsidiary"].kind == "company"

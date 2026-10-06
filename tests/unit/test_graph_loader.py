@@ -162,3 +162,26 @@ def test_chunks_are_loaded_from_disk(tg, memdb, tmp_path, monkeypatch) -> None:
     ((cid, attrs),) = tg.vertices["Chunk"]
     assert cid == "doc1-governance-0001" and attrs["doc_id"] == "doc1"
     assert tg.edges[("Document", "HAS_CHUNK", "Chunk")] == [("doc1", cid, {})]
+
+
+def test_subsidiary_edge_is_loaded_with_provenance(tg, memdb) -> None:
+    from server.extract.schemas import SubsidiaryRecord
+
+    _seed(
+        memdb,
+        "subsidiaries",
+        SubsidiaryRecord(
+            parent_company="Tata Steel Limited",
+            subsidiary_name="Tata Steel Downstream Products Limited",
+            pct_held=100.0,
+            evidence=EVIDENCE,
+        ),
+        {"context_company": "C:TATASTEEL", "subsidiary": "C:xsub"},
+    )
+
+    loader.load_graph("run1")
+
+    ((src, tgt, attrs),) = tg.edges[("Company", "SUBSIDIARY_OF", "Company")]
+    assert (src, tgt) == ("C:xsub", "C:TATASTEEL")  # subsidiary -> parent
+    assert attrs["pct_held"] == 100.0
+    assert attrs["page"] == 46 and attrs["doc_id"] == "doc1" and attrs["run_id"] == "run1"

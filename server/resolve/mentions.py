@@ -139,6 +139,23 @@ def build_mentions() -> list[Mention]:
                     )
                 )
 
+        # 4. Subsidiary -> parent (context) company + subsidiary company
+        elif record_type == "subsidiaries":
+            mentions.append(context_company_mention(record_id, company_id))
+            if payload.get("subsidiary_name"):
+                sub_name = payload["subsidiary_name"]
+                mentions.append(
+                    Mention(
+                        mention_id=f"{record_id}:subsidiary",
+                        kind="company",
+                        raw_name=sub_name,
+                        norm_name=norm_company(sub_name),
+                        ids={},
+                        context_company_id=company_id,
+                        record_id=record_id,
+                    )
+                )
+
         # (Shareholding and Regulatory mentions can be added here as needed)
 
     return mentions

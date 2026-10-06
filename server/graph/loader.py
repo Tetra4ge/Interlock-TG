@@ -98,6 +98,7 @@ def load_graph(run_id: str = "default-run") -> None:
     rpt_vertices = []
     party_to_edges = []
     audited_by_edges: list[Any] = []
+    subsidiary_edges: list[Any] = []
 
     for row in records:
         rec_id, rec_type, payload_json, doc_id, ctx_cid, fiscal_year = row
@@ -212,11 +213,33 @@ def load_graph(run_id: str = "default-run") -> None:
                 )
             )
 
+        elif rec_type == "subsidiaries":
+            sub_eid = mention_to_entity.get(f"{rec_id}:subsidiary")
+            if not sub_eid or not ctx_eid:
+                continue
+            edge_id = hashlib.sha256(f"{rec_id}:SUBSIDIARY_OF".encode()).hexdigest()[:16]
+            subsidiary_edges.append(
+                (
+                    sub_eid,
+                    ctx_eid,
+                    {
+                        "edge_id": edge_id,
+                        "pct_held": float(payload.get("pct_held") or 0.0),
+                        "as_of": payload.get("as_of") or "",
+                        "doc_id": doc_id,
+                        "page": page_num,
+                        "quote": quote,
+                        "run_id": run_id,
+                    },
+                )
+            )
+
     logger.info("3/3 Upserting RPT Vertices and all Edge Relationships...")
     batched_upsert_vertices(tg, "RelatedPartyTxn", rpt_vertices)
 
     batched_upsert_edges(tg, "Person", "DIRECTOR_OF", "Company", director_edges)
     batched_upsert_edges(tg, "Company", "AUDITED_BY", "AuditFirm", audited_by_edges)
+    batched_upsert_edges(tg, "Company", "SUBSIDIARY_OF", "Company", subsidiary_edges)
 
     # PARTY_TO requires separation by src_type since it can be Person or Company
     party_to_company = [
