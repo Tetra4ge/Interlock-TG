@@ -1,9 +1,10 @@
-import pytest
 from datetime import date
-from server.parse.clean import normalize_for_match
-from server.extract.grounding import grounded, check_grounding
+
+from server.extract.grounding import check_grounding, grounded
 from server.extract.units import detect_unit, to_rupees
 from server.extract.validate import validate_record
+from server.parse.clean import normalize_for_match
+
 
 # --- 1. normalize_for_match ---
 def test_normalize_for_match():

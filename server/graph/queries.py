@@ -4,7 +4,9 @@ from typing import Any
 from rapidfuzz import fuzz
 
 from server.embed.index import search_vector_index
+from server.embed.keyword import keyword_search, load_chunks
 from server.graph.client import get_tg_connection
+from server.pipelines.common.fusion import reciprocal_rank_fusion
 from server.store.db import connect
 
 logger = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ def run_installed(query_name: str, params: dict) -> Any:
         return []
 
 
-def _allowed_doc_prefixes(filters: dict) -> set[str] | None:
+def _allowed_doc_ids(filters: dict) -> list[str] | None:
     clauses, params = [], []
     for key in ("company_id", "fiscal_year"):
         if key in filters:
@@ -34,15 +36,21 @@ def _allowed_doc_prefixes(filters: dict) -> set[str] | None:
         ).fetchall()
     finally:
         conn.close()
-    return {r[0][:12] for r in rows}
+    return [r[0] for r in rows]
 
 
 def vector_search(query: str, k: int = 10, filters: dict | None = None) -> list[dict]:
     filters = filters or {}
-    # 1. Fetch k*3 from NumPy local index, restricted to the filtered documents before ranking
-    raw_results = search_vector_index(
-        query, k=k * 3, allowed_doc_prefixes=_allowed_doc_prefixes(filters)
+    doc_ids = _allowed_doc_ids(filters)
+    # 1. Candidates from the vector index and BM25 keyword search, both restricted to the
+    #    filtered documents before ranking; fused so exact phrases can surface too.
+    vector_hits = search_vector_index(
+        query,
+        k=k * 3,
+        allowed_doc_prefixes=None if doc_ids is None else {d[:12] for d in doc_ids},
     )
+    keyword_hits = keyword_search(query, load_chunks(doc_ids), k=k * 3)
+    raw_results = reciprocal_rank_fusion([vector_hits, keyword_hits], k_out=k * 3)
     if not raw_results:
         return []
 

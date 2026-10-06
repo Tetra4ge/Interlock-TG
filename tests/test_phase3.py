@@ -1,11 +1,10 @@
-import pytest
-import sqlite3
-from unittest.mock import patch, MagicMock
 
-from server.resolve.normalize import norm_person, norm_company
-from server.resolve.match import person_score, compare_mentions
-from server.resolve.mentions import Mention
+import pytest
+
 from server.resolve.cluster import UnionFind
+from server.resolve.match import compare_mentions, person_score
+from server.resolve.mentions import Mention
+from server.resolve.normalize import norm_company, norm_person
 
 # --- 1. Normalization & Scoring Tests ---
 
@@ -63,7 +62,6 @@ def test_cluster_conflict_split():
     assert len(exact_ids) > 1
 
 def test_fts_escaping():
-    from server.graph.queries import entity_search
     # entity_search natively escapes double quotes via `text.replace('"', '""')`
     # We'll just verify the raw escaping logic here
     raw_query = 'ABC & Company "Special" (India)'

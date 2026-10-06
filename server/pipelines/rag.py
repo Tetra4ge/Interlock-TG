@@ -6,6 +6,7 @@ from server.pipelines.base import register
 from server.pipelines.common.answer import final_answer
 from server.pipelines.common.budget import fit_to_budget
 from server.pipelines.common.citations import validate_citations
+from server.pipelines.common.fusion import reciprocal_rank_fusion
 from server.pipelines.common.render import assign_labels
 from server.pipelines.common.rerank import rerank
 from server.pipelines.common.scope import detect_filters
@@ -101,7 +102,13 @@ class RAGPipeline:
 
         if RETRIEVAL.use_reranker:
             t1 = time.perf_counter()
-            hits = rerank(question, hits)[: RETRIEVAL.rerank_top_k]
+            reranked = rerank(question, hits)
+            order = reciprocal_rank_fusion(
+                [[(h["chunk_id"], 0.0) for h in hits], [(h["chunk_id"], 0.0) for h in reranked]],
+                k_out=RETRIEVAL.rerank_top_k,
+            )
+            by_id = {h["chunk_id"]: h for h in hits}
+            hits = [by_id[cid] for cid, _ in order]
             tr.add(
                 "retrieve",
                 "rerank",

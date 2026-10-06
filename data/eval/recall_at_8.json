@@ -1,0 +1,193 @@
+{
+  "n_questions": 26,
+  "k": 8,
+  "recall_at_8": {
+    "vector": 0.731,
+    "hybrid": 0.846,
+    "hybrid_rerank": 0.885
+  },
+  "per_question": [
+    {
+      "question": "Who is Sanjiv Bajaj on the board of BAJFINANCE in FY2023-24?",
+      "gold_count": 36,
+      "vector": 0.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Dr. Naushad Forbes on the board of BAJFINANCE in FY2023-24?",
+      "gold_count": 20,
+      "vector": 1.0,
+      "hybrid": 0.0,
+      "hybrid_rerank": 0.0
+    },
+    {
+      "question": "Who is Anami N Roy on the board of BAJFINANCE in FY2023-24?",
+      "gold_count": 32,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Pramit Jhaveri on the board of BAJFINANCE in FY2023-24?",
+      "gold_count": 18,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Radhika Haribhakti on the board of BAJFINANCE in FY2023-24?",
+      "gold_count": 16,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Dr. Arindam Bhattacharya on the board of BAJFINANCE in FY2023-24?",
+      "gold_count": 14,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Rajeev Jain on the board of BAJFINANCE in FY2023-24?",
+      "gold_count": 36,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Anup Saha on the board of BAJFINANCE in FY2023-24?",
+      "gold_count": 19,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Rajiv Bajaj on the board of BAJFINANCE in FY2023-24?",
+      "gold_count": 10,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Om Prakash Bhatt on the board of TATAMOTORS in FY2023-24?",
+      "gold_count": 15,
+      "vector": 0.0,
+      "hybrid": 0.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Hanne Sorensen on the board of TATAMOTORS in FY2023-24?",
+      "gold_count": 20,
+      "vector": 0.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Kosaraju V Chowdary on the board of TATAMOTORS in FY2023-24?",
+      "gold_count": 1,
+      "vector": 0.0,
+      "hybrid": 0.0,
+      "hybrid_rerank": 0.0
+    },
+    {
+      "question": "Who is Al-Noor Ramji on the board of TATAMOTORS in FY2023-24?",
+      "gold_count": 17,
+      "vector": 0.0,
+      "hybrid": 0.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Vedika Bhandarkar on the board of TATAMOTORS in FY2023-24?",
+      "gold_count": 20,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Usha Sangwan on the board of TATAMOTORS in FY2023-24?",
+      "gold_count": 18,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Girish Wagh on the board of TATAMOTORS in FY2023-24?",
+      "gold_count": 44,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is N. Chandrasekaran on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 23,
+      "vector": 0.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 0.0
+    },
+    {
+      "question": "Who is Noel Naval Tata on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 22,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Saurabh Agrawal on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 13,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Deepak Kapoor on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 24,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Farida Khambata on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 20,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is V. K. Sharma on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 20,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Bharti Gupta Ramola on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 18,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Dr. Shekhar C. Mande on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 12,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is T. V. Narendran on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 26,
+      "vector": 1.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    },
+    {
+      "question": "Who is Koushik Chatterjee on the board of TATASTEEL in FY2023-24?",
+      "gold_count": 24,
+      "vector": 0.0,
+      "hybrid": 1.0,
+      "hybrid_rerank": 1.0
+    }
+  ]
+}

@@ -1,9 +1,18 @@
 # ADR-0012: Cross-Encoder Reranker for Retrieval
 
 ## Status
-Accepted (provisional). Enabled in `config/pipeline.yaml` (`retrieval.use_reranker: true`).
-The 30-question recall@8 comparison from the phase doc has not been run; the decision rests
-on a 10-question smoke check (see Consequences). Revisit once the labeled recall set exists.
+Accepted. `retrieval.use_reranker: true` in `config/pipeline.yaml`. Retrieval is hybrid (vector plus BM25 keyword, fused with reciprocal rank fusion), then reranked, then fused again with the retrieval order.
+
+## Recall@8 (server/embed/recall_test.py, data/eval/recall_at_8.json)
+Labeled set: 26 questions, one per board member in the FY2023-24 reports of Bajaj Finance, Tata Motors, and Tata Steel. Gold chunks are chunks in that report containing the director's name. Two directors were dropped because their name does not appear verbatim in the text.
+
+| Method | Recall@8 |
+|---|---|
+| Vector only | 0.731 |
+| Hybrid (vector + BM25) | 0.846 |
+| Hybrid + reranker | 0.885 |
+
+Caveats: 26 questions is a small sample, and the gold labels are name-substring matches rather than hand-judged answers. The phase doc's 30-question set with hand-labeled chunk IDs is still to be written. The reranker adds roughly 10 s per question in a fresh process (CrossEncoder load).
 
 ## Context
 Phase 3 built dense (bi-encoder) vector search over chunk embeddings

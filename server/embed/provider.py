@@ -1,5 +1,4 @@
 import logging
-from typing import List
 
 from sentence_transformers import SentenceTransformer
 
@@ -19,7 +18,7 @@ def get_model() -> SentenceTransformer:
         _model_instance = SentenceTransformer(MODEL_NAME)
     return _model_instance
 
-def embed_texts(texts: List[str], is_query: bool = False) -> List[List[float]]:
+def embed_texts(texts: list[str], is_query: bool = False) -> list[list[float]]:
     """
     Returns embeddings for the provided texts.
     For all-MiniLM-L6-v2, no specific query prefix is required, but normalization is recommended.
