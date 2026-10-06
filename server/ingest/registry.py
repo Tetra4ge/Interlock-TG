@@ -106,6 +106,25 @@ def list_documents(*, company_id: str | None = None, doc_type: str | None = None
         conn.close()
 
 
+def latest_attempt_outcome(
+    company_id: str | None, doc_type: str, fiscal_year: str | None
+) -> str | None:
+    """Outcome of the most recent fetch attempt for this target, or None if never tried."""
+    conn = connect()
+    try:
+        row = conn.execute(
+            """
+            SELECT outcome FROM fetch_attempts
+            WHERE company_id IS ? AND doc_type=? AND fiscal_year IS ?
+            ORDER BY attempted_at DESC LIMIT 1
+            """,
+            [company_id, doc_type, fiscal_year],
+        ).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
+
+
 def record_attempt(
     *,
     company_id: str | None,

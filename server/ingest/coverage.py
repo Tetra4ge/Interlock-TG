@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 
 from server.ingest.models import CompaniesFile
-from server.ingest.registry import list_documents
+from server.ingest.registry import latest_attempt_outcome, list_documents
 from server.ingest.sources.regulator import ORDERS_INDEX
 from server.store.db import connect
 
@@ -14,22 +14,6 @@ COVERAGE_MD = Path("docs/coverage.md")
 
 def _load_companies_file(path: Path = COMPANIES_YAML) -> CompaniesFile:
     return CompaniesFile(**yaml.safe_load(path.read_text()))
-
-
-def _latest_attempt_outcome(company_id: str, doc_type: str, fiscal_year: str) -> str | None:
-    conn = connect()
-    try:
-        row = conn.execute(
-            """
-            SELECT outcome FROM fetch_attempts
-            WHERE company_id IS ? AND doc_type=? AND fiscal_year IS ?
-            ORDER BY attempted_at DESC LIMIT 1
-            """,
-            [company_id, doc_type, fiscal_year],
-        ).fetchone()
-        return row[0] if row else None
-    finally:
-        conn.close()
 
 
 def _order_count_for(company_id: str, company_name: str) -> int:
@@ -49,7 +33,7 @@ def _cell(company_id: str, doc_type: str, fiscal_year: str) -> str:
     docs = list_documents(company_id=company_id, doc_type=doc_type)
     if any(d["fiscal_year"] == fiscal_year for d in docs):
         return "✅"
-    outcome = _latest_attempt_outcome(company_id, doc_type, fiscal_year)
+    outcome = latest_attempt_outcome(company_id, doc_type, fiscal_year)
     return f"❌ {outcome}" if outcome else "❌ not attempted"
 
 

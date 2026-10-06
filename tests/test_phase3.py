@@ -1,7 +1,7 @@
 import pytest
 
 from server.resolve.cluster import UnionFind
-from server.resolve.match import compare_mentions, person_score
+from server.resolve.match import block_keys, compare_mentions, person_score
 from server.resolve.mentions import Mention
 from server.resolve.normalize import norm_company, norm_person
 
@@ -157,3 +157,132 @@ def test_graph_queries_on_fixture():
         assert isinstance(n, list)
     except Exception:
         pytest.skip("TigerGraph not available for integration tests")
+
+
+def _company(mention_id: str, name: str) -> Mention:
+    return Mention(
+        mention_id=mention_id,
+        kind="company",
+        raw_name=name,
+        norm_name=norm_company(name),
+        ids={},
+        context_company_id="C1",
+        record_id=mention_id,
+    )
+
+
+def test_parent_and_subsidiary_names_do_not_fuzzy_merge():
+    parent = _company("m1", "Tata Motors Limited")
+    for other in ("Tata Motors Finance Limited", "Tata Motors Passenger Vehicles Ltd"):
+        res = compare_mentions(parent, _company("m2", other))
+        assert res is None or res["method"] == "review_queue", other
+
+
+def test_spelling_variants_of_one_company_still_merge():
+    res = compare_mentions(
+        _company("m1", "Tata Steel Long Products Limited"),
+        _company("m2", "Tata Steel Long Product Ltd."),
+    )
+    assert res is not None and res["method"] == "fuzzy"
+
+
+def test_context_company_is_named_by_its_legal_name():
+    from server.resolve.mentions import context_company_mention
+
+    m = context_company_mention("r1", "TATASTEEL")
+    assert m.raw_name == "Tata Steel Limited"
+    assert m.ids == {"company_id": "TATASTEEL"}
+
+    # A counterparty naming the same company resolves to the same block and
+    # merges with it, instead of becoming a second "tatasteel" entity.
+    counterparty = _company("r2:counterparty", "Tata Steel Ltd.")
+    assert set(block_keys(m)) & set(block_keys(counterparty))
+    res = compare_mentions(m, counterparty)
+    assert res is not None and res["method"] == "exact_name"
+
+
+def test_unknown_company_id_falls_back_to_the_id():
+    from server.resolve.mentions import context_company_mention
+
+    assert context_company_mention("r1", "NOT-IN-CONFIG").raw_name == "NOT-IN-CONFIG"
+
+
+def _person(mention_id: str, name: str, company: str, din: str | None = None) -> Mention:
+    return Mention(
+        mention_id=mention_id,
+        kind="person",
+        raw_name=name,
+        norm_name=norm_person(name),
+        ids={"din": din} if din else {},
+        context_company_id=company,
+        record_id=mention_id.split(":")[0],
+    )
+
+
+def test_one_director_on_two_boards_shares_a_block():
+    # Blocking only on surname+company kept these apart, so the DIN printed
+    # in one report never reached the other mention of the same director.
+    at_steel = _person("r1:person", "N Chandrasekaran", "TATASTEEL", din="00121863")
+    at_motors = _person("r2:person", "N Chandrasekaran", "TATAMOTORS")
+
+    assert set(block_keys(at_steel)) & set(block_keys(at_motors))
+    res = compare_mentions(at_steel, at_motors)
+    assert res is not None and res["method"] == "exact_name"
+
+
+def test_same_surname_different_people_still_do_not_merge():
+    assert (
+        compare_mentions(
+            _person("r1:person", "A Sharma", "TATASTEEL"),
+            _person("r2:person", "R Sharma", "TATAMOTORS"),
+        )
+        is None
+    )
+
+
+def test_auditor_firn_becomes_the_entity_id():
+    from server.resolve.match import generate_exact_id
+    from server.resolve.mentions import Mention
+
+    with_frn = Mention(
+        mention_id="r1:audit_firm",
+        kind="audit_firm",
+        raw_name="Price Waterhouse & Co Chartered Accountants LLP",
+        norm_name="price waterhouse and co chartered accountants",
+        ids={"frn": "304026E"},
+        context_company_id="TATASTEEL",
+        record_id="r1",
+    )
+    assert generate_exact_id(with_frn) == "A:304026E"
+
+
+def test_subsidiary_record_builds_parent_and_subsidiary_mentions():
+    import json as _json
+
+    from server.resolve import mentions as m
+
+    payload = {
+        "parent_company": "Tata Steel Limited",
+        "subsidiary_name": "Tata Steel Downstream Products Limited",
+        "evidence": {"page": 5, "quote": "wholly owned subsidiary"},
+    }
+
+    class _DB:
+        def execute(self, *_a):
+            return self
+
+        def fetchall(self):
+            return [("rec1", "subsidiaries", _json.dumps(payload), "TATASTEEL")]
+
+        def close(self):
+            pass
+
+    original = m.connect
+    m.connect = lambda: _DB()
+    try:
+        built = {mm.mention_id: mm for mm in m.build_mentions()}
+    finally:
+        m.connect = original
+    assert built["rec1:context_company"].raw_name == "Tata Steel Limited"
+    assert built["rec1:subsidiary"].raw_name == "Tata Steel Downstream Products Limited"
+    assert built["rec1:subsidiary"].kind == "company"

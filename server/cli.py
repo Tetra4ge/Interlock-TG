@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -18,16 +19,29 @@ from server.llm.models import LLMMessage, LLMRequest
 from server.parse.chunk import chunk_all
 from server.parse.pdf import parse_all
 from server.parse.sections import detect_all_sections
+from server.settings import ROOT
 from server.store.db import migrate
 
 COMPANIES_YAML = Path("config/companies.yaml")
-FETCH_USER_AGENT = "Interlock-TG research project (contact: prajwalpriyadarshan@gmail.com)"
-FETCH_DELAY_SECONDS = 3.0
-FETCH_TIMEOUT_SECONDS = 60.0
-FETCH_MAX_RETRIES = 3
+PIPELINE_YAML = Path("config/pipeline.yaml")
+
+
+def _fetch_config() -> dict:
+    data = yaml.safe_load(PIPELINE_YAML.read_text()) if PIPELINE_YAML.exists() else {}
+    cfg = (data or {}).get("fetch") or {}
+    return {
+        "user_agent": cfg.get("user_agent", "Interlock-TG research project"),
+        "delay": float(cfg.get("delay_seconds", 3.0)),
+        "timeout": float(cfg.get("timeout_seconds", 60.0)),
+        "max_retries": int(cfg.get("max_retries", 3)),
+    }
 
 
 def main() -> None:
+    # data/, config/ and the GSQL/prompt files are all addressed relative to
+    # the repo root, so `hl` must behave the same from any working directory.
+    os.chdir(ROOT)
+
     parser = argparse.ArgumentParser(description="Interlock-TG CLI")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -129,12 +143,7 @@ def main() -> None:
             companies_file.companies = [
                 c for c in companies_file.companies if c.company_id == args.company
             ]
-        client = PoliteClient(
-            user_agent=FETCH_USER_AGENT,
-            delay=FETCH_DELAY_SECONDS,
-            timeout=FETCH_TIMEOUT_SECONDS,
-            max_retries=FETCH_MAX_RETRIES,
-        )
+        client = PoliteClient(**_fetch_config())
         try:
             fetch_all(companies_file, [ExchangeAdapter()], client)
         finally:

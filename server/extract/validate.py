@@ -2,6 +2,10 @@ import re
 from datetime import date
 from typing import Any
 
+ROLE_WORDS = frozenset(
+    ["chairman", "chairperson", "secretary", "director", "manager", "ceo", "cfo", "officer"]
+)
+
 
 def validate_record(rec: Any) -> tuple[str, str]:
     """
@@ -47,10 +51,9 @@ def validate_record(rec: Any) -> tuple[str, str]:
 
     # 4. Name is not role
     if hasattr(rec, "person_name") and rec.person_name:
-        lower_name = rec.person_name.lower()
-        roles = ["chairman", "secretary", "director", "manager", "ceo", "cfo", "officer"]
-        # If the name consists mostly of role words, reject it
-        if any(r in lower_name for r in roles) and len(lower_name.split()) <= 3:
+        words = re.findall(r"[a-z]+", rec.person_name.lower())
+        # A short "name" containing a role word ("Company Secretary") is a title.
+        if len(words) <= 3 and any(w in ROLE_WORDS for w in words):
             return "rejected", "name_is_role"
 
     # 5. pct_range

@@ -7,7 +7,7 @@ from server.extract.schemas import Evidence, ShareholdingRecord
 def parse_number(val: str) -> float | None:
     if not val:
         return None
-    val = val.replace(",", "").strip()
+    val = val.replace(",", "").replace("%", "").strip()
     if val.lower() in ("nil", "-", "na", "n/a"):
         return 0.0
     try:

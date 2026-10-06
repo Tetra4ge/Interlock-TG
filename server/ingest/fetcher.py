@@ -5,7 +5,12 @@ import httpx
 
 from server.common.logging import get_logger
 from server.ingest.models import CompaniesFile
-from server.ingest.registry import already_have, record_attempt, register
+from server.ingest.registry import (
+    already_have,
+    latest_attempt_outcome,
+    record_attempt,
+    register,
+)
 from server.ingest.sources.base import SourceAdapter
 
 logger = get_logger(__name__)
@@ -106,6 +111,15 @@ def fetch_all(
                     continue
 
                 if not urls:
+                    # Rerunning `hl fetch` must not pile up one identical
+                    # manual_needed row per target per run.
+                    if (
+                        latest_attempt_outcome(
+                            target.company_id, target.doc_type, target.fiscal_year
+                        )
+                        == "manual_needed"
+                    ):
+                        continue
                     record_attempt(
                         company_id=target.company_id,
                         doc_type=target.doc_type,

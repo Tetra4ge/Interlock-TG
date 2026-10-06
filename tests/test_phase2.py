@@ -119,3 +119,13 @@ def test_validation_rules():
     # name_is_not_role
     rec_role = MockRec(person_name="Company Secretary", evidence=MockEvidence("Valid quote"))
     assert validate_record(rec_role) == ("rejected", "name_is_role")
+
+
+def test_role_words_only_match_whole_words():
+    # "George" contains "geo"/"or", "Pierceon" contains "ceo": neither is a role.
+    for name in ("Pierceon Dsa", "Officerwala Homi", "N Chandrasekaran"):
+        rec = MockRec(person_name=name, evidence=MockEvidence("Valid quote"))
+        assert validate_record(rec)[0] == "accepted", name
+    for title in ("Chairman", "Chief Financial Officer", "Managing Director"):
+        rec = MockRec(person_name=title, evidence=MockEvidence("Valid quote"))
+        assert validate_record(rec) == ("rejected", "name_is_role"), title

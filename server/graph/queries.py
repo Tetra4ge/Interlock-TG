@@ -54,36 +54,25 @@ def vector_search(query: str, k: int = 10, filters: dict | None = None) -> list[
     if not raw_results:
         return []
 
-    chunk_ids = [r[0] for r in raw_results]
-
-    # 2. Fetch vertices from TigerGraph to get attributes
-    conn = get_tg_connection()
-    vertices = conn.getVerticesById("Chunk", chunk_ids)
-
-    # Convert list to dict mapping
-    v_map = {str(v.get("v_id")): v for v in vertices}
+    # 2. Chunk text and attributes come from the local chunk files, not from
+    #    TigerGraph. getVerticesById issues one HTTPS round-trip per id
+    #    (pyTigerGraph loops over the ids), so fetching k*3 chunks from a
+    #    cloud instance added tens of seconds per query; the same chunks the
+    #    vector/keyword index was built from are already on disk.
+    chunk_by_id = {str(c["chunk_id"]): c for c in load_chunks(doc_ids)}
 
     final_results = []
-    filters = filters or {}
-
     for cid, score in raw_results:
-        v = v_map.get(cid)
-        if not v:
+        chunk = chunk_by_id.get(cid)
+        if not chunk:
             continue
 
-        attrs = v.get("attributes", {})
-
-        # Apply filters
-        if "fiscal_year" in filters and attrs.get("fiscal_year") != filters["fiscal_year"]:
+        if "fiscal_year" in filters and chunk.get("fiscal_year") != filters["fiscal_year"]:
             continue
-        if "company_id" in filters and attrs.get("company_id") != filters["company_id"]:
+        if "company_id" in filters and chunk.get("company_id") != filters["company_id"]:
             continue
 
-        # Re-attach score and ID
-        attrs["chunk_id"] = cid
-        attrs["score"] = score
-        final_results.append(attrs)
-
+        final_results.append({**chunk, "chunk_id": cid, "score": score})
         if len(final_results) >= k:
             break
 

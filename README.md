@@ -171,7 +171,7 @@ TG_HOST=http://localhost
 TG_USERNAME=tigergraph
 TG_PASSWORD=tigergraph
 TG_SECRET=
-TG_GRAPH=SpikeGraph
+TG_GRAPH=Interlock
 TG_RESTPP_PORT=9000
 TG_GS_PORT=14240
 

@@ -98,11 +98,15 @@ def load_graph(run_id: str = "default-run") -> None:
     rpt_vertices = []
     party_to_edges = []
     audited_by_edges: list[Any] = []
+    subsidiary_edges: list[Any] = []
 
     for row in records:
         rec_id, rec_type, payload_json, doc_id, ctx_cid, fiscal_year = row
         payload = json.loads(payload_json)
-        page_num = payload.get("page")
+        # Provenance lives under the record's evidence, not at the top level.
+        evidence = payload.get("evidence") or {}
+        page_num = evidence.get("page") or 0
+        quote = evidence.get("quote") or ""
 
         ctx_mention_id = f"{rec_id}:context_company"
         ctx_eid = mention_to_entity.get(ctx_mention_id)
@@ -118,12 +122,12 @@ def load_graph(run_id: str = "default-run") -> None:
                 "edge_id": edge_id,
                 "role": payload.get("role", ""),
                 "independent": payload.get("is_independent", False),
-                "start_date": payload.get("start_date", ""),
-                "end_date": payload.get("end_date", ""),
-                "fiscal_year": fiscal_year or "",
+                "start_date": payload.get("appointed_on") or "",
+                "end_date": payload.get("ceased_on") or "",
+                "fiscal_year": payload.get("fiscal_year") or fiscal_year or "",
                 "doc_id": doc_id,
-                "page": page_num or 0,
-                "quote": "",
+                "page": page_num,
+                "quote": quote,
                 "run_id": run_id,
             }
             director_edges.append((person_eid, ctx_eid, attrs))
@@ -139,10 +143,10 @@ def load_graph(run_id: str = "default-run") -> None:
                 (
                     txn_id,
                     {
-                        "amount_inr": float(payload.get("amount", 0.0) or 0.0),
+                        "amount_inr": float(payload.get("amount_inr") or 0.0),
                         "nature": payload.get("nature", ""),
                         "relationship": payload.get("relationship", ""),
-                        "fiscal_year": fiscal_year or "",
+                        "fiscal_year": payload.get("fiscal_year") or fiscal_year or "",
                     },
                 )
             )
@@ -156,8 +160,8 @@ def load_graph(run_id: str = "default-run") -> None:
                     {
                         "side": "reporting",
                         "doc_id": doc_id,
-                        "page": page_num or 0,
-                        "quote": "",
+                        "page": page_num,
+                        "quote": quote,
                         "run_id": run_id,
                         "edge_id": edge_id_ctx,
                     },
@@ -178,8 +182,8 @@ def load_graph(run_id: str = "default-run") -> None:
                     {
                         "side": "counterparty",
                         "doc_id": doc_id,
-                        "page": page_num or 0,
-                        "quote": "",
+                        "page": page_num,
+                        "quote": quote,
                         "run_id": run_id,
                         "edge_id": edge_id_cp,
                     },
@@ -193,13 +197,49 @@ def load_graph(run_id: str = "default-run") -> None:
             if not af_eid or not ctx_eid:
                 continue
 
-            audited_by_edges.append((ctx_eid, af_eid, {}))
+            edge_id = hashlib.sha256(f"{rec_id}:AUDITED_BY".encode()).hexdigest()[:16]
+            audited_by_edges.append(
+                (
+                    ctx_eid,
+                    af_eid,
+                    {
+                        "edge_id": edge_id,
+                        "fiscal_year": payload.get("fiscal_year") or fiscal_year or "",
+                        "doc_id": doc_id,
+                        "page": page_num,
+                        "quote": quote,
+                        "run_id": run_id,
+                    },
+                )
+            )
+
+        elif rec_type == "subsidiaries":
+            sub_eid = mention_to_entity.get(f"{rec_id}:subsidiary")
+            if not sub_eid or not ctx_eid:
+                continue
+            edge_id = hashlib.sha256(f"{rec_id}:SUBSIDIARY_OF".encode()).hexdigest()[:16]
+            subsidiary_edges.append(
+                (
+                    sub_eid,
+                    ctx_eid,
+                    {
+                        "edge_id": edge_id,
+                        "pct_held": float(payload.get("pct_held") or 0.0),
+                        "as_of": payload.get("as_of") or "",
+                        "doc_id": doc_id,
+                        "page": page_num,
+                        "quote": quote,
+                        "run_id": run_id,
+                    },
+                )
+            )
 
     logger.info("3/3 Upserting RPT Vertices and all Edge Relationships...")
     batched_upsert_vertices(tg, "RelatedPartyTxn", rpt_vertices)
 
     batched_upsert_edges(tg, "Person", "DIRECTOR_OF", "Company", director_edges)
     batched_upsert_edges(tg, "Company", "AUDITED_BY", "AuditFirm", audited_by_edges)
+    batched_upsert_edges(tg, "Company", "SUBSIDIARY_OF", "Company", subsidiary_edges)
 
     # PARTY_TO requires separation by src_type since it can be Person or Company
     party_to_company = [

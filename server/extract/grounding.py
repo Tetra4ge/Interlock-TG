@@ -3,7 +3,18 @@ from typing import Any
 
 from rapidfuzz import fuzz
 
+from server.extract.units import parse_printed_number
 from server.parse.clean import normalize_for_match
+
+
+def _format_number(value: float) -> str:
+    """12.5 → "12.5", 10.0 → "10": the way the figure is printed, so a whole
+    percentage is not searched for as "10.0"."""
+    return f"{value:.10f}".rstrip("0").rstrip(".")
+
+
+def _digits(text: str) -> str:
+    return re.sub(r"[^0-9]", "", text)
 
 
 def grounded(quote: str, page_text: str, min_partial: int = 95) -> bool:
@@ -59,22 +70,19 @@ def check_grounding(rec: Any, parsed: dict) -> tuple[str, str]:
 
     norm_quote = normalize_for_match(quote)
 
-    # 2. Numeric Records check (stop LLM from hallucinating numbers not in quote)
-    numeric_value = None
+    # 2. Numeric records check (stop the LLM from inventing numbers not in the quote).
+    #    Optional numbers that were not extracted (None) have nothing to check.
+    numeric_value: str | None = None
     if hasattr(rec, "amount_inr"):
-        numeric_value = getattr(rec, "amount_raw", None)
-    elif hasattr(rec, "pct_holding"):
-        numeric_value = str(rec.pct_holding)
-    elif hasattr(rec, "pct_held"):
-        numeric_value = str(rec.pct_held)
+        printed = parse_printed_number(str(getattr(rec, "amount_raw", "") or ""))
+        numeric_value = _format_number(printed) if printed is not None else None
+    elif getattr(rec, "pct_holding", None) is not None:
+        numeric_value = _format_number(rec.pct_holding)
+    elif getattr(rec, "pct_held", None) is not None:
+        numeric_value = _format_number(rec.pct_held)
 
-    if numeric_value:
-        norm_num = normalize_for_match(str(numeric_value))
-        # Remove all punctuation and spaces for a strict digit inclusion test
-        strict_num = re.sub(r"[,. ]", "", norm_num)
-        strict_quote = re.sub(r"[,. ]", "", norm_quote)
-        if norm_num not in norm_quote and strict_num not in strict_quote:
-            return "rejected", "ungrounded_number"
+    if numeric_value and _digits(numeric_value) not in _digits(norm_quote):
+        return "rejected", "ungrounded_number"
 
     # 3. Person records check (ensure surname is actually in the quote)
     person_name = None
