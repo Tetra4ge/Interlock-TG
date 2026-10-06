@@ -1,0 +1,64 @@
+{
+  "overall": {
+    "n": 8,
+    "correct_mean": 0.875,
+    "correct_ci95": [
+      0.625,
+      1.0
+    ],
+    "citation_accuracy_mean": 0.4166666666666667,
+    "abstention_rate": 0.25,
+    "error_count": 0,
+    "latency_median_ms": 38554.0,
+    "latency_p90_ms": 56549.399999999994,
+    "cost_usd_mean": 0.0,
+    "llm_calls_mean": 2.0
+  },
+  "by_category": {
+    "numerical": {
+      "n": 2,
+      "correct_mean": 1.0,
+      "correct_ci95": [
+        1.0,
+        1.0
+      ],
+      "citation_accuracy_mean": 0.75,
+      "abstention_rate": 0.0,
+      "error_count": 0,
+      "latency_median_ms": 49231.0,
+      "latency_p90_ms": 63467.8,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 2.0
+    },
+    "single_fact": {
+      "n": 4,
+      "correct_mean": 0.75,
+      "correct_ci95": [
+        0.25,
+        1.0
+      ],
+      "citation_accuracy_mean": 0.25,
+      "abstention_rate": 0.0,
+      "error_count": 0,
+      "latency_median_ms": 41817.5,
+      "latency_p90_ms": 51866.1,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 2.0
+    },
+    "unanswerable": {
+      "n": 2,
+      "correct_mean": 1.0,
+      "correct_ci95": [
+        1.0,
+        1.0
+      ],
+      "citation_accuracy_mean": null,
+      "abstention_rate": 1.0,
+      "error_count": 0,
+      "latency_median_ms": 38077.0,
+      "latency_p90_ms": 43526.6,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 2.0
+    }
+  }
+}

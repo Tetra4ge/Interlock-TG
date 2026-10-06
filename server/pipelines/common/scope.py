@@ -7,6 +7,7 @@ from server.pipelines.config import ROOT
 
 COMPANIES_PATH = ROOT / "config/companies.yaml"
 LEGAL_SUFFIXES = re.compile(r"\b(limited|ltd\.?)\b", re.IGNORECASE)
+FISCAL_YEAR = re.compile(r"\bFY\s?(\d{4})\s?-\s?(\d{2})\b", re.IGNORECASE)
 
 
 @cache
@@ -28,3 +29,19 @@ def detect_company(question: str) -> str | None:
         cid for name, cid in _company_names().items() if re.search(rf"\b{re.escape(name)}\b", q)
     }
     return matched.pop() if len(matched) == 1 else None
+
+
+def detect_fiscal_year(question: str) -> str | None:
+    m = FISCAL_YEAR.search(question)
+    return f"FY{m.group(1)}-{m.group(2)}" if m else None
+
+
+def detect_filters(question: str) -> dict[str, str]:
+    filters: dict[str, str] = {}
+    company = detect_company(question)
+    if company:
+        filters["company_id"] = company
+    year = detect_fiscal_year(question)
+    if year:
+        filters["fiscal_year"] = year
+    return filters

@@ -1,11 +1,9 @@
 # ADR-0012: Cross-Encoder Reranker for Retrieval
 
 ## Status
-Proposed — pending the recall@8 A/B comparison below, which needs real
-ingested documents and a reachable TigerGraph instance to run. Neither was
-available in the environment this ADR was written in (`data/parsed`,
-`data/chunks`, and `db/interlock.db` were all empty). `retrieval.use_reranker`
-in `config/pipeline.yaml` defaults to `false` until this is run for real.
+Accepted (provisional). Enabled in `config/pipeline.yaml` (`retrieval.use_reranker: true`).
+The 30-question recall@8 comparison from the phase doc has not been run; the decision rests
+on a 10-question smoke check (see Consequences). Revisit once the labeled recall set exists.
 
 ## Context
 Phase 3 built dense (bi-encoder) vector search over chunk embeddings
@@ -48,6 +46,14 @@ is deferred (see Status).
    (`rerank` trace step) is acceptable, flip `use_reranker` to `true` in
    `config/pipeline.yaml` for both RAG and GraphRAG, update this ADR's
    Status to Accepted, and record the numbers here.
+
+## Smoke check (provisional evidence)
+Same 10 questions, cloud TigerGraph, reranker off vs on:
+- Reranker off: 3 of 8 answerable questions answered with correct citations; one answer cited the wrong company.
+- Reranker on (and budget 4000): 5 of 8 answerable questions answered correctly; the wrong-company
+  answers were removed by company and fiscal-year scoping. Added latency: roughly 10-100 s per question
+  on the first call in a process (CrossEncoder load), about 10 s after that.
+The 10-question run is not a recall@8 measurement, so this is not the phase's acceptance test.
 
 ## Consequences
 - `rag.py` already logs a `rerank` trace step with latency whenever the

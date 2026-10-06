@@ -1,0 +1,8 @@
+{"qid": "Q-SF-0003", "category": "single_fact", "correct": 0.0, "abstained": false, "error": false, "citation_accuracy": 0.0, "latency_ms": 51416, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-SF-0004", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.0, "latency_ms": 30555, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-SF-0005", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.0, "latency_ms": 52059, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-SF-0006", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 1.0, "latency_ms": 32219, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-NUM-0001", "category": "numerical", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 1.0, "latency_ms": 67027, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-NUM-0002", "category": "numerical", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.5, "latency_ms": 31435, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-UNA-0002", "category": "unanswerable", "correct": 1.0, "abstained": true, "error": false, "citation_accuracy": null, "latency_ms": 31265, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-UNA-0003", "category": "unanswerable", "correct": 1.0, "abstained": true, "error": false, "citation_accuracy": null, "latency_ms": 44889, "cost_usd": 0.0, "llm_calls": 2}

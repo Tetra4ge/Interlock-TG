@@ -1,6 +1,6 @@
 import pytest
 
-from server.pipelines.common.scope import detect_company
+from server.pipelines.common.scope import detect_company, detect_filters, detect_fiscal_year
 
 
 @pytest.mark.parametrize(
@@ -27,3 +27,16 @@ def test_detects_named_company(question: str, expected: str) -> None:
 )
 def test_no_or_ambiguous_company_returns_none(question: str) -> None:
     assert detect_company(question) is None
+
+
+def test_detects_fiscal_year_in_question() -> None:
+    assert detect_fiscal_year("List the directors in FY2023-24.") == "FY2023-24"
+    assert detect_fiscal_year("What happened in fy 2022 - 23?") == "FY2022-23"
+    assert detect_fiscal_year("What is the CEO?") is None
+
+
+def test_filters_combine_company_and_year() -> None:
+    assert detect_filters("Who is the CEO of Tata Steel in FY2023-24?") == {
+        "company_id": "TATASTEEL",
+        "fiscal_year": "FY2023-24",
+    }

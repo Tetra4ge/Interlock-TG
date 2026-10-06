@@ -17,7 +17,7 @@ resolve:
   review_band_low: 85
 retrieval:
   evidence_token_budget: 4000
-  rag_top_k: 20
+  rag_top_k: 40
   rerank_top_k: 8
   use_reranker: true
 graphrag:
