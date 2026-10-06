@@ -71,3 +71,40 @@ def test_annual_report_without_sections_is_still_flagged(
     runner.extract_all("run1")
     status = wired.execute("SELECT status FROM documents WHERE doc_id='ar1'").fetchone()[0]
     assert status == "flagged"
+
+
+def test_fiscal_year_end() -> None:
+    assert runner.fiscal_year_end("FY2023-24") == date(2024, 3, 31)
+    assert runner.fiscal_year_end(None) is None
+    assert runner.fiscal_year_end("2023-24") is None
+
+
+def test_rule_parsed_shareholding_is_dated_at_fiscal_year_end(
+    memdb, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    header = ["Name of shareholder", "% of total shares", "% of shares pledged"]
+    row = ["Tata Sons Private Limited", "43.71%", "Nil"]
+    cells = [
+        {"row": r, "col": c, "text": text}
+        for r, cols in enumerate([header, row])
+        for c, text in enumerate(cols)
+    ]
+    monkeypatch.setattr(runner, "connect", lambda: memdb)
+    monkeypatch.setattr(
+        runner,
+        "load_parsed",
+        lambda _d: {
+            "pages": [{"page_no": 7, "cleaned_text": " | ".join(row)}],
+            "tables": [{"page_no": 7, "table_idx": 0, "cells": cells}],
+        },
+    )
+    monkeypatch.setattr(runner, "llm_extract", lambda *_a: pytest.fail("rules should handle it"))
+    _add_doc(memdb, "ar2", "annual_report", "parsed", company="TATAMOTORS")
+    memdb.execute("INSERT INTO sections VALUES ('ar2', 'shareholding', 7, 7)")
+
+    runner.extract_all("run1")
+
+    payload, status = memdb.execute("SELECT payload_json, status FROM records").fetchone()
+    assert status == "accepted"
+    assert '"as_of":"2024-03-31"' in payload
+    assert '"pct_holding":43.71' in payload

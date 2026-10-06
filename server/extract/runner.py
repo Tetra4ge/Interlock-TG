@@ -1,6 +1,8 @@
 import json
 import logging
+import re
 import uuid
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +53,12 @@ TASK_SCHEMAS: dict[str, type[BaseModel]] = {
 
 
 REGULATORY_DOC_TYPE = "regulatory_order"
+
+
+def fiscal_year_end(fiscal_year: str | None) -> date | None:
+    """ "FY2023-24" → 2024-03-31, the balance-sheet date of an Indian fiscal year."""
+    m = re.fullmatch(r"FY(\d{4})-\d{2}", fiscal_year or "")
+    return date(int(m.group(1)) + 1, 3, 31) if m else None
 
 
 def load_parsed(doc_id: str) -> dict:
@@ -270,6 +278,9 @@ def extract_document(doc_id: str, run_id: str) -> None:
         [run_id, "groq:openai/gpt-oss-120b", "v1", "HEAD"],
     )
 
+    # A shareholding table in an annual report is stated as of the year end.
+    as_of = fiscal_year_end(doc.get("fiscal_year"))
+
     for section_row in sections:
         kind, page_start, page_end = section_row
         for task in SECTION_TO_TASK.get(kind, []):
@@ -282,18 +293,19 @@ def extract_document(doc_id: str, run_id: str) -> None:
                         window_page_nos = [p["page_no"] for p in window]
                         window_tables = [t for t in tables if t["page_no"] in window_page_nos]
 
-                        for t in window_tables:
-                            from datetime import date
-
-                            r = parse_shareholding_table(
-                                doc_id,
-                                doc.get("company_id", ""),
-                                t["page_no"],
-                                t["cells"],
-                                date.today(),
-                            )
-                            if r:
-                                recs.extend(r)
+                        # Without a known year end the rule parser cannot date
+                        # a holding; leave those documents to the LLM prompt.
+                        if as_of is not None:
+                            for t in window_tables:
+                                r = parse_shareholding_table(
+                                    doc_id,
+                                    doc.get("company_id") or "",
+                                    t["page_no"],
+                                    t["cells"],
+                                    as_of,
+                                )
+                                if r:
+                                    recs.extend(r)
 
                         if not recs:
                             recs = llm_extract(task, doc, window)
