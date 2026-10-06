@@ -122,11 +122,11 @@ def run_clustering() -> None:
         )
 
         for m in entity_mentions:
-            reason = merge_reasons.get(m.mention_id, {"method": "singleton", "score": 100.0})
+            merge_reason = merge_reasons.get(m.mention_id, {"method": "singleton", "score": 100.0})
             conn.execute(
                 "INSERT OR REPLACE INTO merge_log "
                 "(mention_id, entity_id, method, score, reason) VALUES (?, ?, ?, ?, ?)",
-                [m.mention_id, entity_id, reason["method"], reason["score"], ""],
+                [m.mention_id, entity_id, merge_reason["method"], merge_reason["score"], ""],
             )
 
     for m, reason in conflicted:
