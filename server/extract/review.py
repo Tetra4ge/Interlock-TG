@@ -57,7 +57,7 @@ def review_cli() -> None:
                 )
                 conn.execute(
                     "UPDATE review_queue SET decision = 'accepted', "
-                    "reviewed_at = datetime('now') WHERE record_id = ?",
+                    "decided_at = datetime('now') WHERE record_id = ?",
                     [record_id],
                 )
                 conn.commit()
@@ -69,7 +69,7 @@ def review_cli() -> None:
                 )
                 conn.execute(
                     "UPDATE review_queue SET decision = 'rejected', "
-                    "reviewed_at = datetime('now') WHERE record_id = ?",
+                    "decided_at = datetime('now') WHERE record_id = ?",
                     [record_id],
                 )
                 conn.commit()
@@ -89,8 +89,9 @@ def review_cli() -> None:
                         )
                         conn.execute(
                             "UPDATE review_queue SET decision = 'fixed', "
-                            "reviewed_at = datetime('now') WHERE record_id = ?",
-                            [record_id],
+                            "decided_payload_json = ?, "
+                            "decided_at = datetime('now') WHERE record_id = ?",
+                            [new_json, record_id],
                         )
                         conn.commit()
                         print("Fixed and saved.\n")
@@ -102,5 +103,5 @@ def review_cli() -> None:
             else:
                 print("Invalid choice. Please press A, R, E, S, or Q.")
 
-    print("Review queue empty. Good job!")
+    print("Reached the end of the review queue.")
     conn.close()
