@@ -8,6 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from server.common.git import git_state
 from server.extract.grounding import check_grounding
 from server.extract.rules.shareholding_table import parse_shareholding_table
 from server.extract.schemas import (
@@ -279,7 +280,7 @@ def extract_document(doc_id: str, run_id: str) -> None:
         "INSERT OR IGNORE INTO extraction_runs "
         "(run_id, started_at, model, prompt_version, git_commit) "
         "VALUES (?, datetime('now'), ?, ?, ?)",
-        [run_id, f"groq:{EXTRACT_MODEL}", "v1", "HEAD"],
+        [run_id, f"groq:{EXTRACT_MODEL}", "v1", git_state()["git_commit"]],
     )
 
     # A shareholding table in an annual report is stated as of the year end.

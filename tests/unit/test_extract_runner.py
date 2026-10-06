@@ -120,3 +120,11 @@ def test_llm_request_allows_long_json_answers(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(runner, "call_llm", fake_call)
     runner.llm_extract("directors", {"doc_id": "d", "company_id": "C1"}, [{"page_no": 1}])
     assert captured["req"].max_tokens == runner.EXTRACT_MAX_TOKENS >= 4000
+
+
+def test_extraction_run_records_the_real_commit(wired, monkeypatch: pytest.MonkeyPatch) -> None:
+    _add_doc(wired, "order2", "regulatory_order", "parsed")
+    monkeypatch.setattr(runner, "llm_extract", lambda *_a: [])
+    monkeypatch.setattr(runner, "git_state", lambda: {"git_commit": "abc123", "git_dirty": False})
+    runner.extract_all("run9")
+    assert wired.execute("SELECT git_commit FROM extraction_runs").fetchone()[0] == "abc123"

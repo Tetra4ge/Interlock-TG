@@ -1,5 +1,4 @@
 import json
-import subprocess
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
@@ -9,6 +8,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from server.common.git import git_state
 from server.eval.models import Question
 from server.eval.normalize import parse_number_crore, split_list
 from server.eval.scorers import (
@@ -103,21 +103,6 @@ def summarize(scores: Iterable[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _git_state() -> dict[str, Any]:
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-        dirty = bool(
-            subprocess.run(
-                ["git", "status", "--porcelain"], capture_output=True, text=True, check=True
-            ).stdout.strip()
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return {"git_commit": None, "git_dirty": None}
-    return {"git_commit": commit, "git_dirty": dirty}
-
-
 def _load_results(path: Path) -> dict[str, AnswerResult]:
     if not path.exists():
         return {}
@@ -162,7 +147,7 @@ def run_eval(
             "questions_version": qs[0].version if qs else None,
             "retrieval": RETRIEVAL.model_dump(),
             "started_at": datetime.now(UTC).isoformat(),
-            **_git_state(),
+            **git_state(),
         }
         config_path.write_text(json.dumps(config, indent=2))
 
