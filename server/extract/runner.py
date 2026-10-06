@@ -50,6 +50,9 @@ TASK_SCHEMAS: dict[str, type[BaseModel]] = {
 }
 
 
+REGULATORY_DOC_TYPE = "regulatory_order"
+
+
 def load_parsed(doc_id: str) -> dict:
     parsed_file = Path(f"data/parsed/{doc_id}.json")
     if not parsed_file.exists():
@@ -123,9 +126,11 @@ def llm_extract(task: str, doc_row: dict, window_pages: list[dict]) -> list[Any]
 
     pages_block = format_pages_block(window_pages)
 
+    # Regulatory orders are not filed by a company for a fiscal year, so
+    # both columns are NULL for them.
     task_prompt = task_prompt_template.format(
-        company_name=doc_row.get("company_id", "Unknown Company"),  # ideally from entities table
-        fiscal_year=doc_row.get("fiscal_year", "Unknown Year"),
+        company_name=doc_row.get("company_id") or "any company or person named in this order",
+        fiscal_year=doc_row.get("fiscal_year") or "any period",
         pages_block=pages_block,
     )
 
@@ -246,13 +251,18 @@ def extract_document(doc_id: str, run_id: str) -> None:
     sections = conn.execute(
         "SELECT kind, page_start, page_end FROM sections WHERE doc_id = ?", [doc_id]
     ).fetchall()
+    conn.close()
+
+    if doc.get("doc_type") == REGULATORY_DOC_TYPE and pages:
+        # An order is short and is about regulatory action from start to end:
+        # the whole document is one "regulatory" section.
+        sections = [("regulatory", pages[0]["page_no"], pages[-1]["page_no"])]
+
     if not sections:
         logger.warning(f"No sections detected for {doc_id}. Flagging document.")
-        conn.close()
         _write("UPDATE documents SET status = 'flagged' WHERE doc_id = ?", [doc_id])
         return
 
-    conn.close()
     _write(
         "INSERT OR IGNORE INTO extraction_runs "
         "(run_id, started_at, model, prompt_version, git_commit) "
@@ -351,7 +361,13 @@ def extract_document(doc_id: str, run_id: str) -> None:
 
 def extract_all(run_id: str) -> None:
     conn = connect()
-    rows = conn.execute("SELECT doc_id FROM documents WHERE status = 'parsed'").fetchall()
+    # Regulatory orders used to be flagged as "no sections" and never
+    # extracted; pick those up again as well.
+    rows = conn.execute(
+        "SELECT doc_id FROM documents WHERE status = 'parsed' "
+        "OR (status = 'flagged' AND doc_type = ?)",
+        [REGULATORY_DOC_TYPE],
+    ).fetchall()
     conn.close()
 
     for (doc_id,) in rows:
