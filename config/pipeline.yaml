@@ -16,7 +16,7 @@ resolve:
   auto_merge_threshold: 95
   review_band_low: 85
 retrieval:
-  evidence_token_budget: 6000
+  evidence_token_budget: 4000
   rag_top_k: 20
   rerank_top_k: 8
   use_reranker: false
