@@ -69,7 +69,7 @@ def run_mentions_link() -> None:
     """).fetchall()
 
     record_pages = {
-        rec_id: (doc_id, json.loads(payload_json).get("page"))
+        rec_id: (doc_id, (json.loads(payload_json).get("evidence") or {}).get("page"))
         for rec_id, doc_id, payload_json in records
     }
 

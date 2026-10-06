@@ -102,7 +102,10 @@ def load_graph(run_id: str = "default-run") -> None:
     for row in records:
         rec_id, rec_type, payload_json, doc_id, ctx_cid, fiscal_year = row
         payload = json.loads(payload_json)
-        page_num = payload.get("page")
+        # Provenance lives under the record's evidence, not at the top level.
+        evidence = payload.get("evidence") or {}
+        page_num = evidence.get("page") or 0
+        quote = evidence.get("quote") or ""
 
         ctx_mention_id = f"{rec_id}:context_company"
         ctx_eid = mention_to_entity.get(ctx_mention_id)
@@ -118,12 +121,12 @@ def load_graph(run_id: str = "default-run") -> None:
                 "edge_id": edge_id,
                 "role": payload.get("role", ""),
                 "independent": payload.get("is_independent", False),
-                "start_date": payload.get("start_date", ""),
-                "end_date": payload.get("end_date", ""),
-                "fiscal_year": fiscal_year or "",
+                "start_date": payload.get("appointed_on") or "",
+                "end_date": payload.get("ceased_on") or "",
+                "fiscal_year": payload.get("fiscal_year") or fiscal_year or "",
                 "doc_id": doc_id,
-                "page": page_num or 0,
-                "quote": "",
+                "page": page_num,
+                "quote": quote,
                 "run_id": run_id,
             }
             director_edges.append((person_eid, ctx_eid, attrs))
@@ -139,10 +142,10 @@ def load_graph(run_id: str = "default-run") -> None:
                 (
                     txn_id,
                     {
-                        "amount_inr": float(payload.get("amount", 0.0) or 0.0),
+                        "amount_inr": float(payload.get("amount_inr") or 0.0),
                         "nature": payload.get("nature", ""),
                         "relationship": payload.get("relationship", ""),
-                        "fiscal_year": fiscal_year or "",
+                        "fiscal_year": payload.get("fiscal_year") or fiscal_year or "",
                     },
                 )
             )
@@ -156,8 +159,8 @@ def load_graph(run_id: str = "default-run") -> None:
                     {
                         "side": "reporting",
                         "doc_id": doc_id,
-                        "page": page_num or 0,
-                        "quote": "",
+                        "page": page_num,
+                        "quote": quote,
                         "run_id": run_id,
                         "edge_id": edge_id_ctx,
                     },
@@ -178,8 +181,8 @@ def load_graph(run_id: str = "default-run") -> None:
                     {
                         "side": "counterparty",
                         "doc_id": doc_id,
-                        "page": page_num or 0,
-                        "quote": "",
+                        "page": page_num,
+                        "quote": quote,
                         "run_id": run_id,
                         "edge_id": edge_id_cp,
                     },
