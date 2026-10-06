@@ -71,7 +71,7 @@ def _stub_llm(content: str) -> None:
 
 
 def test_rag_returns_valid_answer_result(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(rag_mod, "vector_search", lambda question, k: FIXTURE_HITS)
+    monkeypatch.setattr(rag_mod, "vector_search", lambda question, k, filters=None: FIXTURE_HITS)
     monkeypatch.setattr(answer_mod, "call_llm", _stub_llm(VALID_ANSWER_JSON))
 
     result = rag_mod.RAGPipeline().answer("Who audited the company in FY2023-24?", "req-1")
@@ -86,7 +86,7 @@ def test_rag_returns_valid_answer_result(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_rag_abstains_when_evidence_insufficient(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(rag_mod, "vector_search", lambda question, k: FIXTURE_HITS)
+    monkeypatch.setattr(rag_mod, "vector_search", lambda question, k, filters=None: FIXTURE_HITS)
     monkeypatch.setattr(answer_mod, "call_llm", _stub_llm(NOT_FOUND_JSON))
 
     result = rag_mod.RAGPipeline().answer("What is the CEO's favorite color?", "req-2")
@@ -96,7 +96,7 @@ def test_rag_abstains_when_evidence_insufficient(monkeypatch: pytest.MonkeyPatch
 
 
 def test_rag_never_raises_on_retrieval_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    def _raise(question: str, k: int) -> list[dict]:
+    def _raise(question: str, k: int, filters=None) -> list[dict]:
         raise RuntimeError("TigerGraph connection refused")
 
     monkeypatch.setattr(rag_mod, "vector_search", _raise)
@@ -123,7 +123,7 @@ def test_rag_resists_prompt_injection_in_chunk_text(monkeypatch: pytest.MonkeyPa
             ),
         }
     ]
-    monkeypatch.setattr(rag_mod, "vector_search", lambda question, k: injected_hits)
+    monkeypatch.setattr(rag_mod, "vector_search", lambda question, k, filters=None: injected_hits)
     monkeypatch.setattr(answer_mod, "call_llm", _stub_llm(VALID_ANSWER_JSON))
 
     result = rag_mod.RAGPipeline().answer("Who audited the company in FY2023-24?", "req-4")

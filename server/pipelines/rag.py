@@ -8,6 +8,7 @@ from server.pipelines.common.budget import fit_to_budget
 from server.pipelines.common.citations import validate_citations
 from server.pipelines.common.render import assign_labels
 from server.pipelines.common.rerank import rerank
+from server.pipelines.common.scope import detect_company
 from server.pipelines.common.tracer import Tracer
 from server.pipelines.config import RETRIEVAL
 from server.pipelines.models import AnswerResult, AnswerType, EvidenceItem, Status
@@ -84,15 +85,17 @@ class RAGPipeline:
     def _retrieve(self, question: str, tr: Tracer) -> list[dict]:
         t0 = time.perf_counter()
         excluded = _excluded_doc_ids()
+        company = detect_company(question)
+        filters = {"company_id": company} if company else None
         hits = [
             h
-            for h in vector_search(question, k=RETRIEVAL.rag_top_k)
+            for h in vector_search(question, k=RETRIEVAL.rag_top_k, filters=filters)
             if h.get("doc_id") not in excluded
         ]
         tr.add(
             "retrieve",
             "vector_search",
-            f"k={RETRIEVAL.rag_top_k}",
+            f"k={RETRIEVAL.rag_top_k} company={company or 'any'}",
             ", ".join(h.get("chunk_id", "") for h in hits[:10]),
             latency_ms=self._elapsed_ms(t0),
         )

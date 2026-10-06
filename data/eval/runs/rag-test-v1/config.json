@@ -1,0 +1,15 @@
+{
+  "run_id": "rag-test-v1",
+  "pipeline": "rag",
+  "split": "test",
+  "questions_version": "v1",
+  "retrieval": {
+    "evidence_token_budget": 4000,
+    "rag_top_k": 20,
+    "rerank_top_k": 8,
+    "use_reranker": true
+  },
+  "started_at": "2026-10-06T03:40:56.991242+00:00",
+  "git_commit": "df6f158606f9902b8c6ce96ec0888ceba08c45fe",
+  "git_dirty": true
+}

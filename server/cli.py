@@ -92,6 +92,12 @@ def main() -> None:
         "--pipeline", type=str, default="rag", help="Pipeline name (default: rag)"
     )
 
+    eval_parser = subparsers.add_parser("eval", help="Run an eval split through a pipeline and score it")
+    eval_parser.add_argument("--pipeline", type=str, default="rag")
+    eval_parser.add_argument("--split", type=str, default="test", choices=["dev", "test"])
+    eval_parser.add_argument("--limit", type=int, default=None)
+    eval_parser.add_argument("--run-id", type=str, default=None, help="Reuse an id to resume a run")
+
     args = parser.parse_args()
 
     if args.command == "db-migrate":
@@ -286,6 +292,18 @@ def main() -> None:
                 print(f"  ERROR: {s.error}", end="")
             print()
 
+    elif args.command == "eval":
+        from server.eval.runner import run_eval
+
+        summary = run_eval(args.pipeline, args.split, run_id=args.run_id, limit=args.limit)
+        print(f"{'category':<14}{'n':>4}  {'correct':>8}  {'95% CI':>17}  {'abstain':>8}  {'cite acc':>9}")
+        for cat, agg in [*summary["by_category"].items(), ("OVERALL", summary["overall"])]:
+            lo, hi = agg["correct_ci95"]
+            cit = "-" if agg["citation_accuracy_mean"] is None else f"{agg['citation_accuracy_mean']:.2f}"
+            print(
+                f"{cat:<14}{agg['n']:>4}  {agg['correct_mean']:>8.2f}  "
+                f"[{lo:.2f}, {hi:.2f}]  {agg['abstention_rate']:>8.2f}  {cit:>9}"
+            )
     else:
         parser.print_help()
 

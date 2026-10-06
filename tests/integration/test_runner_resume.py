@@ -1,0 +1,69 @@
+import contextlib
+import json
+from pathlib import Path
+
+from server.eval.models import Question
+from server.eval.runner import run_eval
+from server.pipelines.models import AnswerResult, AnswerType, Status, Usage
+
+
+class _CountingPipeline:
+    def __init__(self, fail_after: int | None = None) -> None:
+        self.calls: list[str] = []
+        self.fail_after = fail_after
+
+    def answer(self, question: str, request_id: str) -> AnswerResult:
+        if self.fail_after is not None and len(self.calls) >= self.fail_after:
+            raise KeyboardInterrupt
+        self.calls.append(request_id)
+        return AnswerResult(
+            pipeline="fake",
+            question=question,
+            answer_short="Sanjiv Bajaj",
+            answer_long="",
+            answer_type=AnswerType.ENTITY,
+            citations=[],
+            evidence=[],
+            trace=[],
+            usage=Usage(
+                tokens_in=0, tokens_out=0, cost_usd=0.0, latency_ms=5, llm_calls=1, tool_calls=0
+            ),
+            status=Status.OK,
+        )
+
+
+def _questions(n: int) -> list[Question]:
+    return [
+        Question(
+            qid=f"Q-{i}",
+            version="v1",
+            question=f"question {i}",
+            category="single_fact",
+            answer_type=AnswerType.ENTITY,
+            gold_answer="Sanjiv Bajaj",
+            gold_evidence=[],
+            split="test",
+            verified=True,
+        )
+        for i in range(n)
+    ]
+
+
+def test_resume_completes_without_duplicates(tmp_path: Path) -> None:
+    qs = _questions(5)
+
+    crashing = _CountingPipeline(fail_after=3)
+    with contextlib.suppress(KeyboardInterrupt):
+        run_eval("fake", "test", run_id="r1", pipeline=crashing, questions=qs, runs_dir=tmp_path)
+
+    resumed = _CountingPipeline()
+    summary = run_eval(
+        "fake", "test", run_id="r1", pipeline=resumed, questions=qs, runs_dir=tmp_path
+    )
+
+    lines = (tmp_path / "r1" / "results.jsonl").read_text().splitlines()
+    qids = [json.loads(line)["qid"] for line in lines]
+    assert sorted(qids) == sorted({q.qid for q in qs})
+    assert len(resumed.calls) == 2
+    assert summary["overall"]["n"] == 5
+    assert summary["overall"]["correct_mean"] == 1.0
