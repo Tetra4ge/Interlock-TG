@@ -139,7 +139,8 @@ def test_provenance_completeness():
         # Ensure 0 fact edges are missing provenance.
         # Check DIRECTOR_OF edge counts without doc_id
         res = conn.gsql(
-            f'USE GRAPH {conn.graphname}\nSELECT count() FROM Person:s -(DIRECTOR_OF:e)- Company:t WHERE e.doc_id == \\"\\"'
+            f"USE GRAPH {conn.graphname}\nSELECT count() FROM Person:s -(DIRECTOR_OF:e)- Company:t "
+            f'WHERE e.doc_id == \\"\\"'
         )
         assert "count(): 0" in res or "error" in res  # Naive check; ideally use RESTPP
     except Exception:

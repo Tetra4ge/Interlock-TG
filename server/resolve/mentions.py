@@ -1,24 +1,25 @@
 import json
 import logging
-from typing import List, Optional, Dict
+
 from pydantic import BaseModel
 
+from server.resolve.normalize import norm_company, norm_person
 from server.store.db import connect
-from server.resolve.normalize import norm_person, norm_company
 
 logger = logging.getLogger(__name__)
 
+
 class Mention(BaseModel):
-    mention_id: str          # f"{record_id}:{role}"  e.g. "r123:person", "r123:company"
-    kind: str                # person | company | audit_firm
+    mention_id: str  # f"{record_id}:{role}"  e.g. "r123:person", "r123:company"
+    kind: str  # person | company | audit_firm
     raw_name: str
     norm_name: str
-    ids: dict                # {"din": "..."} | {"cin": "..."} | {"frn": "..."}
-    context_company_id: Optional[str]   # the reporting company, for blocking
+    ids: dict  # {"din": "..."} | {"cin": "..."} | {"frn": "..."}
+    context_company_id: str | None  # the reporting company, for blocking
     record_id: str
 
 
-def build_mentions() -> List[Mention]:
+def build_mentions() -> list[Mention]:
     """Scans all accepted records and builds a list of resolved Mentions."""
     conn = connect()
     rows = conn.execute("""
@@ -28,82 +29,104 @@ def build_mentions() -> List[Mention]:
         WHERE r.status = 'accepted' OR r.status = 'fixed'
     """).fetchall()
     conn.close()
-    
+
     mentions = []
-    
+
     for row in rows:
         record_id, record_type, payload_json, company_id = row
         payload = json.loads(payload_json)
-        
+
         # 1. Directors -> Person mention + Company mention (context)
         if record_type == "directors":
             if "person_name" in payload and payload["person_name"]:
-                mentions.append(Mention(
-                    mention_id=f"{record_id}:person",
-                    kind="person",
-                    raw_name=payload["person_name"],
-                    norm_name=norm_person(payload["person_name"]),
-                    ids={"din": payload["din"]} if payload.get("din") else {},
-                    context_company_id=company_id,
-                    record_id=record_id
-                ))
-            
+                mentions.append(
+                    Mention(
+                        mention_id=f"{record_id}:person",
+                        kind="person",
+                        raw_name=payload["person_name"],
+                        norm_name=norm_person(payload["person_name"]),
+                        ids={"din": payload["din"]} if payload.get("din") else {},
+                        context_company_id=company_id,
+                        record_id=record_id,
+                    )
+                )
+
             # The context company itself is mentioned
-            mentions.append(Mention(
-                mention_id=f"{record_id}:context_company",
-                kind="company",
-                raw_name=company_id, # Can use ID as raw_name for standard config companies
-                norm_name=norm_company(company_id),
-                ids={"company_id": company_id},
-                context_company_id=company_id,
-                record_id=record_id
-            ))
-            
+            mentions.append(
+                Mention(
+                    mention_id=f"{record_id}:context_company",
+                    kind="company",
+                    raw_name=company_id,  # Can use ID as raw_name for standard config companies
+                    norm_name=norm_company(company_id),
+                    ids={"company_id": company_id},
+                    context_company_id=company_id,
+                    record_id=record_id,
+                )
+            )
+
         # 2. RPT -> Context Company + Counterparty
         elif record_type == "rpt":
-            mentions.append(Mention(
-                mention_id=f"{record_id}:context_company",
-                kind="company",
-                raw_name=company_id,
-                norm_name=norm_company(company_id),
-                ids={"company_id": company_id},
-                context_company_id=company_id,
-                record_id=record_id
-            ))
-            
+            mentions.append(
+                Mention(
+                    mention_id=f"{record_id}:context_company",
+                    kind="company",
+                    raw_name=company_id,
+                    norm_name=norm_company(company_id),
+                    ids={"company_id": company_id},
+                    context_company_id=company_id,
+                    record_id=record_id,
+                )
+            )
+
             if "counterparty_name" in payload and payload["counterparty_name"]:
                 raw_cp = payload["counterparty_name"]
                 # Heuristic to decide person vs company based on suffixes
                 lower_cp = raw_cp.lower()
-                suffixes = ["limited", "ltd", "private", "pvt", "llp", "trust", "inc", "co", "corporation"]
+                suffixes = [
+                    "limited",
+                    "ltd",
+                    "private",
+                    "pvt",
+                    "llp",
+                    "trust",
+                    "inc",
+                    "co",
+                    "corporation",
+                ]
                 is_company = any(f" {s}" in lower_cp or lower_cp.endswith(s) for s in suffixes)
-                
+
                 kind = "company" if is_company else "person"
                 norm = norm_company(raw_cp) if is_company else norm_person(raw_cp)
-                
-                mentions.append(Mention(
-                    mention_id=f"{record_id}:counterparty",
-                    kind=kind,
-                    raw_name=raw_cp,
-                    norm_name=norm,
-                    ids={},
-                    context_company_id=company_id,
-                    record_id=record_id
-                ))
-                
+
+                mentions.append(
+                    Mention(
+                        mention_id=f"{record_id}:counterparty",
+                        kind=kind,
+                        raw_name=raw_cp,
+                        norm_name=norm,
+                        ids={},
+                        context_company_id=company_id,
+                        record_id=record_id,
+                    )
+                )
+
         # 3. Auditor
         elif record_type == "auditor":
             if "firm_name" in payload and payload["firm_name"]:
-                mentions.append(Mention(
-                    mention_id=f"{record_id}:audit_firm",
-                    kind="audit_firm",
-                    raw_name=payload["firm_name"],
-                    norm_name=norm_company(payload["firm_name"]), # Audit firms normalized like companies
-                    ids={},
-                    context_company_id=company_id,
-                    record_id=record_id
-                ))
-                
+                mentions.append(
+                    Mention(
+                        mention_id=f"{record_id}:audit_firm",
+                        kind="audit_firm",
+                        raw_name=payload["firm_name"],
+                        norm_name=norm_company(
+                            payload["firm_name"]
+                        ),  # Audit firms normalized like companies
+                        ids={},
+                        context_company_id=company_id,
+                        record_id=record_id,
+                    )
+                )
+
         # (Shareholding and Regulatory mentions can be added here as needed)
-        
+
     return mentions

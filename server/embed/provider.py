@@ -11,12 +11,14 @@ DIMENSION = 384
 
 _model_instance = None
 
+
 def get_model() -> SentenceTransformer:
     global _model_instance
     if _model_instance is None:
         logger.info(f"Loading embedding model: {MODEL_NAME}")
         _model_instance = SentenceTransformer(MODEL_NAME)
     return _model_instance
+
 
 def embed_texts(texts: list[str], is_query: bool = False) -> list[list[float]]:
     """

@@ -1,10 +1,13 @@
 from datetime import date
+
 from pydantic import BaseModel, Field
+
 
 class Evidence(BaseModel):
     doc_id: str
     page: int
     quote: str = Field(min_length=8, max_length=600)
+
 
 class DirectorRecord(BaseModel):
     person_name: str
@@ -17,8 +20,10 @@ class DirectorRecord(BaseModel):
     fiscal_year: str
     evidence: Evidence
 
+
 class DirectorsOut(BaseModel):
     records: list[DirectorRecord]
+
 
 class ShareholdingRecord(BaseModel):
     holder_name: str
@@ -30,8 +35,10 @@ class ShareholdingRecord(BaseModel):
     as_of: date
     evidence: Evidence
 
+
 class ShareholdingOut(BaseModel):
     records: list[ShareholdingRecord]
+
 
 class RelatedPartyTxnRecord(BaseModel):
     reporting_company: str
@@ -43,8 +50,10 @@ class RelatedPartyTxnRecord(BaseModel):
     fiscal_year: str
     evidence: Evidence
 
+
 class RelatedPartyTxnsOut(BaseModel):
     records: list[RelatedPartyTxnRecord]
+
 
 class AuditorRecord(BaseModel):
     company_name: str
@@ -53,8 +62,10 @@ class AuditorRecord(BaseModel):
     fiscal_year: str
     evidence: Evidence
 
+
 class AuditorsOut(BaseModel):
     records: list[AuditorRecord]
+
 
 class SubsidiaryRecord(BaseModel):
     parent_company: str
@@ -63,8 +74,10 @@ class SubsidiaryRecord(BaseModel):
     as_of: date | None = None
     evidence: Evidence
 
+
 class SubsidiariesOut(BaseModel):
     records: list[SubsidiaryRecord]
+
 
 class RegulatoryActionRecord(BaseModel):
     order_id: str
@@ -74,6 +87,7 @@ class RegulatoryActionRecord(BaseModel):
     named_entities: list[str]
     summary: str
     evidence: Evidence
+
 
 class RegulatoryActionsOut(BaseModel):
     records: list[RegulatoryActionRecord]

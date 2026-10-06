@@ -50,7 +50,7 @@ disallow_untyped_defs = true
 packages = ["server"]
 
 [[tool.mypy.overrides]]
-module = ["libsql", "pyTigerGraph", "pyTigerGraph.*"]
+module = ["libsql", "fitz", "pyTigerGraph", "pyTigerGraph.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

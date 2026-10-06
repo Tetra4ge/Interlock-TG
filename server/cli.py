@@ -59,23 +59,37 @@ def main() -> None:
     subparsers.add_parser("chunk", help="Break parsed PDFs into token-limited chunks")
 
     # extract command
-    extract_parser = subparsers.add_parser("extract", help="Extract typed records from documents using LLMs")
-    extract_parser.add_argument("--run-id", type=str, default="run-test", help="ID for this extraction run")
+    extract_parser = subparsers.add_parser(
+        "extract", help="Extract typed records from documents using LLMs"
+    )
+    extract_parser.add_argument(
+        "--run-id", type=str, default="run-test", help="ID for this extraction run"
+    )
 
     # review command
     subparsers.add_parser("review", help="Interactive CLI to process the manual review queue")
 
     # evaluate command
-    eval_parser = subparsers.add_parser("evaluate", help="Evaluate extraction run quality and costs")
-    eval_parser.add_argument("--run-id", type=str, default="run-test", help="ID for the extraction run to evaluate")
+    eval_parser = subparsers.add_parser(
+        "evaluate", help="Evaluate extraction run quality and costs"
+    )
+    eval_parser.add_argument(
+        "--run-id", type=str, default="run-test", help="ID for the extraction run to evaluate"
+    )
 
     # coverage command
     subparsers.add_parser("coverage", help="Generate the docs/coverage.md report")
 
     # build-graph command
-    bg_parser = subparsers.add_parser("build-graph", help="Run the entire ingestion and graph build pipeline")
-    bg_parser.add_argument("--from", dest="start_from", type=str, default="migrate", help="Step to start from")
-    bg_parser.add_argument("--reset-graph", action="store_true", help="Clear the TigerGraph store first")
+    bg_parser = subparsers.add_parser(
+        "build-graph", help="Run the entire ingestion and graph build pipeline"
+    )
+    bg_parser.add_argument(
+        "--from", dest="start_from", type=str, default="migrate", help="Step to start from"
+    )
+    bg_parser.add_argument(
+        "--reset-graph", action="store_true", help="Clear the TigerGraph store first"
+    )
     bg_parser.add_argument("--yes", action="store_true", help="Skip confirmation for --reset-graph")
 
     # quality command
@@ -83,7 +97,9 @@ def main() -> None:
 
     # sample graph commands
     subparsers.add_parser("export-sample", help="Export a subset of the TigerGraph graph to JSONL")
-    subparsers.add_parser("import-sample", help="Import the sample graph JSONL back into TigerGraph")
+    subparsers.add_parser(
+        "import-sample", help="Import the sample graph JSONL back into TigerGraph"
+    )
 
     # ask command
     ask_parser = subparsers.add_parser("ask", help="Ask a question through an answer pipeline")
@@ -92,7 +108,9 @@ def main() -> None:
         "--pipeline", type=str, default="rag", help="Pipeline name (default: rag)"
     )
 
-    eval_parser = subparsers.add_parser("eval", help="Run an eval split through a pipeline and score it")
+    eval_parser = subparsers.add_parser(
+        "eval", help="Run an eval split through a pipeline and score it"
+    )
     eval_parser.add_argument("--pipeline", type=str, default="rag")
     eval_parser.add_argument("--split", type=str, default="test", choices=["dev", "test"])
     eval_parser.add_argument("--limit", type=int, default=None)
@@ -184,41 +202,47 @@ def main() -> None:
                     print("Aborting.")
                     sys.exit(1)
             from server.graph.client import get_tg_connection
+
             print("Clearing graph store...")
             conn = get_tg_connection()
             # In TigerGraph v3/v4 CLEAR GRAPH STORE -HARD wipes data.
             conn.gsql(f"USE GRAPH {conn.graphname}\nCLEAR GRAPH STORE -HARD")
             print("Graph store cleared.")
-            
+
         def build_entity_index() -> None:
             from server.store.db import connect
+
             db = connect()
             print("Rebuilding FTS5 entities index...")
             db.execute("DROP TABLE IF EXISTS entities_fts")
-            db.execute('''
+            db.execute("""
                 CREATE VIRTUAL TABLE entities_fts USING fts5(
                     entity_id UNINDEXED,
                     canonical_name,
                     aliases_text,
                     kind UNINDEXED
                 )
-            ''')
-            db.execute('''
+            """)
+            db.execute("""
                 INSERT INTO entities_fts (entity_id, canonical_name, aliases_text, kind)
                 SELECT entity_id, canonical_name, aliases_text, kind FROM entities
-            ''')
+            """)
             db.commit()
             db.close()
-            
+
         from server.embed.index import build_vector_index
         from server.graph.loader import load_graph
         from server.graph.mentions_link import run_mentions_link
         from server.graph.schema import apply_schema, install_queries
         from server.resolve.cluster import run_clustering
-        
+
+        def schema_step() -> None:
+            apply_schema()
+            install_queries()
+
         steps = [
             ("migrate", lambda: migrate()),
-            ("schema", lambda: (apply_schema(), install_queries())),
+            ("schema", schema_step),
             ("parse", lambda: parse_all()),
             ("sections", lambda: detect_all_sections()),
             ("chunk", lambda: chunk_all()),
@@ -227,33 +251,36 @@ def main() -> None:
             ("load", lambda: load_graph("default-run")),
             ("mentions", lambda: run_mentions_link()),
             ("embed", lambda: build_vector_index()),
-            ("entity-index", lambda: build_entity_index())
+            ("entity-index", lambda: build_entity_index()),
         ]
-        
+
         start_idx = 0
         for i, (name, _) in enumerate(steps):
             if name == args.start_from:
                 start_idx = i
                 break
-                
+
         for i in range(start_idx, len(steps)):
             name, func = steps[i]
             print(f"\n--- Running Step: {name} ---")
             func()
-            
+
         print("\n✅ build-graph pipeline completed successfully!")
 
     elif args.command == "quality":
         from server.reporting.quality import generate_quality_report
+
         generate_quality_report()
         print("Data quality report generated at docs/data-quality.md")
 
     elif args.command == "export-sample":
         from server.graph.export import export_sample
+
         export_sample()
-        
+
     elif args.command == "import-sample":
         from server.graph.export import import_sample
+
         import_sample()
 
     elif args.command == "ask":
@@ -296,10 +323,17 @@ def main() -> None:
         from server.eval.runner import run_eval
 
         summary = run_eval(args.pipeline, args.split, run_id=args.run_id, limit=args.limit)
-        print(f"{'category':<14}{'n':>4}  {'correct':>8}  {'95% CI':>17}  {'abstain':>8}  {'cite acc':>9}")
+        print(
+            f"{'category':<14}{'n':>4}  {'correct':>8}  "
+            f"{'95% CI':>17}  {'abstain':>8}  {'cite acc':>9}"
+        )
         for cat, agg in [*summary["by_category"].items(), ("OVERALL", summary["overall"])]:
             lo, hi = agg["correct_ci95"]
-            cit = "-" if agg["citation_accuracy_mean"] is None else f"{agg['citation_accuracy_mean']:.2f}"
+            cit = (
+                "-"
+                if agg["citation_accuracy_mean"] is None
+                else f"{agg['citation_accuracy_mean']:.2f}"
+            )
             print(
                 f"{cat:<14}{agg['n']:>4}  {agg['correct_mean']:>8.2f}  "
                 f"[{lo:.2f}, {hi:.2f}]  {agg['abstention_rate']:>8.2f}  {cit:>9}"

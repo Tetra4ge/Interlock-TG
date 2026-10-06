@@ -1,0 +1,12 @@
+{"qid": "Q-SF-0003", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.5, "latency_ms": 73414, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-SF-0004", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.5, "latency_ms": 61517, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-SF-0005", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.0, "latency_ms": 70312, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-SF-0006", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 1.0, "latency_ms": 57386, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-NUM-0001", "category": "numerical", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 1.0, "latency_ms": 60634, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-NUM-0002", "category": "numerical", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.5, "latency_ms": 64770, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-UNA-0002", "category": "unanswerable", "correct": 1.0, "abstained": true, "error": false, "citation_accuracy": null, "latency_ms": 64150, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-UNA-0003", "category": "unanswerable", "correct": 1.0, "abstained": true, "error": false, "citation_accuracy": null, "latency_ms": 11241, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-SF-0007", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.0, "latency_ms": 63656, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-SF-0009", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.0, "latency_ms": 77360, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-LIST-0001", "category": "single_fact", "correct": 1.0, "abstained": false, "error": false, "citation_accuracy": 0.0, "latency_ms": 89230, "cost_usd": 0.0, "llm_calls": 2}
+{"qid": "Q-UNA-0005", "category": "unanswerable", "correct": 1.0, "abstained": true, "error": false, "citation_accuracy": null, "latency_ms": 75143, "cost_usd": 0.0, "llm_calls": 2}

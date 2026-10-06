@@ -107,7 +107,8 @@ def entity_search(text: str, kind: str | None = None, limit: int = 5) -> list[di
 
     try:
         rows = db.execute(
-            f"SELECT entity_id, canonical_name, aliases_text, kind FROM entities_fts WHERE {where} LIMIT 100",
+            "SELECT entity_id, canonical_name, aliases_text, kind "
+            f"FROM entities_fts WHERE {where} LIMIT 100",
             params,
         ).fetchall()
     except Exception as e:

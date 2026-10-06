@@ -2,32 +2,33 @@ import json
 import logging
 import uuid
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from server.store.db import connect
-from server.llm.models import LLMRequest, LLMMessage
-from server.llm.gateway import call_llm
-from server.settings import settings
-from server.parse.tokens import estimate_tokens
 from server.extract.grounding import check_grounding
-from server.extract.units import detect_unit, to_rupees
-from server.extract.validate import validate_record
 from server.extract.rules.shareholding_table import parse_shareholding_table
 from server.extract.schemas import (
-    DirectorsOut,
-    ShareholdingOut,
-    RelatedPartyTxnsOut,
     AuditorsOut,
+    DirectorsOut,
+    RegulatoryActionsOut,
+    RelatedPartyTxnsOut,
+    ShareholdingOut,
     SubsidiariesOut,
-    RegulatoryActionsOut
 )
+from server.extract.units import detect_unit, to_rupees
+from server.extract.validate import validate_record
+from server.llm.gateway import call_llm
+from server.llm.models import LLMMessage, LLMRequest
+from server.parse.tokens import estimate_tokens
+from server.store.db import connect
 
 logger = logging.getLogger(__name__)
 
+
 class SchemaInvalidError(Exception):
     pass
+
 
 SECTION_TO_TASK = {
     "governance": ["directors"],
@@ -36,17 +37,18 @@ SECTION_TO_TASK = {
     "related_party_standalone": ["rpt"],
     "subsidiaries": ["subsidiaries"],
     "shareholding": ["shareholding"],
-    "regulatory": ["regulatory"] 
+    "regulatory": ["regulatory"],
 }
 
-TASK_SCHEMAS = {
+TASK_SCHEMAS: dict[str, type[BaseModel]] = {
     "directors": DirectorsOut,
     "shareholding": ShareholdingOut,
     "rpt": RelatedPartyTxnsOut,
     "auditor": AuditorsOut,
     "subsidiaries": SubsidiariesOut,
-    "regulatory": RegulatoryActionsOut
+    "regulatory": RegulatoryActionsOut,
 }
+
 
 def load_parsed(doc_id: str) -> dict:
     parsed_file = Path(f"data/parsed/{doc_id}.json")
@@ -54,16 +56,17 @@ def load_parsed(doc_id: str) -> dict:
         return {}
     return json.loads(parsed_file.read_text())
 
-def page_windows(pages: List[dict], max_tokens: int = 4000) -> List[List[dict]]:
+
+def page_windows(pages: list[dict], max_tokens: int = 4000) -> list[list[dict]]:
     """Group pages into windows with 1 page overlap."""
     windows = []
-    current_window = []
+    current_window: list[dict] = []
     current_tokens = 0
-    
+
     for page in pages:
         text = page.get("cleaned_text", page.get("text", ""))
         tokens = estimate_tokens(text)
-        
+
         if current_tokens + tokens > max_tokens and current_window:
             windows.append(current_window)
             # Start new window with 1 page overlap
@@ -72,17 +75,19 @@ def page_windows(pages: List[dict], max_tokens: int = 4000) -> List[List[dict]]:
         else:
             current_window.append(page)
             current_tokens += tokens
-            
+
     if current_window:
         windows.append(current_window)
-        
+
     return windows
 
-def format_pages_block(pages: List[dict]) -> str:
+
+def format_pages_block(pages: list[dict]) -> str:
     blocks = []
     for page in pages:
         blocks.append(f"[PAGE {page['page_no']}]\n{page.get('cleaned_text', page.get('text', ''))}")
     return "\n\n".join(blocks)
+
 
 def _normalize_records_json(content: str, doc_id: str) -> dict:
     """Patch the two systematic shape mismatches between what the prompts
@@ -112,20 +117,20 @@ def _normalize_records_json(content: str, doc_id: str) -> dict:
     return data
 
 
-def llm_extract(task: str, doc_row: dict, window_pages: List[dict]) -> List[Any]:
+def llm_extract(task: str, doc_row: dict, window_pages: list[dict]) -> list[Any]:
     sys_prompt = Path("server/extract/prompts/system_v1.md").read_text()
     task_prompt_template = Path(f"server/extract/prompts/{task}_v1.md").read_text()
-    
+
     pages_block = format_pages_block(window_pages)
-    
+
     task_prompt = task_prompt_template.format(
-        company_name=doc_row.get("company_id", "Unknown Company"), # ideally from entities table
+        company_name=doc_row.get("company_id", "Unknown Company"),  # ideally from entities table
         fiscal_year=doc_row.get("fiscal_year", "Unknown Year"),
-        pages_block=pages_block
+        pages_block=pages_block,
     )
-    
+
     schema_model = TASK_SCHEMAS[task]
-    
+
     # $0 Groq free-tier model (config/models.yaml) -- llama3-70b-8192 has
     # since been decommissioned by Groq. Deliberately NOT the same model as
     # the shared answer step (server/pipelines/common/answer.py): Groq's
@@ -133,18 +138,18 @@ def llm_extract(task: str, doc_row: dict, window_pages: List[dict]) -> List[Any]
     # and bulk extraction's volume can exhaust openai/gpt-oss-20b's cap
     # before the answer step ever gets to run.
     model = "openai/gpt-oss-120b"
-    
+
     req = LLMRequest(
         provider="groq",
         model=model,
         messages=[
             LLMMessage(role="system", content=sys_prompt),
-            LLMMessage(role="user", content=task_prompt)
+            LLMMessage(role="user", content=task_prompt),
         ],
         json_mode=True,
-        temperature=0.0
+        temperature=0.0,
     )
-    
+
     try:
         resp = call_llm(req)
     except Exception as e:
@@ -168,7 +173,9 @@ def llm_extract(task: str, doc_row: dict, window_pages: List[dict]) -> List[Any]
         # _normalize_records_json when the model didn't return valid JSON
         # at all. Retry once on either kind of failure.
         logger.warning("LLM Extraction validation failed. Retrying once...")
-        retry_prompt = f"{task_prompt}\n\nYour previous output failed validation: {e}\nReturn corrected JSON."
+        retry_prompt = (
+            f"{task_prompt}\n\nYour previous output failed validation: {e}\nReturn corrected JSON."
+        )
         req.messages[1].content = retry_prompt
         try:
             resp2 = call_llm(req)
@@ -185,6 +192,7 @@ def llm_extract(task: str, doc_row: dict, window_pages: List[dict]) -> List[Any]
         except (ValidationError, ValueError) as e2:
             logger.error(f"Failed LLM extraction validation twice: {e2}")
             raise SchemaInvalidError(str(e2)) from e2
+
 
 DOCUMENT_COLUMNS = [
     "doc_id",
@@ -235,7 +243,9 @@ def extract_document(doc_id: str, run_id: str) -> None:
     pages = parsed.get("pages", [])
     tables = parsed.get("tables", [])
 
-    sections = conn.execute("SELECT kind, page_start, page_end FROM sections WHERE doc_id = ?", [doc_id]).fetchall()
+    sections = conn.execute(
+        "SELECT kind, page_start, page_end FROM sections WHERE doc_id = ?", [doc_id]
+    ).fetchall()
     if not sections:
         logger.warning(f"No sections detected for {doc_id}. Flagging document.")
         conn.close()
@@ -244,43 +254,54 @@ def extract_document(doc_id: str, run_id: str) -> None:
 
     conn.close()
     _write(
-        "INSERT OR IGNORE INTO extraction_runs (run_id, started_at, model, prompt_version, git_commit) VALUES (?, datetime('now'), ?, ?, ?)",
-        [run_id, "groq:openai/gpt-oss-120b", "v1", "HEAD"]
+        "INSERT OR IGNORE INTO extraction_runs "
+        "(run_id, started_at, model, prompt_version, git_commit) "
+        "VALUES (?, datetime('now'), ?, ?, ?)",
+        [run_id, "groq:openai/gpt-oss-120b", "v1", "HEAD"],
     )
 
     for section_row in sections:
         kind, page_start, page_end = section_row
         for task in SECTION_TO_TASK.get(kind, []):
             sec_pages = [p for p in pages if page_start <= p["page_no"] <= page_end]
-            
+
             for window in page_windows(sec_pages, max_tokens=4000):
                 recs = []
                 try:
                     if task == "shareholding":
                         window_page_nos = [p["page_no"] for p in window]
                         window_tables = [t for t in tables if t["page_no"] in window_page_nos]
-                        
+
                         for t in window_tables:
                             from datetime import date
-                            r = parse_shareholding_table(doc_id, doc.get("company_id", ""), t["page_no"], t["cells"], date.today())
+
+                            r = parse_shareholding_table(
+                                doc_id,
+                                doc.get("company_id", ""),
+                                t["page_no"],
+                                t["cells"],
+                                date.today(),
+                            )
                             if r:
                                 recs.extend(r)
-                                
+
                         if not recs:
                             recs = llm_extract(task, doc, window)
                     else:
                         recs = llm_extract(task, doc, window)
-                except SchemaInvalidError as e:
+                except SchemaInvalidError:
                     record_id = str(uuid.uuid4())
                     _write(
-                        "INSERT INTO records (record_id, run_id, doc_id, record_type, payload_json, status, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [record_id, run_id, doc_id, task, "{}", "rejected", "schema_invalid"]
+                        "INSERT INTO records "
+                        "(record_id, run_id, doc_id, record_type, payload_json, status, reason) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [record_id, run_id, doc_id, task, "{}", "rejected", "schema_invalid"],
                     )
                     continue
-                    
+
                 for rec in recs:
                     status, reason = "accepted", ""
-                    
+
                     # Apply unit detection for RPT records
                     if hasattr(rec, "amount_inr") and hasattr(rec, "amount_raw"):
                         unit = detect_unit(getattr(rec, "amount_raw", ""))
@@ -288,43 +309,49 @@ def extract_document(doc_id: str, run_id: str) -> None:
                         if real_val is None:
                             status, reason = "review", "unit_unknown"
                         else:
-                            setattr(rec, "amount_inr", real_val)
-                            
+                            rec.amount_inr = real_val
+
                     if status == "accepted":
                         status, reason = check_grounding(rec, parsed)
-                        
+
                     if status == "accepted":
                         v_status, v_reason = validate_record(rec)
                         if v_status != "accepted":
                             status = v_status
                             reason = v_reason
-                            
+
                     # Also mark ungrounded as 'review' instead of just 'rejected' to surface them
                     if status == "rejected":
                         status = "review"
-                        
-                    payload_json = rec.model_dump_json() if hasattr(rec, "model_dump_json") else "{}"
+
+                    payload_json = (
+                        rec.model_dump_json() if hasattr(rec, "model_dump_json") else "{}"
+                    )
                     record_id = str(uuid.uuid4())
 
                     _write(
-                        "INSERT INTO records (record_id, run_id, doc_id, record_type, payload_json, status, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [record_id, run_id, doc_id, task, payload_json, status, reason or ""]
+                        "INSERT INTO records "
+                        "(record_id, run_id, doc_id, record_type, payload_json, status, reason) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [record_id, run_id, doc_id, task, payload_json, status, reason or ""],
                     )
 
                     if status == "review":
                         _write(
-                            "INSERT INTO review_queue (record_id, reason, created_at) VALUES (?, ?, datetime('now'))",
-                            [record_id, reason or ""]
+                            "INSERT INTO review_queue (record_id, reason, created_at) "
+                            "VALUES (?, ?, datetime('now'))",
+                            [record_id, reason or ""],
                         )
 
     _write("UPDATE documents SET status = 'extracted' WHERE doc_id = ?", [doc_id])
     _write("UPDATE extraction_runs SET finished_at = datetime('now') WHERE run_id = ?", [run_id])
 
+
 def extract_all(run_id: str) -> None:
     conn = connect()
     rows = conn.execute("SELECT doc_id FROM documents WHERE status = 'parsed'").fetchall()
     conn.close()
-    
+
     for (doc_id,) in rows:
         print(f"Extracting records for document {doc_id}...")
         try:
@@ -342,5 +369,5 @@ def extract_all(run_id: str) -> None:
                 # outage) can just as easily break this status write too --
                 # don't let a doomed cleanup attempt crash the whole batch.
                 logger.exception(f"Also failed to record failure status for {doc_id}")
-        
+
     print(f"Extraction complete for run {run_id}.")
