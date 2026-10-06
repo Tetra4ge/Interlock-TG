@@ -1,0 +1,15 @@
+{
+  "run_id": "phase5-dev-v1",
+  "pipeline": "rag",
+  "split": "dev",
+  "questions_version": "v1",
+  "retrieval": {
+    "evidence_token_budget": 4000,
+    "rag_top_k": 40,
+    "rerank_top_k": 8,
+    "use_reranker": true
+  },
+  "started_at": "2026-10-06T10:10:04.567073+00:00",
+  "git_commit": "98dcd34dbc44bed25d44b9541205e0f42beedb37",
+  "git_dirty": false
+}
