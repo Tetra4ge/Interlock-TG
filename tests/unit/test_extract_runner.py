@@ -108,3 +108,15 @@ def test_rule_parsed_shareholding_is_dated_at_fiscal_year_end(
     assert status == "accepted"
     assert '"as_of":"2024-03-31"' in payload
     assert '"pct_holding":43.71' in payload
+
+
+def test_llm_request_allows_long_json_answers(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = {}
+
+    def fake_call(req):
+        captured["req"] = req
+        return type("R", (), {"error": None, "content": '{"records": []}'})()
+
+    monkeypatch.setattr(runner, "call_llm", fake_call)
+    runner.llm_extract("directors", {"doc_id": "d", "company_id": "C1"}, [{"page_no": 1}])
+    assert captured["req"].max_tokens == runner.EXTRACT_MAX_TOKENS >= 4000

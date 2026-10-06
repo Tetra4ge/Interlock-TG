@@ -52,6 +52,12 @@ TASK_SCHEMAS: dict[str, type[BaseModel]] = {
 }
 
 
+# Extraction answers are long JSON lists with a verbatim quote per record;
+# the gateway's 1000-token default truncates them mid-object, which json_mode
+# then reports as a failed generation.
+EXTRACT_MAX_TOKENS = 4096
+EXTRACT_MODEL = "openai/gpt-oss-120b"
+
 REGULATORY_DOC_TYPE = "regulatory_order"
 
 
@@ -144,23 +150,21 @@ def llm_extract(task: str, doc_row: dict, window_pages: list[dict]) -> list[Any]
 
     schema_model = TASK_SCHEMAS[task]
 
-    # $0 Groq free-tier model (config/models.yaml) -- llama3-70b-8192 has
-    # since been decommissioned by Groq. Deliberately NOT the same model as
-    # the shared answer step (server/pipelines/common/answer.py): Groq's
-    # per-model daily token cap is shared across every caller of that model,
-    # and bulk extraction's volume can exhaust openai/gpt-oss-20b's cap
+    # $0 Groq free-tier model (config/models.yaml). Deliberately NOT the same
+    # model as the shared answer step (server/pipelines/common/answer.py):
+    # Groq's per-model daily token cap is shared across every caller of that
+    # model, and bulk extraction's volume can exhaust the answer model's cap
     # before the answer step ever gets to run.
-    model = "openai/gpt-oss-120b"
-
     req = LLMRequest(
         provider="groq",
-        model=model,
+        model=EXTRACT_MODEL,
         messages=[
             LLMMessage(role="system", content=sys_prompt),
             LLMMessage(role="user", content=task_prompt),
         ],
         json_mode=True,
         temperature=0.0,
+        max_tokens=EXTRACT_MAX_TOKENS,
     )
 
     try:
@@ -275,7 +279,7 @@ def extract_document(doc_id: str, run_id: str) -> None:
         "INSERT OR IGNORE INTO extraction_runs "
         "(run_id, started_at, model, prompt_version, git_commit) "
         "VALUES (?, datetime('now'), ?, ?, ?)",
-        [run_id, "groq:openai/gpt-oss-120b", "v1", "HEAD"],
+        [run_id, f"groq:{EXTRACT_MODEL}", "v1", "HEAD"],
     )
 
     # A shareholding table in an annual report is stated as of the year end.
