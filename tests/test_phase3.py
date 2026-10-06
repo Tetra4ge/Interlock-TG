@@ -1,7 +1,7 @@
 import pytest
 
 from server.resolve.cluster import UnionFind
-from server.resolve.match import compare_mentions, person_score
+from server.resolve.match import compare_mentions, get_block_key, person_score
 from server.resolve.mentions import Mention
 from server.resolve.normalize import norm_company, norm_person
 
@@ -184,3 +184,24 @@ def test_spelling_variants_of_one_company_still_merge():
         _company("m2", "Tata Steel Long Product Ltd."),
     )
     assert res is not None and res["method"] == "fuzzy"
+
+
+def test_context_company_is_named_by_its_legal_name():
+    from server.resolve.mentions import context_company_mention
+
+    m = context_company_mention("r1", "TATASTEEL")
+    assert m.raw_name == "Tata Steel Limited"
+    assert m.ids == {"company_id": "TATASTEEL"}
+
+    # A counterparty naming the same company resolves to the same block and
+    # merges with it, instead of becoming a second "tatasteel" entity.
+    counterparty = _company("r2:counterparty", "Tata Steel Ltd.")
+    assert get_block_key(m) == get_block_key(counterparty)
+    res = compare_mentions(m, counterparty)
+    assert res is not None and res["method"] == "exact_name"
+
+
+def test_unknown_company_id_falls_back_to_the_id():
+    from server.resolve.mentions import context_company_mention
+
+    assert context_company_mention("r1", "NOT-IN-CONFIG").raw_name == "NOT-IN-CONFIG"

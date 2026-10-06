@@ -1,10 +1,15 @@
 import json
 import logging
+from functools import cache
 
+import yaml
 from pydantic import BaseModel
 
 from server.resolve.normalize import norm_company, norm_person
+from server.settings import ROOT
 from server.store.db import connect
+
+COMPANIES_YAML = ROOT / "config/companies.yaml"
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +22,32 @@ class Mention(BaseModel):
     ids: dict  # {"din": "..."} | {"cin": "..."} | {"frn": "..."}
     context_company_id: str | None  # the reporting company, for blocking
     record_id: str
+
+
+@cache
+def config_company_names() -> dict[str, str]:
+    """company_id → legal name for every company in config/companies.yaml."""
+    if not COMPANIES_YAML.exists():
+        return {}
+    data = yaml.safe_load(COMPANIES_YAML.read_text()) or {}
+    return {c["company_id"]: c["name"] for c in data.get("companies", [])}
+
+
+def context_company_mention(record_id: str, company_id: str) -> Mention:
+    """The reporting company of a record. It is named by its legal name, not
+    its ticker-style id, so that the same company appearing as another
+    filer's counterparty ("Tata Steel Limited") resolves to this entity and
+    name search / MENTIONS linking can find it."""
+    name = config_company_names().get(company_id, company_id)
+    return Mention(
+        mention_id=f"{record_id}:context_company",
+        kind="company",
+        raw_name=name,
+        norm_name=norm_company(name),
+        ids={"company_id": company_id},
+        context_company_id=company_id,
+        record_id=record_id,
+    )
 
 
 def build_mentions() -> list[Mention]:
@@ -51,32 +82,11 @@ def build_mentions() -> list[Mention]:
                     )
                 )
 
-            # The context company itself is mentioned
-            mentions.append(
-                Mention(
-                    mention_id=f"{record_id}:context_company",
-                    kind="company",
-                    raw_name=company_id,  # Can use ID as raw_name for standard config companies
-                    norm_name=norm_company(company_id),
-                    ids={"company_id": company_id},
-                    context_company_id=company_id,
-                    record_id=record_id,
-                )
-            )
+            mentions.append(context_company_mention(record_id, company_id))
 
         # 2. RPT -> Context Company + Counterparty
         elif record_type == "rpt":
-            mentions.append(
-                Mention(
-                    mention_id=f"{record_id}:context_company",
-                    kind="company",
-                    raw_name=company_id,
-                    norm_name=norm_company(company_id),
-                    ids={"company_id": company_id},
-                    context_company_id=company_id,
-                    record_id=record_id,
-                )
-            )
+            mentions.append(context_company_mention(record_id, company_id))
 
             if "counterparty_name" in payload and payload["counterparty_name"]:
                 raw_cp = payload["counterparty_name"]
