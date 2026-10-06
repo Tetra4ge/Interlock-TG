@@ -1,4 +1,3 @@
-
 import pytest
 
 from server.resolve.cluster import UnionFind
@@ -8,58 +7,93 @@ from server.resolve.normalize import norm_company, norm_person
 
 # --- 1. Normalization & Scoring Tests ---
 
+
 def test_norm_person():
     assert norm_person("Mr. A.K. Sharma") == "a k sharma"
     assert norm_person("Smt. Priya Rao") == "priya rao"
 
+
 def test_norm_company():
     assert norm_company("XYZ Industries Ltd.") == norm_company("XYZ Industries Limited")
+
 
 def test_person_score():
     score_high = person_score("a k sharma", "anil kumar sharma")
     assert score_high >= 70.0
-    
+
     score_zero = person_score("a sharma", "r sharma")
     assert score_zero == 0.0
 
+
 # --- 2. Merge Logic Tests ---
+
 
 def test_different_dins_never_merge():
     m1 = Mention(
-        mention_id="m1", kind="person", raw_name="John Doe", norm_name="john doe", 
-        ids={"din": "11111111"}, context_company_id="C1", record_id="r1"
+        mention_id="m1",
+        kind="person",
+        raw_name="John Doe",
+        norm_name="john doe",
+        ids={"din": "11111111"},
+        context_company_id="C1",
+        record_id="r1",
     )
     m2 = Mention(
-        mention_id="m2", kind="person", raw_name="John Doe", norm_name="john doe", 
-        ids={"din": "22222222"}, context_company_id="C1", record_id="r2"
+        mention_id="m2",
+        kind="person",
+        raw_name="John Doe",
+        norm_name="john doe",
+        ids={"din": "22222222"},
+        context_company_id="C1",
+        record_id="r2",
     )
     # Even with same exact name and company, DIN mismatch strictly prevents merge
     assert compare_mentions(m1, m2) is None
+
 
 def test_union_find():
     uf = UnionFind()
     uf.union("m1", "m2")
     uf.union("m2", "m3")
-    
+
     assert uf.find("m1") == uf.find("m3")
     assert uf.find("m1") != uf.find("m4")
 
+
 # --- 3. Database / SQL Logic Tests ---
+
 
 def test_cluster_conflict_split():
     # Simulates the logic inside cluster.py where exact_ids conflict
     cluster_mentions = [
-        Mention(mention_id="m1", kind="person", raw_name="John", norm_name="john", ids={"din": "111"}, context_company_id="C1", record_id="r1"),
-        Mention(mention_id="m2", kind="person", raw_name="John", norm_name="john", ids={"din": "222"}, context_company_id="C1", record_id="r2"),
+        Mention(
+            mention_id="m1",
+            kind="person",
+            raw_name="John",
+            norm_name="john",
+            ids={"din": "111"},
+            context_company_id="C1",
+            record_id="r1",
+        ),
+        Mention(
+            mention_id="m2",
+            kind="person",
+            raw_name="John",
+            norm_name="john",
+            ids={"din": "222"},
+            context_company_id="C1",
+            record_id="r2",
+        ),
     ]
-    
+
     exact_ids = set()
     for m in cluster_mentions:
         if m.ids.get("din"):
             exact_ids.add("P:" + m.ids["din"])
-            
+
     # Test that the conflict logic triggers correctly
     assert len(exact_ids) > 1
+
 
 def test_fts_escaping():
     # entity_search natively escapes double quotes via `text.replace('"', '""')`
@@ -67,46 +101,55 @@ def test_fts_escaping():
     raw_query = 'ABC & Company "Special" (India)'
     safe_query = raw_query.replace('"', '""')
     assert safe_query == 'ABC & Company ""Special"" (India)'
-    assert '"' not in safe_query.replace('""', '') # No unescaped quotes remain
+    assert '"' not in safe_query.replace('""', "")  # No unescaped quotes remain
+
 
 # --- 4. TigerGraph Integration Tests ---
+
 
 @pytest.mark.integration
 def test_loader_idempotency():
     from server.graph.client import get_tg_connection
+
     try:
         conn = get_tg_connection()
         v1 = conn.getVertexCount("*")
         e1 = conn.getEdgeCount("*")
-        
+
         # In a real integration run, we would call:
         # from server.graph.loader import load_graph
         # load_graph()
-        
+
         v2 = conn.getVertexCount("*")
         e2 = conn.getEdgeCount("*")
-        
+
         # Asserts idempotency (counts don't duplicate on same data)
         assert v1 == v2
         assert e1 == e2
     except Exception:
         pytest.skip("TigerGraph not available for integration tests")
 
+
 @pytest.mark.integration
 def test_provenance_completeness():
     from server.graph.client import get_tg_connection
+
     try:
         conn = get_tg_connection()
         # Ensure 0 fact edges are missing provenance.
         # Check DIRECTOR_OF edge counts without doc_id
-        res = conn.gsql(f"USE GRAPH {conn.graphname}\nSELECT count() FROM Person:s -(DIRECTOR_OF:e)- Company:t WHERE e.doc_id == \\\"\\\"")
-        assert "count(): 0" in res or "error" in res # Naive check; ideally use RESTPP
+        res = conn.gsql(
+            f'USE GRAPH {conn.graphname}\nSELECT count() FROM Person:s -(DIRECTOR_OF:e)- Company:t WHERE e.doc_id == \\"\\"'
+        )
+        assert "count(): 0" in res or "error" in res  # Naive check; ideally use RESTPP
     except Exception:
         pytest.skip("TigerGraph not available for integration tests")
+
 
 @pytest.mark.integration
 def test_graph_queries_on_fixture():
     from server.graph.queries import neighbors
+
     try:
         # Assumes a known fixture entity exists
         n = neighbors("P:01234567", ["DIRECTOR_OF"], 2)
