@@ -196,7 +196,21 @@ def load_graph(run_id: str = "default-run") -> None:
             if not af_eid or not ctx_eid:
                 continue
 
-            audited_by_edges.append((ctx_eid, af_eid, {}))
+            edge_id = hashlib.sha256(f"{rec_id}:AUDITED_BY".encode()).hexdigest()[:16]
+            audited_by_edges.append(
+                (
+                    ctx_eid,
+                    af_eid,
+                    {
+                        "edge_id": edge_id,
+                        "fiscal_year": payload.get("fiscal_year") or fiscal_year or "",
+                        "doc_id": doc_id,
+                        "page": page_num,
+                        "quote": quote,
+                        "run_id": run_id,
+                    },
+                )
+            )
 
     logger.info("3/3 Upserting RPT Vertices and all Edge Relationships...")
     batched_upsert_vertices(tg, "RelatedPartyTxn", rpt_vertices)

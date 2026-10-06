@@ -116,6 +116,28 @@ def test_rpt_keeps_its_rupee_amount_and_provenance(tg, memdb) -> None:
     assert all(a["page"] == 46 and a["quote"] == EVIDENCE.quote for a in sides.values())
 
 
+def test_auditor_edge_carries_provenance(tg, memdb) -> None:
+    _seed(
+        memdb,
+        "auditor",
+        AuditorRecord(
+            company_name="Tata Steel Limited",
+            firm_name="Price Waterhouse & Co Chartered Accountants LLP",
+            firm_registration_no="304026E",
+            fiscal_year="FY2023-24",
+            evidence=EVIDENCE,
+        ),
+        {"context_company": "C:TATASTEEL", "audit_firm": "A:304026E"},
+    )
+
+    loader.load_graph("run1")
+
+    ((src, tgt, attrs),) = tg.edges[("Company", "AUDITED_BY", "AuditFirm")]
+    assert (src, tgt) == ("C:TATASTEEL", "A:304026E")
+    assert attrs["page"] == 46 and attrs["doc_id"] == "doc1"
+    assert attrs["fiscal_year"] == "FY2023-24" and attrs["run_id"] == "run1"
+
+
 def test_chunks_are_loaded_from_disk(tg, memdb, tmp_path, monkeypatch) -> None:
     _seed(
         memdb,
