@@ -2,7 +2,8 @@ import collections
 import hashlib
 import logging
 
-from server.resolve.match import compare_mentions, generate_exact_id, get_block_key
+from server.common.config import pipeline_section
+from server.resolve.match import block_keys, compare_mentions, generate_exact_id
 from server.resolve.mentions import Mention, build_mentions
 from server.store.db import connect
 
@@ -35,8 +36,13 @@ def run_clustering() -> None:
     mention_dict: dict[str, Mention] = {}
 
     for m in mentions:
-        blocks[get_block_key(m)].append(m)
+        for key in block_keys(m):
+            blocks[key].append(m)
         mention_dict[m.mention_id] = m
+
+    cfg = pipeline_section("resolve")
+    auto_merge_threshold = float(cfg.get("auto_merge_threshold", 95.0))
+    review_band_low = float(cfg.get("review_band_low", 80.0))
 
     uf = UnionFind()
     merge_reasons = {}
@@ -50,7 +56,7 @@ def run_clustering() -> None:
                 m1 = block_mentions[i]
                 m2 = block_mentions[j]
 
-                res = compare_mentions(m1, m2)
+                res = compare_mentions(m1, m2, auto_merge_threshold, review_band_low)
                 if res and res["method"] in ("exact_name", "fuzzy"):
                     uf.union(m1.mention_id, m2.mention_id)
                     merge_reasons[m1.mention_id] = res

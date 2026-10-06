@@ -25,21 +25,26 @@ def company_score(a: str, b: str) -> float:
     return fuzz.token_sort_ratio(a, b)
 
 
-def get_block_key(mention: Mention) -> str:
-    """Group candidates likely to match to avoid O(N^2) global comparisons."""
+def block_keys(mention: Mention) -> list[str]:
+    """Groups of candidates worth comparing, so matching stays well under
+    O(N^2). A person gets two: one scoped to the reporting company (where a
+    counterparty named in a filing is most likely to match a director of
+    that filer) and one across the whole corpus, so the same director
+    serving on two boards still lands in a shared block -- that is what
+    carries a DIN from the report that prints it to the one that does not.
+    """
     if mention.kind == "person":
         sk = surname_key(mention.norm_name)
         ctx = mention.context_company_id or "unknown"
-        return f"person:{sk}:{ctx}"
-    elif mention.kind == "company":
+        return [f"person:{sk}", f"person:{sk}:{ctx}"]
+    if mention.kind == "company":
         tokens = mention.norm_name.split()
         prefix = " ".join(tokens[:2]) if len(tokens) >= 2 else mention.norm_name
-        return f"company:{prefix}"
-    elif mention.kind == "audit_firm":
+        return [f"company:{prefix}"]
+    if mention.kind == "audit_firm":
         tokens = mention.norm_name.split()
-        prefix = tokens[0] if tokens else ""
-        return f"audit_firm:{prefix}"
-    return "unknown"
+        return [f"audit_firm:{tokens[0] if tokens else ''}"]
+    return ["unknown"]
 
 
 def generate_exact_id(mention: Mention) -> str | None:

@@ -1,7 +1,7 @@
 import pytest
 
 from server.resolve.cluster import UnionFind
-from server.resolve.match import compare_mentions, get_block_key, person_score
+from server.resolve.match import block_keys, compare_mentions, person_score
 from server.resolve.mentions import Mention
 from server.resolve.normalize import norm_company, norm_person
 
@@ -196,7 +196,7 @@ def test_context_company_is_named_by_its_legal_name():
     # A counterparty naming the same company resolves to the same block and
     # merges with it, instead of becoming a second "tatasteel" entity.
     counterparty = _company("r2:counterparty", "Tata Steel Ltd.")
-    assert get_block_key(m) == get_block_key(counterparty)
+    assert set(block_keys(m)) & set(block_keys(counterparty))
     res = compare_mentions(m, counterparty)
     assert res is not None and res["method"] == "exact_name"
 
@@ -205,3 +205,36 @@ def test_unknown_company_id_falls_back_to_the_id():
     from server.resolve.mentions import context_company_mention
 
     assert context_company_mention("r1", "NOT-IN-CONFIG").raw_name == "NOT-IN-CONFIG"
+
+
+def _person(mention_id: str, name: str, company: str, din: str | None = None) -> Mention:
+    return Mention(
+        mention_id=mention_id,
+        kind="person",
+        raw_name=name,
+        norm_name=norm_person(name),
+        ids={"din": din} if din else {},
+        context_company_id=company,
+        record_id=mention_id.split(":")[0],
+    )
+
+
+def test_one_director_on_two_boards_shares_a_block():
+    # Blocking only on surname+company kept these apart, so the DIN printed
+    # in one report never reached the other mention of the same director.
+    at_steel = _person("r1:person", "N Chandrasekaran", "TATASTEEL", din="00121863")
+    at_motors = _person("r2:person", "N Chandrasekaran", "TATAMOTORS")
+
+    assert set(block_keys(at_steel)) & set(block_keys(at_motors))
+    res = compare_mentions(at_steel, at_motors)
+    assert res is not None and res["method"] == "exact_name"
+
+
+def test_same_surname_different_people_still_do_not_merge():
+    assert (
+        compare_mentions(
+            _person("r1:person", "A Sharma", "TATASTEEL"),
+            _person("r2:person", "R Sharma", "TATAMOTORS"),
+        )
+        is None
+    )
