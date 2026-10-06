@@ -87,9 +87,14 @@ def page_windows(pages: list[dict], max_tokens: int = 4000) -> list[list[dict]]:
 
         if current_tokens + tokens > max_tokens and current_window:
             windows.append(current_window)
-            # Start new window with 1 page overlap
-            current_window = [current_window[-1], page]
-            current_tokens = estimate_tokens(current_window[0].get("cleaned_text", "")) + tokens
+            # Start new window with 1 page overlap. Count the overlap page's
+            # tokens with the same cleaned_text/text fallback used above --
+            # counting only "cleaned_text" scored it as 0 whenever a page
+            # stored its text under "text", letting the window overflow.
+            overlap = current_window[-1]
+            overlap_text = overlap.get("cleaned_text", overlap.get("text", ""))
+            current_window = [overlap, page]
+            current_tokens = estimate_tokens(overlap_text) + tokens
         else:
             current_window.append(page)
             current_tokens += tokens
@@ -246,7 +251,9 @@ def _write(sql: str, params: list) -> None:
 
 def extract_document(doc_id: str, run_id: str) -> None:
     conn = connect()
-    doc_row = conn.execute("SELECT * FROM documents WHERE doc_id = ?", [doc_id]).fetchone()
+    doc_row = conn.execute(
+        f"SELECT {', '.join(DOCUMENT_COLUMNS)} FROM documents WHERE doc_id = ?", [doc_id]
+    ).fetchone()
     if not doc_row:
         conn.close()
         return
@@ -255,7 +262,15 @@ def extract_document(doc_id: str, run_id: str) -> None:
 
     parsed = load_parsed(doc_id)
     if not parsed:
+        # No parsed JSON on disk: nothing to extract from. Flag it rather
+        # than return silently, otherwise the document stays 'parsed' and
+        # extract_all re-selects it on every run.
         conn.close()
+        logger.warning(f"No parsed data for {doc_id}. Flagging document.")
+        _write(
+            "UPDATE documents SET status = 'flagged', error = 'parse_missing' WHERE doc_id = ?",
+            [doc_id],
+        )
         return
 
     pages = parsed.get("pages", [])
@@ -275,13 +290,6 @@ def extract_document(doc_id: str, run_id: str) -> None:
         logger.warning(f"No sections detected for {doc_id}. Flagging document.")
         _write("UPDATE documents SET status = 'flagged' WHERE doc_id = ?", [doc_id])
         return
-
-    _write(
-        "INSERT OR IGNORE INTO extraction_runs "
-        "(run_id, started_at, model, prompt_version, git_commit) "
-        "VALUES (?, datetime('now'), ?, ?, ?)",
-        [run_id, f"groq:{EXTRACT_MODEL}", "v1", git_state()["git_commit"]],
-    )
 
     # A shareholding table in an annual report is stated as of the year end.
     as_of = fiscal_year_end(doc.get("fiscal_year"))
@@ -373,10 +381,21 @@ def extract_document(doc_id: str, run_id: str) -> None:
                         )
 
     _write("UPDATE documents SET status = 'extracted' WHERE doc_id = ?", [doc_id])
-    _write("UPDATE extraction_runs SET finished_at = datetime('now') WHERE run_id = ?", [run_id])
 
 
 def extract_all(run_id: str) -> None:
+    # One run row for the whole batch: started once here, finished once at
+    # the end. It used to be created inside extract_document after the
+    # sections gate, so a batch of only flagged documents recorded no run,
+    # started_at was the first extracted document's time, and finished_at
+    # was rewritten after every document rather than when the run ended.
+    _write(
+        "INSERT OR IGNORE INTO extraction_runs "
+        "(run_id, started_at, model, prompt_version, git_commit) "
+        "VALUES (?, datetime('now'), ?, ?, ?)",
+        [run_id, f"groq:{EXTRACT_MODEL}", "v1", git_state()["git_commit"]],
+    )
+
     conn = connect()
     # Regulatory orders used to be flagged as "no sections" and never
     # extracted; pick those up again as well.
@@ -405,4 +424,5 @@ def extract_all(run_id: str) -> None:
                 # don't let a doomed cleanup attempt crash the whole batch.
                 logger.exception(f"Also failed to record failure status for {doc_id}")
 
+    _write("UPDATE extraction_runs SET finished_at = datetime('now') WHERE run_id = ?", [run_id])
     print(f"Extraction complete for run {run_id}.")
