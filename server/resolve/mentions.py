@@ -131,7 +131,9 @@ def build_mentions() -> list[Mention]:
                         norm_name=norm_company(
                             payload["firm_name"]
                         ),  # Audit firms normalized like companies
-                        ids={},
+                        ids={"frn": payload["firm_registration_no"]}
+                        if payload.get("firm_registration_no")
+                        else {},
                         context_company_id=company_id,
                         record_id=record_id,
                     )

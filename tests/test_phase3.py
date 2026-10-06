@@ -238,3 +238,19 @@ def test_same_surname_different_people_still_do_not_merge():
         )
         is None
     )
+
+
+def test_auditor_firn_becomes_the_entity_id():
+    from server.resolve.match import generate_exact_id
+    from server.resolve.mentions import Mention
+
+    with_frn = Mention(
+        mention_id="r1:audit_firm",
+        kind="audit_firm",
+        raw_name="Price Waterhouse & Co Chartered Accountants LLP",
+        norm_name="price waterhouse and co chartered accountants",
+        ids={"frn": "304026E"},
+        context_company_id="TATASTEEL",
+        record_id="r1",
+    )
+    assert generate_exact_id(with_frn) == "A:304026E"
