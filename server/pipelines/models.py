@@ -1,9 +1,9 @@
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class AnswerType(str, Enum):
+class AnswerType(StrEnum):
     ENTITY = "entity"
     LIST = "list"
     NUMBER = "number"
@@ -13,7 +13,7 @@ class AnswerType(str, Enum):
     NOT_FOUND = "not_found"
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     OK = "ok"
     ABSTAINED = "abstained"
     ERROR = "error"
@@ -79,6 +79,7 @@ class ModelAnswer(BaseModel):
     resolves each ModelCitation into a real Citation by looking up its label."""
 
     answer_type: AnswerType
-    answer_short: str  # just the value: a name, list joined by "; ", number, date, yes/no, or "not found"
+    # the value only: name, "; "-joined list, number, date, yes/no, or "not found"
+    answer_short: str
     answer_long: str  # 1 paragraph; cite with [E1], [E2]
     citations: list[ModelCitation]

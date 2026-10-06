@@ -1,6 +1,7 @@
 import time
 
 from server.graph.queries import vector_search
+from server.llm.gateway import SpendCapExceeded
 from server.pipelines.base import register
 from server.pipelines.common.answer import final_answer
 from server.pipelines.common.budget import fit_to_budget
@@ -67,7 +68,8 @@ class RAGPipeline:
                 status=status,
             )
         except Exception as e:
-            return self._error_result(question, tr, repr(e), start)
+            reason = "spend_cap" if isinstance(e, SpendCapExceeded) else repr(e)
+            return self._error_result(question, tr, reason, start)
 
     def _retrieve(self, question: str, tr: Tracer) -> list[dict]:
         t0 = time.perf_counter()
@@ -96,9 +98,7 @@ class RAGPipeline:
     def _elapsed_ms(start: float) -> int:
         return int((time.perf_counter() - start) * 1000)
 
-    def _error_result(
-        self, question: str, tr: Tracer, error: str, start: float
-    ) -> AnswerResult:
+    def _error_result(self, question: str, tr: Tracer, error: str, start: float) -> AnswerResult:
         if not tr.steps or tr.steps[-1].error != error:
             tr.add("verify", "error", question, "", error=error)
         return AnswerResult(

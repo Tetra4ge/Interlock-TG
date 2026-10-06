@@ -84,6 +84,34 @@ def format_pages_block(pages: List[dict]) -> str:
         blocks.append(f"[PAGE {page['page_no']}]\n{page.get('cleaned_text', page.get('text', ''))}")
     return "\n\n".join(blocks)
 
+def _normalize_records_json(content: str, doc_id: str) -> dict:
+    """Patch the two systematic shape mismatches between what the prompts
+    ask for and what Evidence (schemas.py) requires, before validation:
+
+    - evidence.doc_id is never mentioned in any task prompt (the model has
+      no way to know it), but the caller already knows it -- inject it
+      rather than expect the model to invent/echo an ID.
+    - evidence.page: the system prompt tells the model to cite pages using
+      the input's own "[PAGE 45]" label (rule 2), but Evidence.page wants a
+      bare int -- pull the digits out rather than rely on prompt wording
+      alone to stop the model from ever echoing the brackets back.
+    """
+    data = json.loads(content)
+    for rec in data.get("records", []) if isinstance(data, dict) else []:
+        if not isinstance(rec, dict):
+            continue
+        evidence = rec.get("evidence")
+        if not isinstance(evidence, dict):
+            continue
+        evidence.setdefault("doc_id", doc_id)
+        page = evidence.get("page")
+        if isinstance(page, str):
+            digits = "".join(ch for ch in page if ch.isdigit())
+            if digits:
+                evidence["page"] = int(digits)
+    return data
+
+
 def llm_extract(task: str, doc_row: dict, window_pages: List[dict]) -> List[Any]:
     sys_prompt = Path("server/extract/prompts/system_v1.md").read_text()
     task_prompt_template = Path(f"server/extract/prompts/{task}_v1.md").read_text()
@@ -98,47 +126,65 @@ def llm_extract(task: str, doc_row: dict, window_pages: List[dict]) -> List[Any]
     
     schema_model = TASK_SCHEMAS[task]
     
-    # Same $0 Groq free-tier model as the shared answer step (see
-    # server/pipelines/common/answer.py) -- llama3-70b-8192 has since been
-    # decommissioned by Groq.
-    model = "openai/gpt-oss-20b"
+    # $0 Groq free-tier model (config/models.yaml) -- llama3-70b-8192 has
+    # since been decommissioned by Groq. Deliberately NOT the same model as
+    # the shared answer step (server/pipelines/common/answer.py): Groq's
+    # per-model daily token cap is shared across every caller of that model,
+    # and bulk extraction's volume can exhaust openai/gpt-oss-20b's cap
+    # before the answer step ever gets to run.
+    model = "openai/gpt-oss-120b"
     
     req = LLMRequest(
         provider="groq",
         model=model,
-        role="extractor",
         messages=[
             LLMMessage(role="system", content=sys_prompt),
             LLMMessage(role="user", content=task_prompt)
         ],
-        response_schema=schema_model.model_json_schema(),
+        json_mode=True,
         temperature=0.0
     )
     
-    resp = call_llm(req)
+    try:
+        resp = call_llm(req)
+    except Exception as e:
+        # The gateway/provider can raise (FatalError, RetryableError after
+        # retries are exhausted, a mid-call network drop, ...) rather than
+        # returning an errored LLMResponse -- e.g. Groq's own json_mode
+        # validation occasionally fails server-side with an empty
+        # `failed_generation`. Treat it the same as a schema failure so it
+        # costs this one task/window, not the rest of the document.
+        raise SchemaInvalidError(str(e)) from e
     if resp.error:
         logger.error(f"LLM call error: {resp.error}")
         return []
-        
+
+    doc_id = doc_row.get("doc_id", "")
     try:
-        parsed_out = schema_model.model_validate_json(resp.content)
+        parsed_out = schema_model.model_validate(_normalize_records_json(resp.content, doc_id))
         return getattr(parsed_out, "records", [])
-    except ValidationError as e:
-        # Retry once on JSON validation error
+    except (ValidationError, ValueError) as e:
+        # ValueError also catches json.JSONDecodeError from
+        # _normalize_records_json when the model didn't return valid JSON
+        # at all. Retry once on either kind of failure.
         logger.warning("LLM Extraction validation failed. Retrying once...")
         retry_prompt = f"{task_prompt}\n\nYour previous output failed validation: {e}\nReturn corrected JSON."
         req.messages[1].content = retry_prompt
-        resp2 = call_llm(req)
-        
+        try:
+            resp2 = call_llm(req)
+        except Exception as e2:
+            raise SchemaInvalidError(str(e2)) from e2
+
         if resp2.error:
             return []
-            
+
         try:
-            parsed_out2 = schema_model.model_validate_json(resp2.content)
+            normalized2 = _normalize_records_json(resp2.content, doc_id)
+            parsed_out2 = schema_model.model_validate(normalized2)
             return getattr(parsed_out2, "records", [])
-        except ValidationError as e2:
+        except (ValidationError, ValueError) as e2:
             logger.error(f"Failed LLM extraction validation twice: {e2}")
-            raise SchemaInvalidError(str(e2))
+            raise SchemaInvalidError(str(e2)) from e2
 
 DOCUMENT_COLUMNS = [
     "doc_id",
@@ -153,6 +199,25 @@ DOCUMENT_COLUMNS = [
 ]
 
 
+def _write(sql: str, params: list) -> None:
+    """Open a fresh connection for a single write and close it immediately.
+
+    extract_document() spans many slow, sequential LLM calls (one per
+    section/window) between writes. A single connection held open across
+    that whole span has repeatedly gone stale mid-document -- Turso's
+    remote Hrana stream either idle-times-out an open transaction or the
+    stream itself expires ("stream not found"). Reconnecting per write
+    keeps each connection's lifetime to a single fast round-trip, which
+    eliminates both failure modes.
+    """
+    c = connect()
+    try:
+        c.execute(sql, params)
+        c.commit()
+    finally:
+        c.close()
+
+
 def extract_document(doc_id: str, run_id: str) -> None:
     conn = connect()
     doc_row = conn.execute("SELECT * FROM documents WHERE doc_id = ?", [doc_id]).fetchone()
@@ -161,28 +226,28 @@ def extract_document(doc_id: str, run_id: str) -> None:
         return
 
     doc = dict(zip(DOCUMENT_COLUMNS, doc_row, strict=True))
-    
+
     parsed = load_parsed(doc_id)
     if not parsed:
         conn.close()
         return
-        
+
     pages = parsed.get("pages", [])
     tables = parsed.get("tables", [])
-    
+
     sections = conn.execute("SELECT kind, page_start, page_end FROM sections WHERE doc_id = ?", [doc_id]).fetchall()
     if not sections:
         logger.warning(f"No sections detected for {doc_id}. Flagging document.")
-        conn.execute("UPDATE documents SET status = 'flagged' WHERE doc_id = ?", [doc_id])
-        conn.commit()
         conn.close()
+        _write("UPDATE documents SET status = 'flagged' WHERE doc_id = ?", [doc_id])
         return
-    
-    conn.execute(
+
+    conn.close()
+    _write(
         "INSERT OR IGNORE INTO extraction_runs (run_id, started_at, model, prompt_version, git_commit) VALUES (?, datetime('now'), ?, ?, ?)",
-        [run_id, "groq:openai/gpt-oss-20b", "v1", "HEAD"]
+        [run_id, "groq:openai/gpt-oss-120b", "v1", "HEAD"]
     )
-    
+
     for section_row in sections:
         kind, page_start, page_end = section_row
         for task in SECTION_TO_TASK.get(kind, []):
@@ -207,11 +272,10 @@ def extract_document(doc_id: str, run_id: str) -> None:
                         recs = llm_extract(task, doc, window)
                 except SchemaInvalidError as e:
                     record_id = str(uuid.uuid4())
-                    conn.execute(
+                    _write(
                         "INSERT INTO records (record_id, run_id, doc_id, record_type, payload_json, status, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         [record_id, run_id, doc_id, task, "{}", "rejected", "schema_invalid"]
                     )
-                    conn.commit()
                     continue
                     
                 for rec in recs:
@@ -241,23 +305,20 @@ def extract_document(doc_id: str, run_id: str) -> None:
                         
                     payload_json = rec.model_dump_json() if hasattr(rec, "model_dump_json") else "{}"
                     record_id = str(uuid.uuid4())
-                    
-                    conn.execute(
+
+                    _write(
                         "INSERT INTO records (record_id, run_id, doc_id, record_type, payload_json, status, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         [record_id, run_id, doc_id, task, payload_json, status, reason or ""]
                     )
-                    
+
                     if status == "review":
-                        conn.execute(
+                        _write(
                             "INSERT INTO review_queue (record_id, reason, created_at) VALUES (?, ?, datetime('now'))",
                             [record_id, reason or ""]
                         )
-                    conn.commit()
 
-    conn.execute("UPDATE documents SET status = 'extracted' WHERE doc_id = ?", [doc_id])
-    conn.execute("UPDATE extraction_runs SET finished_at = datetime('now') WHERE run_id = ?", [run_id])
-    conn.commit()
-    conn.close()
+    _write("UPDATE documents SET status = 'extracted' WHERE doc_id = ?", [doc_id])
+    _write("UPDATE extraction_runs SET finished_at = datetime('now') WHERE run_id = ?", [run_id])
 
 def extract_all(run_id: str) -> None:
     conn = connect()
@@ -266,6 +327,20 @@ def extract_all(run_id: str) -> None:
     
     for (doc_id,) in rows:
         print(f"Extracting records for document {doc_id}...")
-        extract_document(doc_id, run_id)
+        try:
+            extract_document(doc_id, run_id)
+        except Exception as e:
+            logger.exception(f"Failed to extract {doc_id}")
+            print(f"Failed to extract {doc_id}: {e}")
+            try:
+                _write(
+                    "UPDATE documents SET status = 'failed', error = ? WHERE doc_id = ?",
+                    [repr(e), doc_id],
+                )
+            except Exception:
+                # Whatever broke the extraction (e.g. a transient network
+                # outage) can just as easily break this status write too --
+                # don't let a doomed cleanup attempt crash the whole batch.
+                logger.exception(f"Also failed to record failure status for {doc_id}")
         
     print(f"Extraction complete for run {run_id}.")
