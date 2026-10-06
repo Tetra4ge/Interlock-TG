@@ -45,8 +45,13 @@ def score_abstention(answerable: bool, abstained: bool) -> float:
 def citation_accuracy(
     cited: Iterable[tuple[str, int]], gold: Iterable[tuple[str, int]]
 ) -> float | None:
-    cited_list = list(cited)
-    if not cited_list:
+    # The metric works at (doc_id, page) granularity -- the quote is
+    # deliberately dropped -- so several citations to the same page (e.g. one
+    # per item of a listed answer) are one cited location, not several. Count
+    # distinct locations so a mix of correct and wrong pages is not skewed by
+    # how many quotes the model happened to attach to each page.
+    cited_set = set(cited)
+    if not cited_set:
         return None
     gold_set = set(gold)
-    return sum(1 for c in cited_list if c in gold_set) / len(cited_list)
+    return sum(1 for c in cited_set if c in gold_set) / len(cited_set)
