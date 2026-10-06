@@ -19,7 +19,10 @@ def person_score(a: str, b: str) -> float:
 
 
 def company_score(a: str, b: str) -> float:
-    return fuzz.token_set_ratio(a, b)
+    # Not token_set_ratio: it scores 100 whenever one name's words are a
+    # subset of the other's, which would merge "tata motors" with
+    # "tata motors finance" -- a parent with its subsidiary.
+    return fuzz.token_sort_ratio(a, b)
 
 
 def get_block_key(mention: Mention) -> str:

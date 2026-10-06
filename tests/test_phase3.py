@@ -157,3 +157,30 @@ def test_graph_queries_on_fixture():
         assert isinstance(n, list)
     except Exception:
         pytest.skip("TigerGraph not available for integration tests")
+
+
+def _company(mention_id: str, name: str) -> Mention:
+    return Mention(
+        mention_id=mention_id,
+        kind="company",
+        raw_name=name,
+        norm_name=norm_company(name),
+        ids={},
+        context_company_id="C1",
+        record_id=mention_id,
+    )
+
+
+def test_parent_and_subsidiary_names_do_not_fuzzy_merge():
+    parent = _company("m1", "Tata Motors Limited")
+    for other in ("Tata Motors Finance Limited", "Tata Motors Passenger Vehicles Ltd"):
+        res = compare_mentions(parent, _company("m2", other))
+        assert res is None or res["method"] == "review_queue", other
+
+
+def test_spelling_variants_of_one_company_still_merge():
+    res = compare_mentions(
+        _company("m1", "Tata Steel Long Products Limited"),
+        _company("m2", "Tata Steel Long Product Ltd."),
+    )
+    assert res is not None and res["method"] == "fuzzy"
