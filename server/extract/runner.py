@@ -16,7 +16,7 @@ from server.extract.schemas import (
     ShareholdingOut,
     SubsidiariesOut,
 )
-from server.extract.units import detect_unit, to_rupees
+from server.extract.units import rupees_from_raw
 from server.extract.validate import validate_record
 from server.llm.gateway import call_llm
 from server.llm.models import LLMMessage, LLMRequest
@@ -302,10 +302,12 @@ def extract_document(doc_id: str, run_id: str) -> None:
                 for rec in recs:
                     status, reason = "accepted", ""
 
-                    # Apply unit detection for RPT records
+                    # RPT amounts: the rupee value is computed from the figure
+                    # as printed (amount_raw) and its unit. The model's own
+                    # amount_inr is ignored -- it is sometimes the printed
+                    # figure and sometimes already multiplied out.
                     if hasattr(rec, "amount_inr") and hasattr(rec, "amount_raw"):
-                        unit = detect_unit(getattr(rec, "amount_raw", ""))
-                        real_val = to_rupees(getattr(rec, "amount_inr", 0.0), unit)
+                        real_val = rupees_from_raw(getattr(rec, "amount_raw", "") or "")
                         if real_val is None:
                             status, reason = "review", "unit_unknown"
                         else:
