@@ -19,7 +19,7 @@ retrieval:
   evidence_token_budget: 4000
   rag_top_k: 20
   rerank_top_k: 8
-  use_reranker: false
+  use_reranker: true
 graphrag:
   max_hops: 2
   max_triples: 150

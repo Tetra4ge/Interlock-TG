@@ -62,6 +62,8 @@ class FakeConn:
 @pytest.fixture(autouse=True)
 def isolated_tracer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tracer_mod, "connect", lambda: FakeConn())
+    monkeypatch.setattr(rag_mod, "_excluded_doc_ids", lambda: set())
+    monkeypatch.setattr(rag_mod.RETRIEVAL, "use_reranker", False)
 
 
 def _stub_llm(content: str) -> None:

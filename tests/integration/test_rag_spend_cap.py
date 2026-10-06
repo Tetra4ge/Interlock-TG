@@ -20,6 +20,7 @@ class _FakeConn:
 @pytest.fixture
 def isolated_tracer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tracer_mod, "connect", lambda: _FakeConn())
+    monkeypatch.setattr("server.pipelines.rag._excluded_doc_ids", lambda: set())
 
 
 def test_spend_cap_yields_error_with_spend_cap_reason(

@@ -11,6 +11,16 @@ from server.pipelines.common.rerank import rerank
 from server.pipelines.common.tracer import Tracer
 from server.pipelines.config import RETRIEVAL
 from server.pipelines.models import AnswerResult, AnswerType, EvidenceItem, Status
+from server.store.db import connect
+
+
+def _excluded_doc_ids() -> set[str]:
+    conn = connect()
+    try:
+        rows = conn.execute("SELECT doc_id FROM documents WHERE status = 'excluded'").fetchall()
+    finally:
+        conn.close()
+    return {r[0] for r in rows}
 
 
 class RAGPipeline:
@@ -73,7 +83,12 @@ class RAGPipeline:
 
     def _retrieve(self, question: str, tr: Tracer) -> list[dict]:
         t0 = time.perf_counter()
-        hits = vector_search(question, k=RETRIEVAL.rag_top_k)
+        excluded = _excluded_doc_ids()
+        hits = [
+            h
+            for h in vector_search(question, k=RETRIEVAL.rag_top_k)
+            if h.get("doc_id") not in excluded
+        ]
         tr.add(
             "retrieve",
             "vector_search",
