@@ -1,7 +1,7 @@
-# Phase 2 Pilot Selection
-# We have restricted this to 5 companies specifically chosen to meet the Phase 2 Step 1 criteria
-# while maintaining the Tata/Bajaj group overlap for future multi-hop graph testing.
-# Criteria fulfilled:
+# Selection rule: the five Phase 2 pilot companies, plus the four other listed Tata/Bajaj
+# group companies whose annual reports are registered in the corpus, so that board and
+# related-party links between group companies exist for multi-hop questions.
+# Pilot criteria fulfilled:
 # 1. At least 2 different sectors (Auto, Finance, Metals, Machinery).
 # 2. At least 1 large group structure (TATAMOTORS).
 # 3. At least 1 named in a regulatory order (BAJFINANCE - RBI order in late 2023).
@@ -47,3 +47,31 @@ companies:
     cin: null
     sector: "Financial Services (Holding)"
     selection_reason: "Pilot: Holding company structure for diverse group entities"
+
+  - company_id: "TATAPOWER"
+    name: "The Tata Power Company Limited"
+    exchange_codes: {bse: "500400", nse: "TATAPOWER"}
+    cin: null
+    sector: "Power"
+    selection_reason: "Group expansion: Tata group company, annual reports registered"
+
+  - company_id: "TATACONSUM"
+    name: "Tata Consumer Products Limited"
+    exchange_codes: {bse: "500800", nse: "TATACONSUM"}
+    cin: null
+    sector: "FMCG"
+    selection_reason: "Group expansion: Tata group company, annual reports registered"
+
+  - company_id: "BAJAJ-AUTO"
+    name: "Bajaj Auto Limited"
+    exchange_codes: {bse: "532977", nse: "BAJAJ-AUTO"}
+    cin: null
+    sector: "Automobiles"
+    selection_reason: "Group expansion: Bajaj group company, annual reports registered"
+
+  - company_id: "BAJAJHLDNG"
+    name: "Bajaj Holdings & Investment Limited"
+    exchange_codes: {bse: "500490", nse: "BAJAJHLDNG"}
+    cin: null
+    sector: "Financial Services (Holding)"
+    selection_reason: "Group expansion: Bajaj group company, annual reports registered"
