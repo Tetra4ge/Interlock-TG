@@ -158,3 +158,29 @@ def test_cached_answers_keep_their_status(tmp_path: Path) -> None:
     _write(path, entry)
     assert lookup(path, "q")["rag"].status == Status.ABSTAINED  # type: ignore[index]
     assert demo.MAX_QUESTION_CHARS == 500
+
+
+def test_failed_answers_are_never_cached(memdb: MemoryDB, tmp_path: Path) -> None:
+    seed_question(memdb, "q1")
+    seed_question(memdb, "q2")
+    good = {"result": answer_result(short="fine"), "correct": 1.0}
+    failed = {"result": answer_result(short="", status=Status.ERROR), "correct": 0.0}
+    seed_run(memdb, "r", "agent", rows={"q1": good, "q2": failed})
+    out = tmp_path / "c.jsonl"
+    assert build_cache_from_runs(memdb, {"agent": "r"}, out) == 1
+    assert [e["question"] for e in load_cache(out).values()] == ["question q1"]
+
+
+def test_several_runs_per_pipeline_are_merged_first_run_wins(
+    memdb: MemoryDB, tmp_path: Path
+) -> None:
+    for q in ("q1", "q2"):
+        seed_question(memdb, q)
+    row = lambda s: {"result": answer_result(short=s), "correct": 1.0}  # noqa: E731
+    seed_run(memdb, "dev", "rag", rows={"q1": row("dev-1")})
+    seed_run(memdb, "test", "rag", rows={"q1": row("test-1"), "q2": row("test-2")})
+    out = tmp_path / "c.jsonl"
+    assert build_cache_from_runs(memdb, {"rag": ["dev", "test"]}, out) == 2
+    cache = load_cache(out)
+    assert cache[normalize_question("question q1")]["results"]["rag"].answer_short == "dev-1"
+    assert cache[normalize_question("question q2")]["source_runs"] == {"rag": "test"}
