@@ -124,13 +124,22 @@ answer_type, citations, evidence, trace, usage, status)`.
   `bad_query`, `budget_loop`, `data_error`
 - Bootstrap 95% confidence intervals per category; paired difference test across pipelines
 
-### Dashboard (Phase 8, Next.js 14)
-Five pages for judges:
-1. **Overview** — accuracy by category, all three pipelines
-2. **Trade-offs** — cost vs accuracy scatter, latency distributions
-3. **Failures** — failure taxonomy per pipeline
-4. **Question Inspector** — one question, three answers, evidence blocks, agent trace steps
-5. **Live Ask** — freeform question → three pipeline answers in real time
+### API and dashboard (Phase 8)
+`server/api/` is a thin FastAPI layer (`uv run hl serve`, docs at `/docs`): `/ask`, `/compare`
+(demo mode answers cached questions with no key; otherwise runs the three pipelines in worker
+threads so one failure or timeout becomes that pipeline's `status=error`), and read-only views of
+the run store (`/runs`, `/runs/{id}/metrics`, `/compare-runs`, `/questions`, `/data-quality`,
+`/review-queue`, `/graph/subgraph`, `/documents/...`). Metrics reuse the eval harness, so the
+dashboard cannot disagree with `hl eval`. Read routes are cached for `READ_CACHE_SECONDS` because
+the run store may be a remote Turso database where every query is a round trip.
+
+`dashboard/` is Next.js 16 (read `node_modules/next/dist/docs/` before changing it; e.g. an error
+boundary's prop is `retry`). Seven pages: Overview, Trade-offs, Failures, Question Inspector (three
+answer cards, citation drawer, SVG subgraph canvas, traces), Live ask, Data quality, Review queue.
+Pages are Server Components that fetch from the API and render an error panel instead of crashing
+when it is down. `npm test` (Vitest), `npm run typecheck`, `npm run e2e` and `npm run e2e:graph`
+(Playwright; see the header of each script). Decisions and known gaps:
+`docs/decisions/0015-api-and-dashboard.md`.
 
 ---
 
@@ -456,6 +465,8 @@ convention `<COMPANY_ID>__<doc_type>__<FY>.pdf` (e.g.
 |---|---|---|
 | `OfflineCacheMiss` in tests | LLM test hit real API | Set `LLM_OFFLINE=true` in `.env` or mock settings |
 | `getToken()` 401 on Savanna | pyTigerGraph adds Basic-auth header | `client.py` uses `_mint_cloud_token()` which bypasses it |
+| Dashboard pages take several seconds | The run store is a remote Turso database; each query is a round trip | Keep `READ_CACHE_SECONDS` above 0, or use a local `file:` database |
+| Dashboard shows "Cannot reach the API" | API not running, or `NEXT_PUBLIC_API_URL` / `CORS_ORIGINS` mismatch | `uv run hl serve`; check both values (the URL is inlined at build time) |
 | Vector index not found | `build-graph` embed step not run | Run `uv run hl build-graph --from embed` |
 | FTS query crash on entity names | Unescaped FTS5 syntax chars | `graph/queries.py` wraps text in quoted phrase |
 | Duplicate edges on graph rebuild | Missing discriminator or non-deterministic edge_id | Each edge uses `sha256(record_id + rel_type)[:16]` as `edge_id` |

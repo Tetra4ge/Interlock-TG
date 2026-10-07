@@ -1,0 +1,27 @@
+CREATE OR REPLACE QUERY subgraph_by_edges(SET<STRING> edge_ids) FOR GRAPH Interlock SYNTAX v2 {
+  // Return only the fact edges whose edge_id was asked for (the evidence an answer used), plus
+  // each related-party transaction's attributes. Fact edges that carry an edge_id attribute:
+  // DIRECTOR_OF, PARTY_TO, AUDITED_BY and SUBSIDIARY_OF. Scans the type, never walks outward.
+  SetAccum<EDGE> @@edges;
+
+  Directors = SELECT t FROM Person:s -(DIRECTOR_OF:e)- Company:t
+              WHERE e.edge_id IN edge_ids
+              ACCUM @@edges += e;
+  CompanyParties = SELECT t FROM Company:s -(PARTY_TO:e)- RelatedPartyTxn:t
+                   WHERE e.edge_id IN edge_ids
+                   ACCUM @@edges += e;
+  PersonParties = SELECT t FROM Person:s -(PARTY_TO:e)- RelatedPartyTxn:t
+                  WHERE e.edge_id IN edge_ids
+                  ACCUM @@edges += e;
+  Audits = SELECT t FROM Company:s -(AUDITED_BY:e)- AuditFirm:t
+           WHERE e.edge_id IN edge_ids
+           ACCUM @@edges += e;
+  Subsidiaries = SELECT t FROM Company:s -(SUBSIDIARY_OF:e)- Company:t
+                 WHERE e.edge_id IN edge_ids
+                 ACCUM @@edges += e;
+
+  Txns = CompanyParties UNION PersonParties;
+
+  PRINT @@edges AS edges;
+  PRINT Txns[Txns.nature, Txns.relationship, Txns.amount_inr, Txns.fiscal_year] AS txns;
+}

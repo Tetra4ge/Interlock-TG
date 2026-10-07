@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -13,15 +14,19 @@ class MemoryDB:
     connection per operation keeps seeing the same data."""
 
     def __init__(self) -> None:
-        self.raw = sqlite3.connect(":memory:")
+        # Shared by the API's worker threads, so access is serialised.
+        self.raw = sqlite3.connect(":memory:", check_same_thread=False)
+        self._lock = threading.RLock()
         for f in sorted(MIGRATIONS.glob("*.sql")):
             self.raw.executescript(f.read_text())
 
     def execute(self, sql: str, params: list | tuple = ()) -> sqlite3.Cursor:
-        return self.raw.execute(sql, tuple(params))
+        with self._lock:
+            return self.raw.execute(sql, tuple(params))
 
     def commit(self) -> None:
-        self.raw.commit()
+        with self._lock:
+            self.raw.commit()
 
     def close(self) -> None:
         pass
