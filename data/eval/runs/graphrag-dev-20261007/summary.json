@@ -1,0 +1,71 @@
+{
+  "overall": {
+    "n": 5,
+    "correct_mean": 0.6,
+    "correct_ci95": [
+      0.2,
+      1.0
+    ],
+    "faithfulness_mean": null,
+    "citation_accuracy_mean": 0.25,
+    "evidence_recall_mean": 0.3333333333333333,
+    "abstention_rate": 0.6,
+    "error_count": 0,
+    "failures": {
+      "hallucination": 1,
+      "wrong_abstention": 1
+    },
+    "latency_median_ms": 28861,
+    "latency_p90_ms": 38797.2,
+    "cost_usd_mean": 0.0,
+    "llm_calls_mean": 2.0,
+    "tool_calls_mean": 0.0,
+    "budget_exceeded_rate": 0.0
+  },
+  "by_category": {
+    "single_fact": {
+      "n": 3,
+      "correct_mean": 0.3333333333333333,
+      "correct_ci95": [
+        0.0,
+        1.0
+      ],
+      "faithfulness_mean": null,
+      "citation_accuracy_mean": 0.25,
+      "evidence_recall_mean": 0.3333333333333333,
+      "abstention_rate": 0.3333333333333333,
+      "error_count": 0,
+      "failures": {
+        "hallucination": 1,
+        "wrong_abstention": 1
+      },
+      "latency_median_ms": 28008,
+      "latency_p90_ms": 37384.0,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 2.0,
+      "tool_calls_mean": 0.0,
+      "budget_exceeded_rate": 0.0
+    },
+    "unanswerable": {
+      "n": 2,
+      "correct_mean": 1.0,
+      "correct_ci95": [
+        1.0,
+        1.0
+      ],
+      "faithfulness_mean": null,
+      "citation_accuracy_mean": null,
+      "evidence_recall_mean": null,
+      "abstention_rate": 1.0,
+      "error_count": 0,
+      "failures": {},
+      "latency_median_ms": 33131.0,
+      "latency_p90_ms": 36547.0,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 2.0,
+      "tool_calls_mean": 0.0,
+      "budget_exceeded_rate": 0.0
+    }
+  },
+  "run_id": "graphrag-dev-20261007"
+}

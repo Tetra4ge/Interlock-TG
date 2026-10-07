@@ -1,0 +1,15 @@
+{
+  "run_id": "graphrag-dev-20261007",
+  "pipeline": "graphrag",
+  "split": "dev",
+  "questions_version": "v1",
+  "retrieval": {
+    "evidence_token_budget": 4000,
+    "rag_top_k": 40,
+    "rerank_top_k": 8,
+    "use_reranker": true
+  },
+  "started_at": "2026-10-07T16:52:37.917706+00:00",
+  "git_commit": "905a786c049d83dcdb1a625eb84714d0443b8387",
+  "git_dirty": false
+}
