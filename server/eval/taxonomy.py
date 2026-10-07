@@ -59,14 +59,15 @@ def classify_failure(
     if abstained:
         return "wrong_abstention"
 
+    # An answer that matches gold but is not supported by the evidence it was
+    # shown is still a hallucination; checking correctness first would hide it.
+    if faithfulness is not None and faithfulness < 1.0:
+        return "hallucination"
+
     if correct >= 1.0:
         return None
 
     # Answerable, answered, but wrong -- attribute as best we can.
-    if faithfulness is not None and faithfulness < 1.0:
-        # The answer is not supported by the evidence it was given.
-        return "hallucination"
-
     if evidence_recall == 0.0:
         # The gold evidence was never retrieved.
         return "retrieval_miss"

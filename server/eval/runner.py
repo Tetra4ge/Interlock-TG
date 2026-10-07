@@ -9,6 +9,7 @@ from typing import Any, Protocol
 import numpy as np
 
 from server.common.git import git_state
+from server.eval.judge import JudgeResult
 from server.eval.models import Question
 from server.eval.normalize import parse_number_crore, split_list
 from server.eval.scorers import (
@@ -31,6 +32,12 @@ RUNS_DIR = Path("data/eval/runs")
 
 class Answerer(Protocol):
     def answer(self, question: str, request_id: str) -> AnswerResult: ...
+
+
+class JudgeFn(Protocol):
+    def __call__(
+        self, question: str, answer_long: str, evidence_texts: list[str]
+    ) -> JudgeResult | None: ...
 
 
 def load_questions(path: Path = QUESTIONS_PATH) -> list[Question]:
@@ -147,6 +154,7 @@ def run_eval(
     pipeline: Answerer | None = None,
     questions: Sequence[Question] | None = None,
     runs_dir: Path = RUNS_DIR,
+    judge: JudgeFn | None = None,
 ) -> dict[str, Any]:
     if pipeline is None:
         import server.pipelines.rag  # noqa: F401  (registers "rag")
@@ -186,7 +194,16 @@ def run_eval(
             f.flush()
 
     records = _load_results(results_path)
-    scores = [score_result(q, records[q.qid]) for q in qs if q.qid in records]
+    scores = []
+    for q in qs:
+        if q.qid not in records:
+            continue
+        r = records[q.qid]
+        faith = None
+        if judge is not None and q.answerable and r.status == Status.OK and r.evidence:
+            verdict = judge(q.question, r.answer_long, [e.text for e in r.evidence])
+            faith = verdict.faithfulness if verdict else None
+        scores.append(score_result(q, r, faithfulness=faith))
     (out / "scores.jsonl").write_text("".join(json.dumps(s) + "\n" for s in scores))
     summary = summarize(scores)
     (out / "summary.json").write_text(json.dumps(summary, indent=2))

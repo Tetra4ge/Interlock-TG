@@ -67,3 +67,58 @@ def test_resume_completes_without_duplicates(tmp_path: Path) -> None:
     assert len(resumed.calls) == 2
     assert summary["overall"]["n"] == 5
     assert summary["overall"]["correct_mean"] == 1.0
+
+
+def test_judge_scores_only_answered_answerable_questions(tmp_path: Path) -> None:
+    from server.eval.judge import JudgeResult
+
+    seen: list[str] = []
+
+    def judge(question: str, answer_long: str, evidence_texts: list[str]) -> JudgeResult:
+        seen.append(question)
+        return JudgeResult(faithfulness=0.0, reason="unsupported")
+
+    qs = _questions(2)
+    summary = run_eval(
+        "fake",
+        "test",
+        run_id="rj",
+        pipeline=_CountingPipeline(),
+        questions=qs,
+        runs_dir=tmp_path,
+        judge=judge,
+    )
+    # The fake answer has no evidence, so the judge is never called and
+    # faithfulness stays unscored rather than being counted as a failure.
+    assert seen == []
+    assert summary["overall"]["faithfulness_mean"] is None
+
+
+class _EvidencePipeline(_CountingPipeline):
+    def answer(self, question: str, request_id: str) -> AnswerResult:
+        from server.pipelines.models import EvidenceItem
+
+        base = super().answer(question, request_id)
+        return base.model_copy(
+            update={"evidence": [EvidenceItem(kind="chunk", ref_id="c1", text="Sanjiv Bajaj")]}
+        )
+
+
+def test_judge_verdict_reaches_the_score(tmp_path: Path) -> None:
+    from server.eval.judge import JudgeResult
+
+    def judge(question: str, answer_long: str, evidence_texts: list[str]) -> JudgeResult:
+        assert evidence_texts == ["Sanjiv Bajaj"]
+        return JudgeResult(faithfulness=0.0, reason="unsupported")
+
+    summary = run_eval(
+        "fake",
+        "test",
+        run_id="rj2",
+        pipeline=_EvidencePipeline(),
+        questions=_questions(2),
+        runs_dir=tmp_path,
+        judge=judge,
+    )
+    assert summary["overall"]["faithfulness_mean"] == 0.0
+    assert summary["overall"]["failures"] == {"hallucination": 2}

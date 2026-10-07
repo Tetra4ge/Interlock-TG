@@ -81,3 +81,14 @@ def test_all_emitted_labels_are_in_the_taxonomy() -> None:
         "arithmetic_error",
     }
     assert emitted <= FAILURE_LABELS
+
+
+def test_unfaithful_answer_is_flagged_even_when_it_matches_gold() -> None:
+    label = classify_failure(
+        _q(), _r(Status.OK), correct=1.0, faithfulness=0.0, evidence_recall=1.0
+    )
+    assert label == "hallucination"
+
+
+def test_faithful_correct_answer_stays_a_success() -> None:
+    assert classify_failure(_q(), _r(Status.OK), correct=1.0, faithfulness=1.0) is None
