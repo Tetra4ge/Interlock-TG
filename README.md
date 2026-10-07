@@ -56,6 +56,39 @@ is large and takes several minutes.
 
 ---
 
+## 📸 Demo
+
+Screenshots below are from a live local run (`DEMO_MODE=true uv run hl serve` + `npm run dev`),
+verified in a real browser, not mockups.
+
+**Overview** — who wins where, per category, with 95% bootstrap confidence intervals.
+![Overview](docs/screenshots/overview.png)
+
+**Question Inspector** — one question, every pipeline's answer side by side, each citation
+checked against the actual source page.
+![Question inspector](docs/screenshots/inspector.png)
+
+**Live ask** — ask a question and watch RAG, GraphRAG and the agent answer it; demo-mode
+example questions return instantly from stored results.
+![Live ask](docs/screenshots/live-ask.png)
+
+**Trade-offs** — cost, latency and accuracy together, so a win on accuracy is read against what
+it cost to get there.
+![Trade-offs](docs/screenshots/tradeoffs.png)
+
+**Failures** — failure type per pipeline, classified automatically.
+![Failures](docs/screenshots/failures.png)
+
+**Data quality** — corpus, extraction and provenance stats computed from the run store, not
+assumed.
+![Data quality](docs/screenshots/data-quality.png)
+
+**Review queue** — extracted facts that failed a grounding or validation check, awaiting a human
+decision.
+![Review queue](docs/screenshots/review-queue.png)
+
+---
+
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
