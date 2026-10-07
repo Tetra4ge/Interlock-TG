@@ -109,7 +109,7 @@ answer_type, citations, evidence, trace, usage, status)`.
 | Pipeline | Mechanism | Target queries |
 |---|---|---|
 | **RAG** | Vector + keyword fusion → rerank → fit to 4000-token budget → single LLM call | Single-fact lookups |
-| **GraphRAG** *(Phase 6)* | Entity linking → GSQL subgraph expand (1–2 hops) → linked chunks → single LLM call | 1–2 hop structural relationships |
+| **GraphRAG** | Plan call → entity linking → `expand_hop` GSQL (1–2 hops) → ranked triples + linked chunks → single answer call; vector fallback | 1–2 hop structural relationships |
 | **Agentic GraphRAG** *(Phase 7)* | Plan→Act→Observe→Verify loop with graph/text/calculator tools; claim-level verification | Multi-hop trails, aggregations, temporal cascades |
 
 ### Evaluation (Phase 5)
@@ -151,8 +151,8 @@ Interlock-TG/
 │   │   └── gsql/         # schema.gsql + queries/*.gsql + queries.lock
 │   ├── embed/            # Vector index: provider (all-MiniLM-L6-v2), index, query
 │   ├── llm/              # LLM gateway: cache, pricing, providers (Groq), gateway
-│   ├── pipelines/        # Answer pipelines: RAG (rag.py), base, models, common/
-│   ├── eval/             # Evaluation: models, scorers, runner, stats
+│   ├── pipelines/        # Answer pipelines: rag.py, graphrag/, base, models, common/
+│   ├── eval/             # Evaluation: models, scorers, runner, stats, judge, taxonomy, persist, compare
 │   └── reporting/        # Quality reports
 ├── dashboard/            # Next.js 14 frontend (App Router, TypeScript, Tailwind)
 ├── config/
@@ -223,7 +223,10 @@ uv run hl quality               # generate docs/data-quality.md
 
 ```bash
 uv run hl ask "Who audited Tata Motors in FY2023-24?" --pipeline rag
+uv run hl ask "Which independent director of Tata Steel also sits on Tata Motors' board?" --pipeline graphrag
 uv run hl eval --pipeline rag --split test
+uv run hl eval --pipeline graphrag --split dev
+uv run hl compare --a <run_id> --b <run_id>      # paired A-B per category, 95% bootstrap CI
 ```
 
 ### Dashboard
@@ -287,8 +290,20 @@ Never merge two mentions with different official IDs.
 `reciprocal_rank_fusion` → optional cross-encoder rerank (top 8) → fit to 4000-token
 evidence budget → shared final-answer prompt → citation validation.
 
-GraphRAG and Agentic GraphRAG pipelines are **not yet implemented** (stubs only). They
-are Phases 6 and 7.
+### GraphRAG pipeline
+`server/pipelines/graphrag/`: `plan_question` (helper call → mentions, relation types,
+fiscal years, `is_global`) → `link_entities` (FTS5 + RapidFuzz, ambiguity band) →
+`choose_relations` (model ∪ keyword rules) → `expand` (installed `expand_hop` query, 2 hops,
+per-seed fan-out, hubs skipped at hop 2) → `rank_and_cap` → `serialize` (names + provenance) →
+`linked_text` → `split_budget` (60% triples) → shared `final_answer`. Global questions use the
+statistics pack in `graph/stats.py`. If nothing links, expansion fails, or the subgraph is
+empty, it falls back to RAG's vector retrieval and records the reason in the trace. Parameters,
+deviations from the plan and known gaps: `docs/decisions/0013-graphrag-params.md`.
+
+`expand_hop.gsql` has not been installed against a live TigerGraph yet; run
+`hl build-graph --from schema` once the cluster is reachable.
+
+The Agentic GraphRAG pipeline is **not yet implemented** (Phase 7).
 
 ---
 
@@ -428,6 +443,7 @@ convention `<COMPANY_ID>__<doc_type>__<FY>.pdf` (e.g.
 | Duplicate edges on graph rebuild | Missing discriminator or non-deterministic edge_id | Each edge uses `sha256(record_id + rel_type)[:16]` as `edge_id` |
 | Schema change fails | Data already loaded | Freeze schema early; for breaking changes use `--reset-graph` |
 | Coverage report shows all manual_needed | Exchange adapter stubs return `[]` by design | Manual download into `data/inbox/` is the intended workflow |
+| GraphRAG answers look identical to RAG | `expand_hop` failed and the pipeline fell back to vector evidence | Check the trace for a `fallback` step and its error; confirm TigerGraph is reachable and the query is installed |
 | `ModuleNotFoundError: fitz` | Wrong PyMuPDF import | The import name is `fitz` (PyMuPDF < 1.25) or `pymupdf` (newer) |
 
 ---
