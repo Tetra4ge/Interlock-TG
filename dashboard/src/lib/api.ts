@@ -4,6 +4,7 @@ import type {
   CompareOut,
   CompareRunsOut,
   DataQuality,
+  DocumentPage,
   ExampleQuestion,
   Health,
   PipelineKey,
@@ -97,3 +98,10 @@ export const compareQuestion = (question: string) =>
   request<CompareOut>("/compare", json({ question }));
 export const askQuestion = (question: string, pipeline: PipelineKey) =>
   request<AnswerResult>("/ask", json({ question, pipeline }));
+
+export const fetchDocumentPage = (docId: string, page: number) =>
+  request<DocumentPage>(`/documents/${encodeURIComponent(docId)}/pages/${page}`);
+
+/** The stored PDF, opened at a page (browsers honour the #page fragment). */
+export const pdfUrl = (docId: string, page: number) =>
+  `${API_URL}/documents/${encodeURIComponent(docId)}/pdf#page=${page}`;

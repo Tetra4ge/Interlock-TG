@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { accuracyRows, allZero, callsRows, failureStack, takeaways, tradeoffPoints } from "./chart";
 import { NO_FILTERS, UNLABELLED, distinct, failureRows, filterFailures, labelColor } from "./failures";
+import { matchQuestions } from "../components/QuestionPicker";
+import { edgeUsers, layoutGraph } from "./graph";
 import { citationChips, edgeIdsOf, goldEdgeIds, splitMarkers } from "./evidence";
 import { humanize, money, ms, pct, pctRange, shortId, signed } from "./format";
 import { PIPELINES, PIPELINE_ORDER, isPipelineKey } from "./pipelines";
@@ -271,5 +273,71 @@ describe("failures", () => {
     const labels = ["a", "b"];
     expect(labelColor("a", labels)).toBe(labelColor("a", labels));
     expect(labelColor("a", labels)).not.toBe(labelColor("b", labels));
+  });
+});
+
+describe("graph layout", () => {
+  const node = (id: string, type: string, label = id) => ({ id, type, label });
+  const edge = (id: string, source: string, target: string) => ({
+    id, type: "DIRECTOR_OF", source, target, label: "", fiscal_year: "", doc_id: "", page: 0, quote: "",
+  });
+  const nodes = [node("C:2", "Company"), node("P:1", "Person"), node("C:1", "Company"), node("A:1", "AuditFirm")];
+
+  it("puts people, companies and firms in left-to-right columns", () => {
+    const l = layoutGraph(nodes, []);
+    const x = (id: string) => l.nodes.find((n) => n.id === id)!.x;
+    expect(x("P:1")).toBeLessThan(x("C:1"));
+    expect(x("C:1")).toBe(x("C:2"));
+    expect(x("C:1")).toBeLessThan(x("A:1"));
+    expect(l.nodes).toHaveLength(4);
+  });
+  it("stacks a column's nodes at distinct heights, ordered by label", () => {
+    const l = layoutGraph(nodes, []);
+    const [a, b] = l.nodes.filter((n) => n.type === "Company").sort((p, q) => p.y - q.y);
+    expect(a.id).toBe("C:1");
+    expect(b.id).toBe("C:2");
+    expect(a.y).not.toBe(b.y);
+  });
+  it("is deterministic whatever order the nodes arrive in", () => {
+    const a = layoutGraph(nodes, []);
+    const b = layoutGraph([...nodes].reverse(), []);
+    const pos = (l: typeof a) => Object.fromEntries(l.nodes.map((n) => [n.id, [n.x, n.y]]));
+    expect(pos(a)).toEqual(pos(b));
+  });
+  it("drops edges whose endpoints are missing and offsets parallel edges", () => {
+    const l = layoutGraph(nodes, [edge("e1", "P:1", "C:1"), edge("e2", "P:1", "C:1"), edge("e3", "P:1", "GHOST")]);
+    expect(l.edges.map((e) => e.id).sort()).toEqual(["e1", "e2"]);
+    const bends = l.edges.map((e) => e.bend);
+    expect(bends[0]).not.toBe(bends[1]);
+    expect(bends[0] + bends[1]).toBe(0); // symmetric around the straight line
+  });
+  it("a single edge is not bent", () => {
+    expect(layoutGraph(nodes, [edge("e1", "P:1", "C:1")]).edges[0].bend).toBe(0);
+  });
+  it("copes with an empty graph", () => {
+    const l = layoutGraph([], []);
+    expect(l.nodes).toEqual([]);
+    expect(l.height).toBeGreaterThan(0);
+    expect(l.width).toBeGreaterThan(0);
+  });
+  it("lists which pipelines used each edge", () => {
+    expect(edgeUsers([{ id: "e1" }, { id: "e2" }], { rag: [], graphrag: ["e1"], agent: ["e1", "e2"] })).toEqual({
+      e1: ["graphrag", "agent"],
+      e2: ["agent"],
+    });
+  });
+});
+
+describe("question picker search", () => {
+  const rows = [
+    { qid: "Q-SF-0001", question: "Who audits Tata Motors?", category: "single_fact", cells: {} },
+    { qid: "Q-NU-0002", question: "Total related-party sales of Tata Steel", category: "numerical", cells: {} },
+  ];
+  it("matches question text, id and category, ignoring case and padding", () => {
+    expect(matchQuestions(rows, "  TATA STEEL ").map((r) => r.qid)).toEqual(["Q-NU-0002"]);
+    expect(matchQuestions(rows, "q-sf").map((r) => r.qid)).toEqual(["Q-SF-0001"]);
+    expect(matchQuestions(rows, "numerical").map((r) => r.qid)).toEqual(["Q-NU-0002"]);
+    expect(matchQuestions(rows, "zzz")).toEqual([]);
+    expect(matchQuestions(rows, "")).toHaveLength(2);
   });
 });

@@ -253,6 +253,16 @@ export interface ReviewItem {
   payload: Record<string, unknown>;
 }
 
+export interface DocumentPage {
+  doc_id: string;
+  page: number;
+  text: string;
+  company_id: string | null;
+  fiscal_year: string | null;
+  doc_type: string | null;
+  pdf_available: boolean;
+}
+
 export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; status: number | null };
