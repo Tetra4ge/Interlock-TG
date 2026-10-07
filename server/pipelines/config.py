@@ -14,6 +14,32 @@ class RetrievalConfig(BaseModel):
     use_reranker: bool = False
 
 
+class GraphRAGConfig(BaseModel):
+    max_hops: int = 2
+    max_triples: int = 150
+    linked_chunks: int = 6
+    fanout_hop1: int = 50
+    fanout_hop2: int = 15
+    min_per_relation: int = 5
+    triple_budget_share: float = 0.6
+    hub_degree_percentile: float = 99.0
+    link_min_score: int = 85
+    link_score_gap: int = 5
+    gsql_timeout_seconds: int = 10
+    global_enabled: bool = True
+
+
+def _section(name: str, path: Path) -> dict:
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text()) or {}
+    return data.get(name) or {}
+
+
+def load_graphrag_config(path: Path = CONFIG_PATH) -> GraphRAGConfig:
+    return GraphRAGConfig(**_section("graphrag", path))
+
+
 def load_retrieval_config(path: Path = CONFIG_PATH) -> RetrievalConfig:
     if not path.exists():
         return RetrievalConfig()
@@ -22,3 +48,4 @@ def load_retrieval_config(path: Path = CONFIG_PATH) -> RetrievalConfig:
 
 
 RETRIEVAL = load_retrieval_config()
+GRAPHRAG = load_graphrag_config()
