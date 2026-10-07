@@ -72,7 +72,7 @@ export default function CitationDrawer({
   const byIndex = label.startsWith("cite:") ? chips[Number(label.slice(5))] : undefined;
   const cited = byIndex ? [byIndex] : chips.filter((c) => c.label === label);
   return (
-    <div role="dialog" aria-label={byIndex ? "Citation" : `Evidence ${label}`} className="mt-3 rounded-lg border border-border bg-surface p-3 text-xs shadow-md">
+    <div role="dialog" aria-label={byIndex ? "Citation" : `Evidence ${label}`} className="mt-3 rounded-lg border border-accent/30 bg-surface p-3 text-xs shadow-lg shadow-black/40">
       <div className="mb-2 flex items-center justify-between">
         <p className="font-semibold">
           {byIndex ? "Citation" : `Evidence ${label}`} {evidence ? <span className="font-normal text-muted">({evidence.kind})</span> : null}

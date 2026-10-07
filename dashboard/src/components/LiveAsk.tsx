@@ -97,7 +97,7 @@ export default function LiveAsk({
   return (
     <div className="space-y-6">
       {demoMode ? (
-        <div role="note" className="rounded-lg border border-amber-300 bg-warn-bg px-3 py-2 text-sm text-warn-fg">
+        <div role="note" className="rounded-lg border border-warn/30 bg-warn-bg px-3 py-2 text-sm text-warn-fg">
           {hasKey
             ? "Demo mode: example questions are answered instantly from stored results; other questions run live."
             : "Demo mode: no API key is configured, so only the example questions below can be answered."}
@@ -119,10 +119,10 @@ export default function LiveAsk({
               onChange={(e) => dispatch({ type: "edit", text: e.target.value })}
               placeholder="e.g. Who is the statutory auditor of Tata Motors in FY2023-24?"
               maxLength={MAX_QUESTION_CHARS * 2}
-              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+              className="w-full rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-foreground placeholder:text-muted transition-colors focus:border-accent/60 focus:outline-none"
             />
           </label>
-          <button type="submit" disabled={running || !state.text.trim()} className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background disabled:opacity-50">
+          <button type="submit" disabled={running || !state.text.trim()} className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-background transition-opacity disabled:opacity-40 hover:opacity-90">
             {running ? "Asking…" : "Ask all three"}
           </button>
         </form>

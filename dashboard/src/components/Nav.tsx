@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/", label: "Overview" },
+  { href: "/", label: "Home", exact: true },
+  { href: "/overview", label: "Overview" },
   { href: "/tradeoffs", label: "Trade-offs" },
   { href: "/failures", label: "Failures" },
   { href: "/inspector", label: "Inspector" },
@@ -13,28 +14,36 @@ const LINKS = [
   { href: "/review-queue", label: "Review queue" },
 ];
 
-export function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+export function isActive(pathname: string, href: string, exact = false): boolean {
+  if (exact) return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export default function Nav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Main" className="flex flex-wrap gap-1 text-sm">
+    <nav aria-label="Main" className="flex flex-wrap items-center gap-0.5 text-sm">
       {LINKS.map((l) => {
-        const active = isActive(pathname, l.href);
+        const active = isActive(pathname, l.href, l.exact);
         return (
           <Link
             key={l.href}
             href={l.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+            className={[
+              "relative px-3 py-1.5 rounded-md font-medium transition-colors duration-150",
               active
-                ? "bg-accent text-background"
-                : "text-muted hover:bg-surface-muted hover:text-foreground"
-            }`}
+                ? "text-accent bg-accent-dim"
+                : "text-muted-fg hover:text-foreground hover:bg-surface-muted",
+            ].join(" ")}
           >
             {l.label}
+            {active && (
+              <span
+                aria-hidden
+                className="absolute inset-x-2 bottom-0.5 h-px rounded-full bg-accent"
+              />
+            )}
           </Link>
         );
       })}

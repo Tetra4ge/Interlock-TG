@@ -12,10 +12,12 @@ export function PageHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {subtitle ? <p className="mt-1 max-w-3xl text-sm text-muted">{subtitle}</p> : null}
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+        {subtitle ? (
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-fg">{subtitle}</p>
+        ) : null}
       </div>
       {children}
     </header>
@@ -27,16 +29,30 @@ export function Card({
   note,
   children,
   className = "",
+  accent = false,
 }: {
   title?: string;
   note?: ReactNode;
   children: ReactNode;
   className?: string;
+  accent?: boolean;
 }) {
   return (
-    <section className={`rounded-xl border border-border bg-surface p-4 shadow-sm ${className}`}>
-      {title ? <h2 className="text-sm font-semibold">{title}</h2> : null}
-      {note ? <p className="mt-0.5 mb-3 text-xs text-muted">{note}</p> : <div className="mb-3" />}
+    <section
+      className={[
+        "rounded-xl border bg-surface-raised p-5 shadow-sm",
+        accent ? "border-accent/30" : "border-border",
+        className,
+      ].join(" ")}
+    >
+      {title ? (
+        <h2 className="mb-0.5 text-sm font-semibold text-foreground">{title}</h2>
+      ) : null}
+      {note ? (
+        <p className="mb-4 text-xs leading-relaxed text-muted-fg">{note}</p>
+      ) : title ? (
+        <div className="mb-4" />
+      ) : null}
       {children}
     </section>
   );
@@ -46,7 +62,7 @@ export function PipelineDot({ pipeline }: { pipeline: PipelineKey }) {
   return (
     <span
       aria-hidden
-      className="inline-block h-2.5 w-2.5 rounded-full"
+      className="inline-block h-2 w-2 rounded-full flex-shrink-0"
       style={{ backgroundColor: PIPELINES[pipeline].color }}
     />
   );
@@ -54,7 +70,7 @@ export function PipelineDot({ pipeline }: { pipeline: PipelineKey }) {
 
 export function PipelineName({ pipeline }: { pipeline: PipelineKey }) {
   return (
-    <span className="inline-flex items-center gap-1.5 font-medium">
+    <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
       <PipelineDot pipeline={pipeline} />
       {PIPELINES[pipeline].label}
     </span>
@@ -71,19 +87,19 @@ export function Stat({
   hint?: ReactNode;
 }) {
   return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
-      <div className="text-xl font-semibold tabular-nums">{value}</div>
-      {hint ? <div className="text-xs text-muted">{hint}</div> : null}
+    <div className="flex flex-col gap-0.5">
+      <div className="text-[10px] font-medium uppercase tracking-widest text-muted">{label}</div>
+      <div className="text-xl font-semibold tabular-nums text-foreground">{value}</div>
+      {hint ? <div className="text-xs text-muted-fg">{hint}</div> : null}
     </div>
   );
 }
 
 const TONES = {
-  neutral: "bg-surface-muted text-foreground",
-  ok: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200",
-  warn: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
-  bad: "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200",
+  neutral: "bg-surface-muted text-muted-fg border border-border",
+  ok:      "bg-ok-dim text-ok border border-ok/20",
+  warn:    "bg-warn-bg text-warn-fg border border-warn/20",
+  bad:     "bg-danger-dim text-danger border border-danger/20",
 } as const;
 
 export function Badge({
@@ -107,19 +123,41 @@ export function Badge({
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-border p-8 text-center">
-      <p className="font-medium">{title}</p>
-      {children ? <div className="mt-1 text-sm text-muted">{children}</div> : null}
+    <div className="rounded-xl border border-dashed border-border/60 bg-surface p-10 text-center">
+      <p className="font-medium text-foreground">{title}</p>
+      {children ? (
+        <div className="mt-2 text-sm text-muted-fg">{children}</div>
+      ) : null}
     </div>
   );
 }
 
-/** Shown when an API call fails, instead of crashing the page. */
-export function ErrorPanel({ title = "Could not load data", error }: { title?: string; error: string }) {
+export function ErrorPanel({
+  title = "Could not load data",
+  error,
+}: {
+  title?: string;
+  error: string;
+}) {
   return (
-    <div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm dark:border-red-900 dark:bg-red-950/40">
+    <div
+      role="alert"
+      className="rounded-xl border border-danger/30 bg-danger-dim p-4 text-sm"
+    >
       <p className="font-semibold text-danger">{title}</p>
-      <p className="mt-1 text-foreground">{error}</p>
+      <p className="mt-1 text-foreground/80">{error}</p>
     </div>
+  );
+}
+
+export function Divider({ className = "" }: { className?: string }) {
+  return <hr className={`border-border ${className}`} />;
+}
+
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted">
+      {children}
+    </p>
   );
 }

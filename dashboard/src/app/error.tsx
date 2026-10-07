@@ -15,7 +15,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <div role="alert" className="mx-auto max-w-xl rounded-xl border border-red-300 bg-red-50 p-6 dark:border-red-900 dark:bg-red-950/40">
+    <div role="alert" className="mx-auto max-w-xl rounded-xl border border-danger/30 bg-danger-dim p-6">
       <h2 className="text-lg font-semibold text-danger">Something went wrong</h2>
       <p className="mt-1 text-sm">{error.message || "An unexpected error occurred while rendering this page."}</p>
       <button
