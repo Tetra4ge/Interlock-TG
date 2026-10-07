@@ -76,25 +76,31 @@ def examples(path: Path) -> list[ExampleQuestion]:
 
 
 def build_cache_from_runs(
-    conn: Any, run_ids: dict[str, str], out_path: Path, limit: int | None = None
+    conn: Any, run_ids: dict[str, str | list[str]], out_path: Path, limit: int | None = None
 ) -> int:
     """Write one cache line per question that has a stored answer in any of the
-    given runs ({pipeline: run_id}). A pipeline with no stored answer is simply
-    absent from that line. Returns the number of lines written."""
+    given runs ({pipeline: run_id or [run_ids]}; with several, the first run that
+    answered a question wins). Failed answers (status=error) are never cached, and a
+    pipeline with no good stored answer is simply absent from that line. Returns the
+    number of lines written."""
     texts = {q: t for q, t in conn.execute("SELECT qid, question FROM questions").fetchall()}
     by_question: dict[str, dict[str, Any]] = {}
-    for pipeline, run_id in run_ids.items():
-        rows = conn.execute(
-            "SELECT qid, answer_json FROM results WHERE run_id = ?", [run_id]
-        ).fetchall()
-        for qid, answer_json in rows:
-            if qid not in texts:
-                continue
-            entry = by_question.setdefault(
-                qid, {"question": texts[qid], "results": {}, "source_runs": {}}
-            )
-            entry["results"][pipeline] = json.loads(answer_json)
-            entry["source_runs"][pipeline] = run_id
+    for pipeline, spec in run_ids.items():
+        for run_id in [spec] if isinstance(spec, str) else spec:
+            rows = conn.execute(
+                "SELECT qid, answer_json FROM results WHERE run_id = ?", [run_id]
+            ).fetchall()
+            for qid, answer_json in rows:
+                answer = json.loads(answer_json)
+                if qid not in texts or answer.get("status") == "error":
+                    continue
+                entry = by_question.setdefault(
+                    qid, {"question": texts[qid], "results": {}, "source_runs": {}}
+                )
+                if pipeline in entry["results"]:
+                    continue
+                entry["results"][pipeline] = answer
+                entry["source_runs"][pipeline] = run_id
 
     entries = [by_question[q] for q in sorted(by_question)]
     if limit is not None:
