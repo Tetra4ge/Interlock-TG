@@ -175,11 +175,24 @@ def entity_names(entity_ids: list[str]) -> dict[str, tuple[str, str]]:
     return {r[0]: (r[1], r[2]) for r in rows}
 
 
+_VERTEX_TYPE_BY_PREFIX = {"C:": "Company", "P:": "Person", "A:": "AuditFirm"}
+
+
+def vertex_param(entity_id: str) -> tuple[str, str]:
+    """(id, vertex_type) for a query parameter declared as untyped VERTEX. A bare
+    id string is encoded without its type, which TigerGraph rejects."""
+    for prefix, vertex_type in _VERTEX_TYPE_BY_PREFIX.items():
+        if entity_id.startswith(prefix):
+            return entity_id, vertex_type
+    raise ValueError(f"Cannot infer a vertex type from entity id {entity_id!r}")
+
+
 def neighbors(
     entity_id: str, rel_types: list[str] | None = None, hops: int = 1, fy: str = ""
 ) -> Any:
     return run_installed(
-        "entity_neighbors", {"seeds": [entity_id], "hops": hops, "fiscal_year": fy}
+        "entity_neighbors",
+        {"seeds": [vertex_param(entity_id)], "hops": hops, "fiscal_year": fy},
     )
 
 
@@ -188,7 +201,10 @@ def shared_directors(ids: list[str], fy: str = "") -> Any:
 
 
 def path_between(a: str, b: str, max_hops: int = 3) -> Any:
-    return run_installed("path_between", {"source": a, "target": b, "max_hops": max_hops})
+    return run_installed(
+        "path_between",
+        {"source": vertex_param(a), "target": vertex_param(b), "max_hops": max_hops},
+    )
 
 
 def aggregate_stake(entity_id: str) -> Any:
@@ -196,7 +212,19 @@ def aggregate_stake(entity_id: str) -> Any:
 
 
 def chunks_for_entities(ids: list[str], limit: int = 10) -> Any:
-    return run_installed("chunks_for_entities", {"entities": ids, "max_limit": limit})
+    return run_installed(
+        "chunks_for_entities",
+        {"entities": [vertex_param(i) for i in ids], "max_limit": limit},
+    )
+
+
+def chunks_for_entities_strict(ids: list[str], limit: int, timeout_s: int | None = None) -> Any:
+    """Same query, but a failure raises GraphQueryError instead of reading as no chunks."""
+    return run_installed_strict(
+        "chunks_for_entities",
+        {"entities": [vertex_param(i) for i in ids], "max_limit": limit},
+        timeout_s,
+    )
 
 
 def get_chunk(chunk_id: str) -> dict:

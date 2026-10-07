@@ -5,14 +5,14 @@ from server.llm.gateway import SpendCapExceeded
 from server.pipelines.base import register
 from server.pipelines.common.answer import final_answer
 from server.pipelines.common.budget import fit_to_budget
-from server.pipelines.common.citations import validate_citations
-from server.pipelines.common.fusion import reciprocal_rank_fusion
+from server.pipelines.common.evidence import chunk_evidence
 from server.pipelines.common.render import assign_labels
-from server.pipelines.common.rerank import rerank
+from server.pipelines.common.rerank import rerank_fused
+from server.pipelines.common.result import build_result, elapsed_ms, error_result
 from server.pipelines.common.scope import detect_filters
 from server.pipelines.common.tracer import Tracer
 from server.pipelines.config import RETRIEVAL
-from server.pipelines.models import AnswerResult, AnswerType, EvidenceItem, Status
+from server.pipelines.models import AnswerResult
 from server.store.db import connect
 
 
@@ -25,6 +25,38 @@ def _excluded_doc_ids() -> set[str]:
     return {r[0] for r in rows}
 
 
+def retrieve_chunks(question: str, tr: Tracer) -> list[dict]:
+    """Vector + keyword retrieval with optional rerank. Shared with GraphRAG's
+    vector fallback so that fallback is exactly what RAG would have used."""
+    t0 = time.perf_counter()
+    excluded = _excluded_doc_ids()
+    filters = detect_filters(question) or None
+    hits = [
+        h
+        for h in vector_search(question, k=RETRIEVAL.rag_top_k, filters=filters)
+        if h.get("doc_id") not in excluded
+    ]
+    tr.add(
+        "retrieve",
+        "vector_search",
+        f"k={RETRIEVAL.rag_top_k} filters={filters or 'none'}",
+        ", ".join(h.get("chunk_id", "") for h in hits[:10]),
+        latency_ms=elapsed_ms(t0),
+    )
+
+    if RETRIEVAL.use_reranker:
+        t1 = time.perf_counter()
+        hits = rerank_fused(question, hits, RETRIEVAL.rerank_top_k)
+        tr.add(
+            "retrieve",
+            "rerank",
+            f"top_k={RETRIEVAL.rerank_top_k}",
+            ", ".join(h.get("chunk_id", "") for h in hits[:10]),
+            latency_ms=elapsed_ms(t1),
+        )
+    return hits
+
+
 class RAGPipeline:
     name = "rag"
 
@@ -33,110 +65,18 @@ class RAGPipeline:
         start = time.perf_counter()
 
         try:
-            hits = self._retrieve(question, tr)
-
-            provenance = {
-                h["chunk_id"]: {
-                    "doc_id": h.get("doc_id", ""),
-                    "page_start": h.get("page_start", 0),
-                    "page_end": h.get("page_end", 0),
-                    "section": h.get("section", ""),
-                    "fiscal_year": h.get("fiscal_year", ""),
-                }
-                for h in hits
-            }
-            items = [
-                EvidenceItem(kind="chunk", ref_id=h["chunk_id"], text=h.get("text", ""))
-                for h in hits
-            ]
+            hits = retrieve_chunks(question, tr)
+            items, provenance = chunk_evidence(hits)
             items = fit_to_budget(items, RETRIEVAL.evidence_token_budget)
             labels = assign_labels(items, provenance)
 
             model_answer, err = final_answer(tr, question, labels)
             if model_answer is None:
-                return self._error_result(question, tr, err or "unknown_error", start)
-
-            citations, flags = validate_citations(model_answer.citations, labels)
-            tr.add(
-                "verify",
-                "validate_citations",
-                f"{len(model_answer.citations)} citations",
-                str(flags),
-            )
-
-            status = (
-                Status.ABSTAINED if model_answer.answer_type == AnswerType.NOT_FOUND else Status.OK
-            )
-            return AnswerResult(
-                pipeline=self.name,
-                question=question,
-                answer_short=model_answer.answer_short,
-                answer_long=model_answer.answer_long,
-                answer_type=model_answer.answer_type,
-                citations=citations,
-                evidence=[le.item for le in labels.values()],
-                trace=tr.steps,
-                usage=tr.usage(self._elapsed_ms(start)),
-                status=status,
-            )
+                return error_result(self.name, question, tr, err or "unknown_error", start)
+            return build_result(self.name, question, tr, model_answer, labels, start)
         except Exception as e:
             reason = "spend_cap" if isinstance(e, SpendCapExceeded) else repr(e)
-            return self._error_result(question, tr, reason, start)
-
-    def _retrieve(self, question: str, tr: Tracer) -> list[dict]:
-        t0 = time.perf_counter()
-        excluded = _excluded_doc_ids()
-        filters = detect_filters(question) or None
-        hits = [
-            h
-            for h in vector_search(question, k=RETRIEVAL.rag_top_k, filters=filters)
-            if h.get("doc_id") not in excluded
-        ]
-        tr.add(
-            "retrieve",
-            "vector_search",
-            f"k={RETRIEVAL.rag_top_k} filters={filters or 'none'}",
-            ", ".join(h.get("chunk_id", "") for h in hits[:10]),
-            latency_ms=self._elapsed_ms(t0),
-        )
-
-        if RETRIEVAL.use_reranker:
-            t1 = time.perf_counter()
-            reranked = rerank(question, hits)
-            order = reciprocal_rank_fusion(
-                [[(h["chunk_id"], 0.0) for h in hits], [(h["chunk_id"], 0.0) for h in reranked]],
-                k_out=RETRIEVAL.rerank_top_k,
-            )
-            by_id = {h["chunk_id"]: h for h in hits}
-            hits = [by_id[cid] for cid, _ in order]
-            tr.add(
-                "retrieve",
-                "rerank",
-                f"top_k={RETRIEVAL.rerank_top_k}",
-                ", ".join(h.get("chunk_id", "") for h in hits[:10]),
-                latency_ms=self._elapsed_ms(t1),
-            )
-        return hits
-
-    @staticmethod
-    def _elapsed_ms(start: float) -> int:
-        return int((time.perf_counter() - start) * 1000)
-
-    def _error_result(self, question: str, tr: Tracer, error: str, start: float) -> AnswerResult:
-        if not tr.steps or tr.steps[-1].error != error:
-            tr.add("verify", "error", question, "", error=error)
-        return AnswerResult(
-            pipeline=self.name,
-            question=question,
-            answer_short="",
-            answer_long="",
-            answer_type=AnswerType.NOT_FOUND,
-            citations=[],
-            evidence=[],
-            trace=tr.steps,
-            usage=tr.usage(self._elapsed_ms(start)),
-            status=Status.ERROR,
-        )
+            return error_result(self.name, question, tr, reason, start)
 
 
 register(RAGPipeline())

@@ -296,9 +296,9 @@ def main() -> None:
         import_sample()
 
     elif args.command == "ask":
-        import server.pipelines.rag  # noqa: F401  (registers "rag")
-        from server.pipelines.base import REGISTRY
+        from server.pipelines.base import REGISTRY, load_all
 
+        load_all()
         pipeline = REGISTRY.get(args.pipeline)
         if pipeline is None:
             print(
