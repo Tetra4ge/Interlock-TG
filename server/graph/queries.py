@@ -19,8 +19,9 @@ class GraphQueryError(RuntimeError):
 
 
 def run_installed_strict(query_name: str, params: dict, timeout_s: int | None = None) -> Any:
-    conn = get_tg_connection()
+    # Opening the connection mints a token over HTTP, so it can fail too.
     try:
+        conn = get_tg_connection()
         return conn.runInstalledQuery(
             query_name, params=params, timeout=None if timeout_s is None else timeout_s * 1000
         )

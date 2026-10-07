@@ -59,3 +59,14 @@ def test_strict_runner_passes_the_timeout_in_milliseconds(monkeypatch: pytest.Mo
     monkeypatch.setattr(queries, "get_tg_connection", lambda: Conn())
     assert queries.run_installed_strict("q", {}, 10) == [{"ok": 1}]
     assert seen["timeout"] == 10_000
+
+
+def test_strict_runner_wraps_a_failure_to_open_the_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def down() -> None:
+        raise ConnectionError("token endpoint returned 500")
+
+    monkeypatch.setattr(queries, "get_tg_connection", down)
+    with pytest.raises(queries.GraphQueryError, match="token endpoint returned 500"):
+        queries.run_installed_strict("expand_hop", {})
