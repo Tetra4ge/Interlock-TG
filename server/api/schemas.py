@@ -202,5 +202,15 @@ class DataQualityOut(BaseModel):
     note: str
 
 
+class ReviewItem(BaseModel):
+    record_id: str
+    record_type: str
+    reason: str
+    created_at: str
+    company_id: str | None = None
+    fiscal_year: str | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 class ErrorOut(BaseModel):
     detail: str
