@@ -2,20 +2,47 @@ CREATE OR REPLACE QUERY expand_hop(SET<STRING> seed_ids, SET<STRING> edge_types,
   // One hop of bounded expansion for GraphRAG. Ids arrive as plain strings (SET<VERTEX> params
   // would need an explicit vertex type per id). Callers pass {"-"} for `excluded` when nothing
   // is excluded; fiscal-year filtering, per-seed fan-out and ranking happen in Python.
+  //
+  // `edge_types` always holds the forward (declared) relation name, e.g. "DIRECTOR_OF". Each
+  // relation gets its own select so a literal name, not the traversed edge's own (possibly
+  // reverse) type, decides whether it is wanted -- a Company seed needs <DIRECTOR_OF (its
+  // directors point at it), a Person seed needs DIRECTOR_OF> (it points at its companies), and
+  // both must respect the same caller-provided "DIRECTOR_OF".
   SetAccum<EDGE> @@edges;
 
   Start = SELECT v FROM (Company|Person|AuditFirm):v WHERE v.id IN seed_ids;
 
-  Hop = SELECT t
-        FROM Start:s -((DIRECTOR_OF|PARTY_TO|AUDITED_BY|SUBSIDIARY_OF|HOLDS_STAKE|NAMED_IN|IN_SECTOR):e)- :t
-        WHERE e.type IN edge_types AND NOT (t.id IN excluded)
-        ACCUM IF @@edges.size() < max_rows THEN @@edges += e END;
+  HopDirector = SELECT t FROM Start:s -((DIRECTOR_OF>|<DIRECTOR_OF):e)- :t
+                WHERE "DIRECTOR_OF" IN edge_types AND NOT (t.id IN excluded)
+                ACCUM IF @@edges.size() < max_rows THEN @@edges += e END;
+  HopParty = SELECT t FROM Start:s -(PARTY_TO>:e)- :t
+                WHERE "PARTY_TO" IN edge_types AND NOT (t.id IN excluded)
+                ACCUM IF @@edges.size() < max_rows THEN @@edges += e END;
+  HopAudit = SELECT t FROM Start:s -((AUDITED_BY>|<AUDITED_BY):e)- :t
+                WHERE "AUDITED_BY" IN edge_types AND NOT (t.id IN excluded)
+                ACCUM IF @@edges.size() < max_rows THEN @@edges += e END;
+  HopSubsidiary = SELECT t FROM Start:s -((SUBSIDIARY_OF>|<SUBSIDIARY_OF):e)- :t
+                WHERE "SUBSIDIARY_OF" IN edge_types AND NOT (t.id IN excluded)
+                ACCUM IF @@edges.size() < max_rows THEN @@edges += e END;
+  HopStake = SELECT t FROM Start:s -((HOLDS_STAKE>|<HOLDS_STAKE):e)- :t
+                WHERE "HOLDS_STAKE" IN edge_types AND NOT (t.id IN excluded)
+                ACCUM IF @@edges.size() < max_rows THEN @@edges += e END;
+  HopNamed = SELECT t FROM Start:s -((NAMED_IN>|<NAMED_IN):e)- :t
+                WHERE "NAMED_IN" IN edge_types AND NOT (t.id IN excluded)
+                ACCUM IF @@edges.size() < max_rows THEN @@edges += e END;
+  HopSector = SELECT t FROM Start:s -((IN_SECTOR>|<IN_SECTOR):e)- :t
+                WHERE "IN_SECTOR" IN edge_types AND NOT (t.id IN excluded)
+                ACCUM IF @@edges.size() < max_rows THEN @@edges += e END;
+
+  Hop = HopDirector UNION HopParty UNION HopAudit UNION HopSubsidiary UNION HopStake UNION HopNamed UNION HopSector;
 
   // A transaction without its counterparty is useless: pull in the other PARTY_TO edge so
-  // "company -> transaction -> counterparty" is one logical hop.
+  // "company -> transaction -> counterparty" is one logical hop. Txns:t is always
+  // RelatedPartyTxn here, so the reverse direction (declared Company|Person -> RelatedPartyTxn)
+  // is the only one that makes sense.
   Txns = SELECT t FROM Hop:t WHERE t.type == "RelatedPartyTxn";
   Parties = SELECT p
-            FROM Txns:t -(PARTY_TO:e)- :p
+            FROM Txns:t -(<PARTY_TO:e)- :p
             ACCUM @@edges += e;
 
   PRINT @@edges AS edges;

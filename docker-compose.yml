@@ -1,6 +1,46 @@
+# Interlock demo stack.
+#
+#   docker compose up --build            api + dashboard, demo mode (no keys, no TigerGraph)
+#   docker compose --profile tigergraph up --build
+#                                        also starts a local TigerGraph (heavy; slow first start)
+#
+# Live questions need GROQ_API_KEY in .env and DEMO_MODE=false. Graph-based pipelines need a
+# reachable TigerGraph (TG_HOST in .env; use http://tigergraph for the local profile).
+# Ports are bound to 127.0.0.1 so nothing is exposed beyond this machine.
+name: interlock
+
 services:
+  api:
+    build: .
+    platform: linux/amd64
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DEMO_MODE: ${DEMO_MODE:-true}
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      TURSO_DATABASE_URL: file:db/interlock.db
+      SEED_GRAPH: ${SEED_GRAPH:-false}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./db:/app/db
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./dashboard
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
   tigergraph:
-    image: tigergraph/community:latest
+    profiles: ["tigergraph"]
+    image: tigergraph/community:latest  # pin a specific version for reproducible runs
     ports:
       - "14240:14240"
       - "9000:9000"
@@ -12,7 +52,7 @@ services:
       test: ["CMD-SHELL", "curl -sf http://localhost:9000/echo || exit 1"]
       interval: 15s
       timeout: 5s
-      retries: 20
+      retries: 40
 
 volumes:
   tg_data:

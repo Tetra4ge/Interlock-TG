@@ -6,18 +6,89 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![TigerGraph](https://img.shields.io/badge/TigerGraph-GSQL-F78C1E?style=for-the-badge&logo=tigergraph&logoColor=white)](https://www.tigergraph.com/)
 [![Groq](https://img.shields.io/badge/Groq-Fast_Inference-F55036?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?style=for-the-badge&logo=turso&logoColor=black)](https://turso.tech/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
+[![CI](https://github.com/Tetra4ge/Interlock-TG/actions/workflows/ci.yml/badge.svg)](https://github.com/Tetra4ge/Interlock-TG/actions/workflows/ci.yml)
 
 <p align="center">
   <b>Uncovering hidden governance risks, multi-hop board entanglements, and promoter pledge trails in Indian listed disclosures.</b>
 </p>
 
 </div>
+
+---
+
+## 📌 Status and Headline Result
+
+> **Read this first.** The system runs end to end in demo mode, and the unit and API tests pass.
+> The planned comparison of the three pipelines is **not finished**. The question set has 17
+> questions across three of the six categories, and only one clean test-split run exists (RAG).
+> GraphRAG and the agent now run correctly against a live TigerGraph graph — verified on a real
+> multi-hop question (see `docs/test-plan.md`) — but no eval-harness run against the test split
+> has been stored yet, so no accuracy claim for either is established. Full numbers, run IDs and
+> gaps are in [`docs/results.md`](docs/results.md) and [`docs/test-plan.md`](docs/test-plan.md).
+
+| Pipeline | Test split | Accuracy (95% CI) | Notes |
+| --- | --- | --- | --- |
+| RAG | 12 questions | 1.00 (1.00–1.00) | Degenerate interval at this sample size; citation accuracy 0.33 |
+| GraphRAG | not run | — | Live graph works (verified); no eval run stored yet |
+| Agentic GraphRAG | not run | — | Live graph tools work (verified); no eval run stored yet |
+
+## 🚀 Quick Start (Docker, demo mode, no API key)
+
+Only Docker is needed. Demo mode serves cached answers, so no LLM key or TigerGraph is required.
+
+```bash
+git clone https://github.com/Tetra4ge/Interlock-TG.git && cd Interlock-TG
+docker compose up --build
+# dashboard: http://localhost:3000   API docs: http://localhost:8000/docs
+```
+
+- Add `--profile tigergraph` to also start a local TigerGraph (heavy; slow first start).
+- Live questions need `GROQ_API_KEY` in `.env` and `DEMO_MODE=false`.
+- Both ports are bound to `127.0.0.1`.
+
+The first build downloads the Python dependencies (sentence-transformers includes torch), so it
+is large and can take well over 30 minutes on a slow connection — torch's CUDA wheels alone are
+several hundred MB each, even though only the CPU path is used. See `docs/test-plan.md` for a
+fix (pin a CPU-only torch wheel). The dashboard image is unaffected and builds in under a minute.
+
+---
+
+## 📸 Demo
+
+Screenshots below are from a live local run (`DEMO_MODE=true uv run hl serve` + `npm run dev`),
+verified in a real browser, not mockups.
+
+**Overview** — who wins where, per category, with 95% bootstrap confidence intervals.
+![Overview](docs/screenshots/overview.png)
+
+**Question Inspector** — one question, every pipeline's answer side by side, each citation
+checked against the actual source page.
+![Question inspector](docs/screenshots/inspector.png)
+
+**Live ask** — ask a question and watch RAG, GraphRAG and the agent answer it; demo-mode
+example questions return instantly from stored results.
+![Live ask](docs/screenshots/live-ask.png)
+
+**Trade-offs** — cost, latency and accuracy together, so a win on accuracy is read against what
+it cost to get there.
+![Trade-offs](docs/screenshots/tradeoffs.png)
+
+**Failures** — failure type per pipeline, classified automatically.
+![Failures](docs/screenshots/failures.png)
+
+**Data quality** — corpus, extraction and provenance stats computed from the run store, not
+assumed.
+![Data quality](docs/screenshots/data-quality.png)
+
+**Review queue** — extracted facts that failed a grounding or validation check, awaiting a human
+decision.
+![Review queue](docs/screenshots/review-queue.png)
 
 ---
 
@@ -731,6 +802,25 @@ Interlock-TG/
 - 📐 **[TRD (Technical Requirements Document)](docs/TRD.md):** GSQL graph schemas, libSQL tables, and data models.
 - 🏛️ **[Architecture Guide](docs/ARCHITECTURE.md):** In-depth pipeline flows, tool execution sandbox, and ADRs.
 - 🤝 **[CLAUDE.md](CLAUDE.md):** Contributor guide — conventions, storage split, graph schema, and common pitfalls.
+
+## Architecture
+
+![Interlock architecture](docs/architecture.svg)
+
+## Limitations
+
+- **Small evaluation set.** 17 questions (12 test). `multi_hop`, `temporal` and `global` have no questions yet.
+- **Graph pipelines unverified.** GraphRAG and the agent have not run against a live graph with loaded data.
+- **Extraction is automatic.** Records pass a grounding check, but precision has been measured only on the pilot companies.
+- **Coverage is partial.** TRF's filings are marked `manual_needed` for all three years.
+- **Costs are not measured on a paid tier.** The free Groq tier was used, so cost figures are placeholders.
+- **Single-node deployment.** The run store is a local libSQL file and the vector index is a local NumPy file.
+
+## Disclaimer
+
+Interlock is a research and demonstration project. It is **not investment, legal or regulatory
+advice**. Its answers come from automatic extraction over public disclosures and can contain
+errors or omissions. Check every fact against the cited source page before relying on it.
 
 ## Graph Edges across Fiscal Years
 Each fiscal year's report produces its own `DIRECTOR_OF` edge (with a different `edge_id` discriminator). This intentional schema design natively records temporal context ('was a director according to the FY2022-23 report'). Graph queries should filter on `fiscal_year` or `start_date`/`end_date` to answer period-specific temporal questions.

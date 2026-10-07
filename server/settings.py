@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     tg_username: str = "tigergraph"
     tg_password: str = "tigergraph"
     tg_secret: str = ""
-    tg_graph: str = "Interlock"
+    tg_graph: str = "InterlockV2"
     tg_restpp_port: int = 9000
     tg_gs_port: int = 14240
 

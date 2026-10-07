@@ -120,8 +120,9 @@ def build_mentions() -> list[Mention]:
                     )
                 )
 
-        # 3. Auditor
+        # 3. Auditor -> Context Company + Audit Firm
         elif record_type == "auditor":
+            mentions.append(context_company_mention(record_id, company_id))
             if "firm_name" in payload and payload["firm_name"]:
                 mentions.append(
                     Mention(
