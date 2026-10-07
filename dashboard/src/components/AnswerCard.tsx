@@ -41,8 +41,7 @@ export default function AnswerCard({
   const u = result.usage;
   const color = PIPELINES[pipeline].color;
 
-  const openLabel = open ?? "";
-  const evidenceIndex = openLabel ? Number(openLabel.slice(1)) - 1 : -1;
+  const evidenceIndex = open && /^E\d+$/.test(open) ? Number(open.slice(1)) - 1 : -1;
 
   return (
     <article className="flex flex-col rounded-xl border border-border bg-surface p-4 shadow-sm" style={{ borderTopColor: color, borderTopWidth: 4 }}>
@@ -98,10 +97,29 @@ export default function AnswerCard({
         <CitationDrawer label={open} evidence={evidenceIndex >= 0 ? result.evidence[evidenceIndex] : undefined} chips={chips} onClose={() => setOpen(null)} />
       ) : null}
 
-      {chips.length > 0 && !open ? (
-        <p className="mt-3 text-xs text-muted">
-          {chips.length} citation{chips.length === 1 ? "" : "s"}: click an [E#] marker to read the evidence.
-        </p>
+      {chips.length > 0 ? (
+        <div className="mt-3">
+          <p className="mb-1 text-xs text-muted">
+            {chips.length} citation{chips.length === 1 ? "" : "s"}: click one to read its evidence and source.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {chips.map((c, i) => {
+              const key = c.label ?? `cite:${i}`;
+              return (
+                <button
+                  key={`${c.doc_id}-${c.page}-${i}`}
+                  onClick={() => setOpen(open === key ? null : key)}
+                  aria-expanded={open === key}
+                  aria-label={`Citation ${i + 1}${c.label ? `, evidence ${c.label}` : ""}, page ${c.page}`}
+                  className="rounded border border-border bg-surface-muted px-1.5 py-0.5 text-xs font-medium hover:underline"
+                  style={{ color }}
+                >
+                  {c.label ? `${c.label} · ` : ""}p.{c.page}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       ) : null}
 
       <dl className="mt-auto grid grid-cols-4 gap-2 border-t border-border pt-3 text-xs">

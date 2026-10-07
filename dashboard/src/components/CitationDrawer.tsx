@@ -58,7 +58,7 @@ export default function CitationDrawer({
   chips,
   onClose,
 }: {
-  label: string;
+  label: string; // "E3", or "cite:2" for a citation whose quote matched no evidence block
   evidence: EvidenceItem | undefined;
   chips: CitationChip[];
   onClose: () => void;
@@ -69,12 +69,13 @@ export default function CitationDrawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const cited = chips.filter((c) => c.label === label);
+  const byIndex = label.startsWith("cite:") ? chips[Number(label.slice(5))] : undefined;
+  const cited = byIndex ? [byIndex] : chips.filter((c) => c.label === label);
   return (
-    <div role="dialog" aria-label={`Evidence ${label}`} className="mt-3 rounded-lg border border-border bg-surface p-3 text-xs shadow-md">
+    <div role="dialog" aria-label={byIndex ? "Citation" : `Evidence ${label}`} className="mt-3 rounded-lg border border-border bg-surface p-3 text-xs shadow-md">
       <div className="mb-2 flex items-center justify-between">
         <p className="font-semibold">
-          Evidence {label} {evidence ? <span className="font-normal text-muted">({evidence.kind})</span> : null}
+          {byIndex ? "Citation" : `Evidence ${label}`} {evidence ? <span className="font-normal text-muted">({evidence.kind})</span> : null}
         </p>
         <button onClick={onClose} aria-label="Close evidence" className="rounded px-1.5 text-muted hover:bg-surface-muted">
           ✕
@@ -82,6 +83,8 @@ export default function CitationDrawer({
       </div>
       {evidence ? (
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-surface-muted p-2">{evidence.text}</pre>
+      ) : byIndex ? (
+        <p className="text-muted">This quote could not be matched to one of the evidence blocks shown to the model.</p>
       ) : (
         <p className="text-muted">That evidence item is not part of this answer.</p>
       )}

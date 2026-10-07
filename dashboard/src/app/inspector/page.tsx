@@ -8,7 +8,7 @@ import { Card, EmptyState, ErrorPanel, PageHeader, PipelineName } from "@/compon
 import { fetchCompareRuns, fetchQuestions, fetchResult, fetchRuns } from "@/lib/api";
 import { edgeIdsOf } from "@/lib/evidence";
 import { humanize } from "@/lib/format";
-import { PIPELINE_ORDER } from "@/lib/pipelines";
+import { PIPELINES, PIPELINE_ORDER } from "@/lib/pipelines";
 import { selectionFromParams } from "@/lib/runs";
 import type { PipelineKey, ResultOut } from "@/lib/types";
 
@@ -121,7 +121,7 @@ export default async function InspectorPage({ searchParams }: { searchParams: Se
                 const r = results[key];
                 if (!compare.runs[key]) {
                   return (
-                    <Card key={key} title={key}>
+                    <Card key={key} title={PIPELINES[key].label}>
                       <p className="text-sm text-muted">No run selected for this pipeline.</p>
                     </Card>
                   );
