@@ -149,6 +149,7 @@ class Leader(BaseModel):
     pipeline: str | None
     mean: float | None
     runner_up: str | None = None
+    tied: list[str] = Field(default_factory=list)  # pipelines sharing the top mean
     clear: bool = False
     reason: str = ""
 
