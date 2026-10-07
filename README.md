@@ -383,12 +383,6 @@ Every fact edge carries `doc_id + page + quote + run_id` — full provenance, tr
 
 ---
 
-## Data
-
-<div align="center">
-<img src="Images/diagram.png" alt="System Diagram" width="90%">
-</div>
-
 ### Corpus
 
 | | |
@@ -506,14 +500,14 @@ docs/             Architecture, decisions, results, test-plan
       <a href="https://github.com/prajwal-priyadarshan">@prajwal-priyadarshan</a>
     </td>
     <td align="center" width="20%">
-      <a href="https://github.com/KKabilan07"><img src="https://github.com/KKabilan07.png?size=200" width="90" alt="Kabilan K"></a><br>
-      <b>Kabilan K</b><br>
-      <a href="https://github.com/KKabilan07">@KKabilan07</a>
-    </td>
-    <td align="center" width="20%">
       <a href="https://github.com/KishoreB25"><img src="https://github.com/KishoreB25.png?size=200" width="90" alt="Kishore B"></a><br>
       <b>Kishore B</b><br>
       <a href="https://github.com/KishoreB25">@KishoreB25</a>
+    </td>
+    <td align="center" width="20%">
+      <a href="https://github.com/KKabilan07"><img src="https://github.com/KKabilan07.png?size=200" width="90" alt="Kabilan K"></a><br>
+      <b>Kabilan K</b><br>
+      <a href="https://github.com/KKabilan07">@KKabilan07</a>
     </td>
     <td align="center" width="20%">
       <a href="https://github.com/kesavvvvvv"><img src="https://github.com/kesavvvvvv.png?size=200" width="90" alt="Kesav"></a><br>
