@@ -92,3 +92,16 @@ def test_unfaithful_answer_is_flagged_even_when_it_matches_gold() -> None:
 
 def test_faithful_correct_answer_stays_a_success() -> None:
     assert classify_failure(_q(), _r(Status.OK), correct=1.0, faithfulness=1.0) is None
+
+
+def test_a_wrong_answer_that_exhausted_the_budget_is_a_budget_loop() -> None:
+    assert (
+        classify_failure(
+            _q(), _r(Status.BUDGET), correct=0.0, faithfulness=None, evidence_recall=0.5
+        )
+        == "budget_loop"
+    )
+
+
+def test_a_correct_answer_that_exhausted_the_budget_is_still_a_success() -> None:
+    assert classify_failure(_q(), _r(Status.BUDGET), correct=1.0) is None

@@ -19,5 +19,6 @@ def register(pipeline: Pipeline) -> None:
 def load_all() -> None:
     """Import every pipeline module so each registers itself. Lazy because the
     modules pull in heavy dependencies (embedding / reranker models)."""
+    import server.pipelines.agent  # noqa: F401  (registers "agent")
     import server.pipelines.graphrag  # noqa: F401  (registers "graphrag")
     import server.pipelines.rag  # noqa: F401  (registers "rag")

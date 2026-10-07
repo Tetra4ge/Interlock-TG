@@ -25,6 +25,7 @@ def final_answer(
     question: str,
     labels: dict[str, LabeledEvidence],
     model: str = DEFAULT_MODEL,
+    extra_instructions: str = "",
 ) -> tuple[ModelAnswer | None, str | None]:
     """Shared final-answer step for all pipelines (RAG now; GraphRAG/agent
     reuse this for their own final answer): same prompts, same schema, same
@@ -32,6 +33,8 @@ def final_answer(
     unrecoverable failure so the caller can produce an error AnswerResult."""
     blocks = render_blocks(labels)
     user_prompt = USER_PROMPT_TEMPLATE.format(question=question, evidence_blocks=blocks)
+    if extra_instructions:
+        user_prompt += f"\n\n{extra_instructions}"
     messages = [
         LLMMessage(role="system", content=SYSTEM_PROMPT),
         LLMMessage(role="user", content=user_prompt),
