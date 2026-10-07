@@ -1,0 +1,15 @@
+{
+  "run_id": "phase7-rag-dev",
+  "pipeline": "rag",
+  "split": "dev",
+  "questions_version": "v1",
+  "retrieval": {
+    "evidence_token_budget": 4000,
+    "rag_top_k": 40,
+    "rerank_top_k": 8,
+    "use_reranker": true
+  },
+  "started_at": "2026-10-07T03:28:02.755640+00:00",
+  "git_commit": "24d93916697831e8384c839d731670faefe688b2",
+  "git_dirty": true
+}

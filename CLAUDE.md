@@ -110,7 +110,7 @@ answer_type, citations, evidence, trace, usage, status)`.
 |---|---|---|
 | **RAG** | Vector + keyword fusion → rerank → fit to 4000-token budget → single LLM call | Single-fact lookups |
 | **GraphRAG** | Plan call → entity linking → `expand_hop` GSQL (1–2 hops) → ranked triples + linked chunks → single answer call; vector fallback | 1–2 hop structural relationships |
-| **Agentic GraphRAG** *(Phase 7)* | Plan→Act→Observe→Verify loop with graph/text/calculator tools; claim-level verification | Multi-hop trails, aggregations, temporal cascades |
+| **Agentic GraphRAG** | Tool loop (find_entity, neighbors, graph_query, search_text, calculate, get_evidence) under step/token/time budgets → shared final answer → claim-level verifier | Multi-hop trails, aggregations, temporal cascades |
 
 ### Evaluation (Phase 5)
 - 6 question categories: `single_fact`, `multi_hop`, `temporal`, `numerical`, `global`,
@@ -151,7 +151,7 @@ Interlock-TG/
 │   │   └── gsql/         # schema.gsql + queries/*.gsql + queries.lock
 │   ├── embed/            # Vector index: provider (all-MiniLM-L6-v2), index, query
 │   ├── llm/              # LLM gateway: cache, pricing, providers (Groq), gateway
-│   ├── pipelines/        # Answer pipelines: rag.py, graphrag/, base, models, common/
+│   ├── pipelines/        # Answer pipelines: rag.py, graphrag/, agent/, base, models, common/
 │   ├── eval/             # Evaluation: models, scorers, runner, stats, judge, taxonomy, persist, compare
 │   └── reporting/        # Quality reports
 ├── dashboard/            # Next.js 14 frontend (App Router, TypeScript, Tailwind)
@@ -226,6 +226,8 @@ uv run hl ask "Who audited Tata Motors in FY2023-24?" --pipeline rag
 uv run hl ask "Which independent director of Tata Steel also sits on Tata Motors' board?" --pipeline graphrag
 uv run hl eval --pipeline rag --split test
 uv run hl eval --pipeline graphrag --split dev
+uv run hl ask "Who audited Tata Steel in FY2023-24?" --pipeline agent
+uv run hl eval --pipeline agent --split dev
 uv run hl compare --a <run_id> --b <run_id>      # paired A-B per category, 95% bootstrap CI
 ```
 
@@ -303,7 +305,23 @@ deviations from the plan and known gaps: `docs/decisions/0013-graphrag-params.md
 `expand_hop.gsql` has not been installed against a live TigerGraph yet; run
 `hl build-graph --from schema` once the cluster is reachable.
 
-The Agentic GraphRAG pipeline is **not yet implemented** (Phase 7).
+### Agentic GraphRAG pipeline
+`server/pipelines/agent/`: `run_loop` lets the model pick tools while the code enforces
+`Budget` (steps, cumulative tokens, wall clock; exceeding one ends as `budget_exceeded`, not an
+error), refuses identical repeated calls, and drops `graph_query` after 2 failures. Tools
+(`tools/`) validate arguments with Pydantic, never raise, and log every fact to the
+`EvidenceLog` as `E1..` (same labels as RAG/GraphRAG). `graph_query` is an allow-list of 4
+installed queries with typed, `fullmatch`-validated parameters (`guardrails.py`): the model
+never writes query text. `calculate` is an AST whitelist (`calculator.py`). The final answer is
+the shared `final_answer` over the evidence log; `verifier.py` then checks each claim (and
+numeric answers against the evidence), buys one more agent cycle, and otherwise drops unsupported
+claims. Parameters, deviations and verified/unverified status:
+`docs/decisions/0014-agent-params.md`.
+
+Provider quirk: Groq validates tool calls against the JSON Schema server-side and answers
+400 "Tool call validation failed" when the model's arguments don't fit. The loop treats that
+as a retry request (max 2), and tool schemas accept the id forms the model is shown (e.g.
+`C:TATASTEEL` for `company_id`).
 
 ---
 
@@ -444,6 +462,8 @@ convention `<COMPANY_ID>__<doc_type>__<FY>.pdf` (e.g.
 | Schema change fails | Data already loaded | Freeze schema early; for breaking changes use `--reset-graph` |
 | Coverage report shows all manual_needed | Exchange adapter stubs return `[]` by design | Manual download into `data/inbox/` is the intended workflow |
 | GraphRAG answers look identical to RAG | `expand_hop` failed and the pipeline fell back to vector evidence | Check the trace for a `fallback` step and its error; confirm TigerGraph is reachable and the query is installed |
+| Agent answers `not_found` on easy questions | Graph tools failing (query not installed / graph missing) leaves only `search_text`, and the 20B model searches badly | Check the trace for `neighbors` errors; `hl build-graph --from schema`; confirm `TG_GRAPH` names a graph that exists |
+| Agent run fails with a 400 about tool schema | Model arguments don't fit a tool's JSON Schema | Loosen the schema or normalise in the tool (see `search_text`); the loop already retries twice |
 | `ModuleNotFoundError: fitz` | Wrong PyMuPDF import | The import name is `fitz` (PyMuPDF < 1.25) or `pymupdf` (newer) |
 
 ---
