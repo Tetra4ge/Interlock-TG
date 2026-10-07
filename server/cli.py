@@ -431,7 +431,11 @@ def main() -> None:
         from server.api.deps import CACHED_ANSWERS_PATH
         from server.store.db import connect
 
-        chosen = {n: getattr(args, n) for n in ("rag", "graphrag", "agent") if getattr(args, n)}
+        chosen: dict[str, str | list[str]] = {
+            n: [r for r in getattr(args, n).split(",") if r]
+            for n in ("rag", "graphrag", "agent")
+            if getattr(args, n)
+        }
         if not chosen:
             print("Give at least one of --rag, --graphrag, --agent (a run_id).", file=sys.stderr)
             sys.exit(1)
