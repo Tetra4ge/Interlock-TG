@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { accuracyRows, allZero, callsRows, failureStack, takeaways, tradeoffPoints } from "./chart";
 import { NO_FILTERS, UNLABELLED, distinct, failureRows, filterFailures, labelColor } from "./failures";
+import { MAX_QUESTION_CHARS, checkQuestion, missingPipelines } from "./live";
 import { matchQuestions } from "../components/QuestionPicker";
 import { edgeUsers, layoutGraph } from "./graph";
 import { citationChips, edgeIdsOf, goldEdgeIds, splitMarkers } from "./evidence";
@@ -339,5 +340,25 @@ describe("question picker search", () => {
     expect(matchQuestions(rows, "numerical").map((r) => r.qid)).toEqual(["Q-NU-0002"]);
     expect(matchQuestions(rows, "zzz")).toEqual([]);
     expect(matchQuestions(rows, "")).toHaveLength(2);
+  });
+});
+
+describe("live question checks", () => {
+  it("rejects empty and control-character-only input", () => {
+    for (const bad of ["", "   ", "\n\t", "\u0000\u0007"]) expect(checkQuestion(bad).ok).toBe(false);
+  });
+  it("cleans and accepts a normal question", () => {
+    expect(checkQuestion("  Who\u0000 audits\n  Tata Steel? ")).toEqual({ ok: true, question: "Who audits Tata Steel?" });
+  });
+  it("enforces the 500 character limit after cleaning, like the API", () => {
+    expect(checkQuestion("x".repeat(MAX_QUESTION_CHARS)).ok).toBe(true);
+    const long = checkQuestion("x".repeat(MAX_QUESTION_CHARS + 1));
+    expect(long.ok).toBe(false);
+    if (!long.ok) expect(long.error).toContain("501");
+    expect(checkQuestion("a" + "\u0000".repeat(900)).ok).toBe(true);
+  });
+  it("lists the pipelines a partial cached response lacks", () => {
+    expect(missingPipelines({ rag: {} }, ["rag", "graphrag", "agent"])).toEqual(["graphrag", "agent"]);
+    expect(missingPipelines({ rag: 1, graphrag: 1, agent: 1 }, ["rag", "graphrag", "agent"])).toEqual([]);
   });
 });

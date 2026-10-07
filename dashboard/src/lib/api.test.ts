@@ -130,6 +130,7 @@ describe("endpoints", () => {
     await askQuestion("q", "agent");
     expect(fn.mock.calls[0][1]).toMatchObject({ method: "POST" });
     expect(JSON.parse(String(fn.mock.calls[0][1]?.body))).toEqual({ question: "Who audits Tata Steel?" });
+    expect(fn.mock.calls[0][1]).toMatchObject({ headers: { "Content-Type": "application/json" } });
     expect(JSON.parse(String(fn.mock.calls[1][1]?.body))).toEqual({ question: "q", pipeline: "agent" });
   });
 });

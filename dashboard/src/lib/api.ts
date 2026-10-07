@@ -94,8 +94,8 @@ export const fetchSubgraph = (edgeIds: string[]) =>
 export const fetchDataQuality = () => request<DataQuality>("/data-quality");
 export const fetchExamples = () => request<ExampleQuestion[]>("/examples");
 export const fetchReviewQueue = () => request<ReviewItem[]>("/review-queue");
-export const compareQuestion = (question: string) =>
-  request<CompareOut>("/compare", json({ question }));
+export const compareQuestion = (question: string, signal?: AbortSignal) =>
+  request<CompareOut>("/compare", { ...json({ question }), signal });
 export const askQuestion = (question: string, pipeline: PipelineKey) =>
   request<AnswerResult>("/ask", json({ question, pipeline }));
 
