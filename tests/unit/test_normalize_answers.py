@@ -36,3 +36,23 @@ def test_entity_match_rejects_different_companies() -> None:
 def test_split_list_on_semicolons_and_newlines() -> None:
     assert split_list("A; B\nC") == ["A", "B", "C"]
     assert split_list(["A", " ", "B"]) == ["A", "B"]
+
+
+@pytest.mark.parametrize(
+    ("pred", "gold"),
+    [
+        ("M/s B S R & Co. LLP", "B S R & Co. LLP"),
+        ("M/s. B S R & Co. LLP", "B S R & Co. LLP"),
+        ("m / s BSR & Co LLP", "BSR & Co. LLP"),
+        ("B S R & Co. LLP", "M/s B S R & Co. LLP"),
+    ],
+)
+def test_the_messrs_prefix_does_not_change_the_firm(pred: str, gold: str) -> None:
+    assert entity_match(pred, gold)
+
+
+def test_initials_that_look_like_messrs_are_not_stripped() -> None:
+    from server.eval.normalize import norm_text
+
+    assert norm_text("M S Dhoni") == "m s dhoni"
+    assert not entity_match("M S Dhoni", "Dhoni")
