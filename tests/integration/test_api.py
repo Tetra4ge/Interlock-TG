@@ -488,3 +488,36 @@ def test_review_queue_route_lists_pending_records(harness: Harness, memdb: Memor
         too_many = client.get("/review-queue", params={"limit": 9999})
     assert body[0]["record_id"] == "r1" and body[0]["payload"] == {"amount_raw": "48.2"}
     assert too_many.status_code == 422
+
+
+def test_document_routes(harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from server.api import documents as docs
+
+    doc = "c" * 64
+    parsed, raw = tmp_path / "parsed", tmp_path / "raw"
+    parsed.mkdir()
+    raw.mkdir()
+    (parsed / f"{doc}.json").write_text(
+        json.dumps({"pages": [{"page_no": 3, "text": "Page three text"}]})
+    )
+    (raw / f"{doc}.pdf").write_bytes(b"%PDF-1.4 fake")
+    monkeypatch.setattr(docs, "PARSED_DIR", parsed)
+    monkeypatch.setattr(docs, "RAW_DIR", raw)
+    with harness as client:
+        ok = client.get(f"/documents/{doc}/pages/3")
+        no_page = client.get(f"/documents/{doc}/pages/99")
+        bad_id = client.get("/documents/not-an-id/pages/1")
+        bad_page = client.get(f"/documents/{doc}/pages/0")
+        pdf = client.get(f"/documents/{doc}/pdf")
+        no_pdf = client.get(f"/documents/{'d' * 64}/pdf")
+        traversal = client.get("/documents/..%2F..%2Fetc%2Fpasswd/pdf")
+    assert (
+        ok.status_code == 200
+        and ok.json()["text"] == "Page three text"
+        and ok.json()["pdf_available"] is True
+    )
+    assert no_page.status_code == 404 and bad_id.status_code == 400 and bad_page.status_code == 400
+    assert pdf.status_code == 200 and pdf.headers["content-type"] == "application/pdf"
+    assert pdf.content.startswith(b"%PDF")
+    assert no_pdf.status_code == 404 and "not available" in no_pdf.json()["detail"]
+    assert traversal.status_code in (404, 422)
