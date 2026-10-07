@@ -50,3 +50,23 @@ export function selectionQuery(selection: Selection): string {
 export function runsFor(runs: RunOut[], pipeline: string): RunOut[] {
   return runs.filter((r) => r.pipeline === pipeline && isPipelineKey(r.pipeline) && r.n_results > 0);
 }
+
+/** Plain-language caveats about the selected runs, shown above the charts. */
+export function sampleCaveats(
+  metrics: Partial<Record<PipelineKey, { split: string; overall: { n: number } }>>,
+  minN = 30,
+): string[] {
+  const entries = Object.entries(metrics) as [PipelineKey, { split: string; overall: { n: number } }][];
+  const notes: string[] = [];
+  const small = entries.filter(([, m]) => m.overall.n < minN);
+  if (small.length) {
+    const sizes = small.map(([k, m]) => `${k}: n=${m.overall.n}`).join(", ");
+    notes.push(
+      `Small sample (${sizes}). Confidence intervals are wide, so treat differences as indicative, not conclusive.`,
+    );
+  }
+  if (new Set(entries.map(([, m]) => m.split)).size > 1) {
+    notes.push("The selected runs use different splits, so they were not scored on the same questions.");
+  }
+  return notes;
+}

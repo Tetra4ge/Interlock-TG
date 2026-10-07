@@ -3,7 +3,7 @@ import { accuracyRows, callsRows, failureStack, tradeoffPoints } from "./chart";
 import { citationChips, edgeIdsOf, goldEdgeIds, splitMarkers } from "./evidence";
 import { humanize, money, ms, pct, pctRange, shortId, signed } from "./format";
 import { PIPELINES, PIPELINE_ORDER, isPipelineKey } from "./pipelines";
-import { defaultSelection, selectionFromParams, selectionQuery } from "./runs";
+import { defaultSelection, sampleCaveats, selectionFromParams, selectionQuery } from "./runs";
 import type { AnswerResult, CompareRunsOut, MetricsBlock, RunOut, SubgraphEdge } from "./types";
 
 const block = (over: Partial<MetricsBlock> = {}): MetricsBlock => ({
@@ -184,5 +184,18 @@ describe("evidence helpers", () => {
     const edges = [edge("e1", "d1", 5), edge("e2", "d1", 6), edge("e3", "", 5)];
     expect(goldEdgeIds(edges, [{ doc_id: "d1", page: 5 }])).toEqual(new Set(["e1"]));
     expect(goldEdgeIds(edges, null)).toEqual(new Set());
+  });
+});
+
+describe("sample caveats", () => {
+  it("warns about small samples and mixed splits, and stays quiet otherwise", () => {
+    const m = (split: string, n: number) => ({ split, overall: { n } });
+    expect(sampleCaveats({ rag: m("dev", 100), agent: m("dev", 120) })).toEqual([]);
+    const small = sampleCaveats({ rag: m("dev", 5), agent: m("dev", 100) });
+    expect(small).toHaveLength(1);
+    expect(small[0]).toContain("rag: n=5");
+    expect(small[0]).not.toContain("agent");
+    const mixed = sampleCaveats({ rag: m("dev", 100), agent: m("test", 100) });
+    expect(mixed[0]).toContain("different splits");
   });
 });
