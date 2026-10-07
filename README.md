@@ -46,23 +46,90 @@ The RAG 1.00 interval is degenerate at n=12 — it says the system answers these
 | **Data quality** | Extraction precision, entity resolution, provenance completeness |
 | **Review queue** | Quarantined records pending human review |
 
-**Screenshots from a live local run:**
+---
 
-<table>
-  <tr>
-    <td><img src="docs/screenshots/overview.png" alt="Overview" width="400"></td>
-    <td><img src="docs/screenshots/inspector.png" alt="Inspector" width="400"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/live-ask.png" alt="Live ask" width="400"></td>
-    <td><img src="docs/screenshots/tradeoffs.png" alt="Trade-offs" width="400"></td>
-  </tr>
-</table>
+## Architecture
+
+<div align="center">
+<img src="Images/diagram.png" alt="Interlock system architecture — from disclosure corpus through TigerGraph to the three pipelines and the dashboard" width="90%">
+</div>
+
+> End-to-end: raw PDFs → LLM extraction → TigerGraph knowledge graph → three answer pipelines (RAG / GraphRAG / Agentic) → evaluation dashboard.
 
 ---
 
+### Landing page
+
+**Hero & problem statement** — why plain RAG fails on Indian corporate governance data, and what Interlock solves.
+
 <div align="center">
-<img src="docs/architecture.png" alt="Interlock Architecture" width="100%">
+<img src="Images/1.png" alt="Landing page — hero section and problem statement" width="90%">
+</div>
+
+---
+
+**Graph visual & three pipelines** — how the knowledge graph is structured, and a side-by-side explanation of the three retrieval strategies.
+
+<div align="center">
+<img src="Images/11.png" alt="Landing page — graph entity diagram and pipeline comparison cards" width="90%">
+</div>
+
+---
+
+**Numbers & architecture columns** — live graph stats (nodes, edges, documents) and the three-phase architecture (Build / Answer / Evaluate).
+
+<div align="center">
+<img src="Images/111.png" alt="Landing page — graph statistics and build–answer–evaluate architecture" width="90%">
+</div>
+
+---
+
+### Dashboard pages
+
+**Overview** — accuracy by question category with 95 % bootstrap confidence intervals; pipeline leaders and paired differences.
+
+<div align="center">
+<img src="Images/2.png" alt="Overview page — accuracy per category with confidence intervals" width="90%">
+</div>
+
+---
+
+**Trade-offs** — cost vs accuracy vs latency scatter; LLM call and tool-call breakdown per pipeline.
+
+<div align="center">
+<img src="Images/3.png" alt="Trade-offs page — cost, latency and accuracy scatter plot" width="90%">
+</div>
+
+---
+
+**Failures** — stacked failure-type bar chart by category; filterable table linked directly to the inspector.
+
+<div align="center">
+<img src="Images/4.png" alt="Failures page — failure taxonomy stacked bar and filterable table" width="90%">
+</div>
+
+---
+
+**Inspector** — one question, all three pipeline answers side by side; every citation links back to its source PDF page; interactive subgraph canvas and step-by-step agent traces.
+
+<div align="center">
+<img src="Images/5.png" alt="Inspector page — three answers side by side with citations and agent trace" width="90%">
+</div>
+
+---
+
+**Data quality** — extraction precision, entity-resolution coverage, and provenance completeness metrics.
+
+<div align="center">
+<img src="Images/6.png" alt="Data quality page — extraction and provenance metrics" width="90%">
+</div>
+
+---
+
+**Review queue** — records quarantined for low grounding confidence or entity-resolution conflicts, pending human review.
+
+<div align="center">
+<img src="Images/7.png" alt="Review queue page — quarantined records awaiting human review" width="90%">
 </div>
 
 ## Quick Start
