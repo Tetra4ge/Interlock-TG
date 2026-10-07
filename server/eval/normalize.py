@@ -4,13 +4,16 @@ from rapidfuzz import fuzz
 
 ENTITY_FUZZY_THRESHOLD = 92
 
+# "M/s" ("Messrs") prefixes Indian firm names. Only the literal slash form is removed,
+# so initials such as "M S Dhoni" are left alone.
+_MESSRS = re.compile(r"\bm\s*/\s*s\b\.?")
 _SUFFIXES = re.compile(r"\b(llp|ltd|limited|pvt|private|co|company|the)\b")
 _NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
 _CRORE_FACTORS = {"crore": 1.0, "lakh": 0.01, "million": 0.1, "billion": 100.0}
 
 
 def norm_text(s: str) -> str:
-    s = s.lower().replace("&", " and ")
+    s = _MESSRS.sub(" ", s.lower()).replace("&", " and ")
     s = re.sub(r"[^a-z0-9 ]+", " ", s)
     s = _SUFFIXES.sub(" ", s)
     return " ".join(s.split())

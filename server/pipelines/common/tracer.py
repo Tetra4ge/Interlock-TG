@@ -53,7 +53,11 @@ class Tracer:
             tokens_out=sum(s.tokens_out for s in self.steps),
             cost_usd=sum(s.cost_usd for s in self.steps),
             latency_ms=total_latency_ms,
-            llm_calls=sum(1 for s in self.steps if s.kind == "llm"),
+            # A verify step that spent tokens is an LLM call (the agent's verifier);
+            # the local citation check is also kind "verify" but spends none.
+            llm_calls=sum(
+                1 for s in self.steps if s.kind == "llm" or (s.kind == "verify" and s.tokens_in > 0)
+            ),
             tool_calls=sum(1 for s in self.steps if s.kind == "tool"),
         )
 

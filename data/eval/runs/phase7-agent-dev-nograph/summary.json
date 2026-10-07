@@ -1,0 +1,73 @@
+{
+  "overall": {
+    "n": 5,
+    "correct_mean": 0.4,
+    "correct_ci95": [
+      0.0,
+      0.8
+    ],
+    "faithfulness_mean": 1.0,
+    "citation_accuracy_mean": 1.0,
+    "evidence_recall_mean": 0.3333333333333333,
+    "abstention_rate": 0.4,
+    "error_count": 2,
+    "failures": {
+      "bad_query": 2,
+      "wrong_abstention": 1
+    },
+    "latency_median_ms": 56964,
+    "latency_p90_ms": 134799.2,
+    "cost_usd_mean": 0.0,
+    "llm_calls_mean": 5.4,
+    "tool_calls_mean": 3.4,
+    "budget_exceeded_rate": 0.0
+  },
+  "by_category": {
+    "single_fact": {
+      "n": 3,
+      "correct_mean": 0.3333333333333333,
+      "correct_ci95": [
+        0.0,
+        1.0
+      ],
+      "faithfulness_mean": 1.0,
+      "citation_accuracy_mean": 1.0,
+      "evidence_recall_mean": 0.3333333333333333,
+      "abstention_rate": 0.3333333333333333,
+      "error_count": 1,
+      "failures": {
+        "bad_query": 1,
+        "wrong_abstention": 1
+      },
+      "latency_median_ms": 56964,
+      "latency_p90_ms": 71003.2,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 6.0,
+      "tool_calls_mean": 3.6666666666666665,
+      "budget_exceeded_rate": 0.0
+    },
+    "unanswerable": {
+      "n": 2,
+      "correct_mean": 0.5,
+      "correct_ci95": [
+        0.0,
+        1.0
+      ],
+      "faithfulness_mean": null,
+      "citation_accuracy_mean": null,
+      "evidence_recall_mean": null,
+      "abstention_rate": 0.5,
+      "error_count": 1,
+      "failures": {
+        "bad_query": 1
+      },
+      "latency_median_ms": 98590.5,
+      "latency_p90_ms": 159710.1,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 4.5,
+      "tool_calls_mean": 3.0,
+      "budget_exceeded_rate": 0.0
+    }
+  },
+  "run_id": "phase7-agent-dev-nograph"
+}

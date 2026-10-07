@@ -39,3 +39,15 @@ def test_repair_counts_as_a_second_llm_call() -> None:
     tr.add("llm", "final_answer_repair", "", "")
     tr.add("verify", "validate_citations", "", "")
     assert tr.usage(1).llm_calls == 2
+
+
+def test_a_verify_step_that_spent_tokens_is_an_llm_call() -> None:
+    tr = Tracer("req", "agent")
+    tr.add("llm", "final_answer", "", "", tokens_in=100, tokens_out=20)
+    tr.add("verify", "verifier", "", "", tokens_in=300, tokens_out=40, cost_usd=0.002)
+    tr.add("verify", "validate_citations", "", "")
+
+    usage = tr.usage(total_latency_ms=10)
+
+    assert usage.llm_calls == 2
+    assert usage.tokens_in == 400 and usage.cost_usd == 0.002

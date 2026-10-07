@@ -40,6 +40,13 @@ agent:
   timeout_seconds: 120
   gsql_timeout_seconds: 10
   gsql_max_rows: 200
+  tool_output_tokens: 1500
+  shown_rows: 60
+  graph_query_max_failures: 2
+  neighbors_default_limit: 40
+  neighbors_max_limit: 60
+  search_max_k: 8
+  verify_enabled: true
 eval:
   bootstrap_samples: 2000
   numeric_rel_tolerance: 0.01

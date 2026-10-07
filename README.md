@@ -383,7 +383,7 @@ sequenceDiagram
 
 **GraphRAG — single bounded pass** (implemented): link entities, expand ≤2 hops with provenance, attach linked text, answer once; falls back to RAG's vector evidence when the graph has nothing (reason recorded in the trace).
 
-**Agentic GraphRAG — bounded reasoning loop** (Plan → Act → Observe → Verify, planned):
+**Agentic GraphRAG — bounded reasoning loop** (implemented: Plan → Act → Observe, then a shared final answer and a claim-level Verify):
 
 ```mermaid
 stateDiagram-v2
@@ -642,6 +642,7 @@ uv run hl coverage
 # Ask a question through a pipeline (Phase 4)
 uv run hl ask "Who audited Tata Steel in FY2023-24?" --pipeline rag
 uv run hl ask "Which directors sit on both Tata Steel and Tata Motors?" --pipeline graphrag
+uv run hl ask "Who audited Tata Steel in FY2023-24?" --pipeline agent
 
 # Score a pipeline against the frozen eval split (Phase 5)
 uv run hl eval --pipeline rag --split test
@@ -685,7 +686,8 @@ Every command is exposed through the `hl` entry point (`uv run hl <command>`).
 | `quality` | 3 | Generate `docs/data-quality.md`. |
 | `export-sample` / `import-sample` | 3 | Round-trip a sample graph as JSONL. |
 | `ask` | 4 | Answer a question through a chosen pipeline. |
-| `eval` | 5 | Score a pipeline (`rag`, `graphrag`) against a frozen split with bootstrap CIs; `--judge` adds faithfulness. Persists to the DB. |
+| `eval` | 5 | Score a pipeline (`rag`, `graphrag`, `agent`) against a frozen split with bootstrap CIs; `--judge` adds faithfulness. Persists to the DB. |
+| `ask --pipeline agent` | 7 | Run the tool-using agent (budgeted loop, guarded graph access, claim verifier). |
 | `compare` | 6 | Paired per-category comparison of two scored runs (A minus B) with a 95% bootstrap interval. |
 
 ---
@@ -706,7 +708,7 @@ Interlock-TG/
 │   ├── graph/            # TigerGraph: client, schema, loader, queries, gsql/
 │   ├── embed/            # Vector index: provider, index, keyword, recall_test
 │   ├── llm/              # LLM gateway: cache, pricing, providers (Groq)
-│   ├── pipelines/        # Answer pipelines: rag.py, graphrag/, base, models, common/, config, prompts/
+│   ├── pipelines/        # Answer pipelines: rag.py, graphrag/, agent/, base, models, common/, config, prompts/
 │   └── eval/             # Evaluation: models, scorers, normalize, stats, judge, taxonomy, persist, compare, runner
 ├── dashboard/            # Next.js 14 frontend (App Router, TypeScript, Tailwind)
 ├── config/               # companies.yaml, models.yaml, pipeline.yaml

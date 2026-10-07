@@ -93,6 +93,8 @@ def score_result(
         "latency_ms": r.usage.latency_ms,
         "cost_usd": r.usage.cost_usd,
         "llm_calls": r.usage.llm_calls,
+        "tool_calls": r.usage.tool_calls,
+        "budget_exceeded": r.status == Status.BUDGET,
     }
 
 
@@ -125,6 +127,11 @@ def _aggregate(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "latency_p90_ms": float(np.percentile(lat, 90)) if lat else None,
         "cost_usd_mean": _mean_or_none([r["cost_usd"] for r in rows]),
         "llm_calls_mean": _mean_or_none([r["llm_calls"] for r in rows]),
+        # absent in runs scored before the agent existed
+        "tool_calls_mean": _mean_or_none([r["tool_calls"] for r in rows if "tool_calls" in r]),
+        "budget_exceeded_rate": (
+            sum(bool(r.get("budget_exceeded")) for r in rows) / len(rows) if rows else None
+        ),
     }
 
 

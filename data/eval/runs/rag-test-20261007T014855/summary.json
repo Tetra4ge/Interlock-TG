@@ -1,0 +1,77 @@
+{
+  "overall": {
+    "n": 12,
+    "correct_mean": 1.0,
+    "correct_ci95": [
+      1.0,
+      1.0
+    ],
+    "faithfulness_mean": 1.0,
+    "citation_accuracy_mean": 0.3333333333333333,
+    "evidence_recall_mean": 0.4444444444444444,
+    "abstention_rate": 0.25,
+    "error_count": 0,
+    "failures": {},
+    "latency_median_ms": 32004.5,
+    "latency_p90_ms": 35733.1,
+    "cost_usd_mean": 0.0,
+    "llm_calls_mean": 1.0
+  },
+  "by_category": {
+    "numerical": {
+      "n": 2,
+      "correct_mean": 1.0,
+      "correct_ci95": [
+        1.0,
+        1.0
+      ],
+      "faithfulness_mean": 1.0,
+      "citation_accuracy_mean": 0.5,
+      "evidence_recall_mean": 0.5,
+      "abstention_rate": 0.0,
+      "error_count": 0,
+      "failures": {},
+      "latency_median_ms": 34398.0,
+      "latency_p90_ms": 34543.6,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 1.0
+    },
+    "single_fact": {
+      "n": 7,
+      "correct_mean": 1.0,
+      "correct_ci95": [
+        1.0,
+        1.0
+      ],
+      "faithfulness_mean": 1.0,
+      "citation_accuracy_mean": 0.2857142857142857,
+      "evidence_recall_mean": 0.42857142857142855,
+      "abstention_rate": 0.0,
+      "error_count": 0,
+      "failures": {},
+      "latency_median_ms": 32868,
+      "latency_p90_ms": 104131.20000000006,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 1.0
+    },
+    "unanswerable": {
+      "n": 3,
+      "correct_mean": 1.0,
+      "correct_ci95": [
+        1.0,
+        1.0
+      ],
+      "faithfulness_mean": null,
+      "citation_accuracy_mean": null,
+      "evidence_recall_mean": null,
+      "abstention_rate": 1.0,
+      "error_count": 0,
+      "failures": {},
+      "latency_median_ms": 30737,
+      "latency_p90_ms": 31060.2,
+      "cost_usd_mean": 0.0,
+      "llm_calls_mean": 1.0
+    }
+  },
+  "run_id": "rag-test-20261007T014855"
+}

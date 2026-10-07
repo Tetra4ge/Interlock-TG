@@ -1,0 +1,15 @@
+{
+  "run_id": "phase7-agent-dev-nograph",
+  "pipeline": "agent",
+  "split": "dev",
+  "questions_version": "v1",
+  "retrieval": {
+    "evidence_token_budget": 4000,
+    "rag_top_k": 40,
+    "rerank_top_k": 8,
+    "use_reranker": true
+  },
+  "started_at": "2026-10-07T03:28:27.367351+00:00",
+  "git_commit": "f26eae81a3f5486d2918f9ee6768cdc5c8f639f1",
+  "git_dirty": true
+}

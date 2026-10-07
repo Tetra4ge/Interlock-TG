@@ -50,6 +50,10 @@ def classify_failure(
     if errored:
         return "bad_query"
 
+    # The agent ran out of steps/tokens/time and what it produced is wrong.
+    if r.status == Status.BUDGET and correct < 1.0:
+        return "budget_loop"
+
     if not q.answerable:
         # Answering a question that has no answer is a hallucination;
         # abstaining is the correct behavior.
