@@ -27,15 +27,16 @@
 > **Read this first.** The system runs end to end in demo mode, and the unit and API tests pass.
 > The planned comparison of the three pipelines is **not finished**. The question set has 17
 > questions across three of the six categories, and only one clean test-split run exists (RAG).
-> GraphRAG and the agent have not been run against a live TigerGraph graph, so no claim that
-> graph retrieval helps is established yet. Full numbers, run IDs and gaps are in
-> [`docs/results.md`](docs/results.md) and [`docs/test-plan.md`](docs/test-plan.md).
+> GraphRAG and the agent now run correctly against a live TigerGraph graph — verified on a real
+> multi-hop question (see `docs/test-plan.md`) — but no eval-harness run against the test split
+> has been stored yet, so no accuracy claim for either is established. Full numbers, run IDs and
+> gaps are in [`docs/results.md`](docs/results.md) and [`docs/test-plan.md`](docs/test-plan.md).
 
 | Pipeline | Test split | Accuracy (95% CI) | Notes |
 | --- | --- | --- | --- |
 | RAG | 12 questions | 1.00 (1.00–1.00) | Degenerate interval at this sample size; citation accuracy 0.33 |
-| GraphRAG | not run | — | Needs a live graph |
-| Agentic GraphRAG | not run | — | Only a text-only dev run exists |
+| GraphRAG | not run | — | Live graph works (verified); no eval run stored yet |
+| Agentic GraphRAG | not run | — | Live graph tools work (verified); no eval run stored yet |
 
 ## 🚀 Quick Start (Docker, demo mode, no API key)
 

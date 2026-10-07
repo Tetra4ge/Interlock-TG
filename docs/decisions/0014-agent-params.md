@@ -77,3 +77,14 @@ No dev-set sweep (the graph was unavailable). Changes made from real-run evidenc
 ## Consequences
 - Phase 8's `/compare` can run `rag`, `graphrag` and `agent` through the shared `Pipeline` protocol; per-pipeline errors surface as `status=error`.
 - To add a graph query to the agent: write the installed GSQL (read-only, bounded output), add an args model and a `to_gsql_params` mapping, add it to `QUERY_REGISTRY` and the catalogue text, and extend the guardrail tests.
+
+## Update (2026-10-07)
+
+"No graph tool has run against a live TigerGraph" above is now out of date. The graph is live
+(`InterlockV2`, see `docs/test-plan.md`), and `uv run hl ask "Who audited Tata Steel in
+FY2023-24?" --pipeline agent` exercised `neighbors` and `expand_hop` without error. It found no
+`AUDITED_BY` edge for Tata Steel — a real data-coverage gap (no `auditor` records were ever
+extracted for that company), not a tool failure — and correctly abstained rather than
+hallucinate. A second run against a question the data does cover was cut off by Groq's daily
+token rate limit before finishing. Still open: a dev/test eval run against the live graph, and
+the resulting tuning pass; exit criteria 2, 3, 4 and 6 remain as stated above.

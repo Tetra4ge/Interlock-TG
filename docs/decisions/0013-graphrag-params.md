@@ -58,3 +58,15 @@ Every fallback records its reason in the trace (`fallback` step, `fallback=vecto
 ## Consequences
 - Phase 7 reuses `link_mention` (`find_entity`), `expand` (`neighbors`), `linked_text` (`search_text`), `serialize`, and the shared final answer.
 - Tuning knobs and their intended levers: `entity_link_error` -> `link_min_score`, aliases, the mention prompt; `missed_hop` -> `fanout_hop2`, `min_per_relation`; `retrieval_miss` with hubs -> `hub_*`; `temporal_error` -> the year filter; GraphRAG worse than RAG on single-fact -> raise the chunk share (`triple_budget_share`).
+
+## Update (2026-10-07)
+
+The dataset caveat above is now partly resolved: the live graph works (see
+`docs/test-plan.md`'s "Live TigerGraph verification"), and a real multi-hop question
+(`uv run hl ask "Which director sits on the boards of both Tata Motors and Tata Steel?"
+--pipeline graphrag`) completed the full graph path — `link_plan → link_entities →
+choose_relations → expand_hop(hop 1) → expand_hop(hop 2) → linked_text → final_answer` — and
+cited graph triples, not a vector fallback. The dataset still has no `multi_hop`/`temporal`/
+`global` questions in `questions_v1.jsonl`, and no `hl eval`/`hl compare` run has been made
+against the test split (blocked on the Groq daily rate limit during this verification session).
+Exit criteria 1-4 remain open for that reason, not because the graph doesn't work.
