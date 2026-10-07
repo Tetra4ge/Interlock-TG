@@ -1,7 +1,7 @@
 """Guards on the committed demo cache, which judges run the UI against with no key."""
 
-from server.api.deps import CACHED_ANSWERS_PATH, load_json_lines
 from server.api.demo import load_cache, normalize_question
+from server.api.deps import CACHED_ANSWERS_PATH, load_json_lines
 from server.api.schemas import PIPELINE_NAMES
 from server.pipelines.models import Status
 
