@@ -312,6 +312,10 @@ Every fact edge carries `doc_id + page + quote + run_id` — full provenance, tr
 
 ## Data
 
+<div align="center">
+<img src="docs/diagram.png" alt="System Diagram" width="100%">
+</div>
+
 ### Corpus
 
 | | |
