@@ -67,3 +67,22 @@ the entry below for the result.
 4. Fresh-clone test on a second machine.
 5. `docs/evaluation.md` (question verification and judge calibration) is missing.
 6. Architecture diagram is an SVG drawn from the code; no PNG export.
+
+## Live TigerGraph findings (checked 2026-10-07, read-only unless noted)
+
+- Reachable: the Savanna workspace in `.env` answers `echo`.
+- The `Interlock` graph holds data from an earlier load: 3 Company, 27 Person, 26 Document,
+  18,994 Chunk, 28 DIRECTOR_OF. AuditFirm, RelatedPartyTxn and RegulatoryAction are empty.
+- The workspace's vertex types include AML-style types (`Account`, `Transfer_Transaction`,
+  `Phone`, ...) that are not in `server/graph/gsql/schema.gsql`, so the live graph's schema does
+  not match the repo. Clearing it (`CLEAR GRAPH STORE -HARD`) would delete that data.
+- No GSQL queries are installed. `install_queries` skipped the install because the lock file
+  matched the query files, while the queries were absent on the cluster.
+- Fixed: `install_queries` did not select the graph, so the install failed with "Currently not
+  using any graphs". It now prefixes `USE GRAPH <name>`.
+- Still failing: all eight queries fail the V2 syntax check. Each file declares `SYNTAX v2`, but
+  the bodies use V1 constructs. `entity_neighbors` also references a `Transfer_Transaction`-style
+  edge path that the repo schema does not define.
+
+Consequence: GraphRAG and the graph-enabled agent cannot run against the cluster, so their
+test-split runs (Phase 6, Phase 7) remain open.

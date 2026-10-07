@@ -63,7 +63,8 @@ def install_queries() -> None:
         return
 
     logger.info("Queries changed, installing (this takes a few minutes compiling C++)...")
-    combined = ""
+    # GSQL needs a graph selected before INSTALL QUERY, or the install fails.
+    combined = f"USE GRAPH {conn.graphname}\n"
     for qf in query_files:
         with open(qf) as f:
             combined += f.read() + "\n"

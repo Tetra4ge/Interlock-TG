@@ -1,5 +1,8 @@
 # API image: the Python backend (hl CLI + FastAPI). The dashboard has its own image.
-FROM python:3.11-slim
+# Pinned to amd64: libsql==0.1.11 publishes no linux/arm64 wheel, and building it from
+# source needs a Rust and C toolchain this image does not carry. On Apple Silicon, Docker
+# Desktop runs this through emulation.
+FROM --platform=linux/amd64 python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

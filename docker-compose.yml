@@ -12,6 +12,7 @@ name: interlock
 services:
   api:
     build: .
+    platform: linux/amd64
     env_file:
       - path: .env
         required: false
