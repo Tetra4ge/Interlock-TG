@@ -17,7 +17,7 @@ environment noted; nothing here is claimed beyond that.
 | Dashboard lint | `npm run lint` | passed |
 | Compose file | `docker compose config -q` | passed |
 | Dashboard image | `docker build -t interlock-dashboard ./dashboard` | passed on retry (first attempt hit a transient Google Fonts timeout during `next build`, not a code issue); container smoke-tested with `docker run` and answered `200` |
-| API image | `docker build --platform linux/amd64 -t interlock-api .` | not finished. `uv sync` pulls full CUDA wheels for torch (sentence-transformers' dependency) — nvidia-cublas alone is 403MB — and two full attempts ran 20-40+ minutes before being cut off for time. The code path is fine (an amd64 build of the same dependencies succeeds for the dashboard image and for `uv sync` outside Docker); this is a bandwidth/image-size problem, not a bug |
+| API image | `docker build --platform linux/amd64 -t interlock-api .` | CPU-only torch pinned (`pyproject.toml` `[[tool.uv.index]]` + `[tool.uv.sources]`; `uv lock` removes all 18 nvidia-* packages). Build not re-timed after the fix; expected to complete in minutes rather than 40+ minutes. |
 | Clean-clone backend checks | fresh `git clone` of the branch, then `uv sync --frozen && ruff check/format && mypy && pytest` | all passed, 782 tests |
 
 Integration tests (`pytest -m integration`) are not run in CI. They need a live TigerGraph and a
@@ -64,8 +64,8 @@ README's Demo section.
 | 7 | Guardrails, calculator, agent loop, verifier | `test_guardrails`, `test_calculator`, `test_agent_budget`, `test_agent_fuzz`, `test_agent_tools`, `test_verifier`, `test_agent_fixture`, `test_agent_injection` | automated, pass; **live graph tools verified** (below), no eval run yet (Groq daily rate limit) |
 | 8 | API routes, demo mode, cache | `test_api_*`, `test_cached_answers_file`, `test_api_demo` | automated, pass |
 | 8 | Dashboard | Vitest suite, Playwright smoke and graph tests | see the entry below |
-| 9 | Pipeline contract on the smoke set | not written | **open** |
-| 9 | Smoke-set regression fixture (Step 2) | not written | **open** |
+| 9 | Pipeline contract on the smoke set | `tests/unit/test_pipeline_contract.py` — three tests, one per pipeline, verify `AnswerResult` shape/invariants offline | **done** |
+| 9 | Smoke-set regression fixture (Step 2) | contract test covers the offline correctness check; full accuracy-regression fixture requires stored LLM-cache entries that need a live key run first | **partial** |
 
 ## Security checklist (Phase 9 Step 7)
 
@@ -97,17 +97,14 @@ the entry below for the result.
 2. No `auditor` records extracted for TATAMOTORS/TATASTEEL, so `AUDITED_BY` is empty for those
    companies — a data-coverage gap, not a code bug (see above).
 3. Question set far below target size and missing three categories (`docs/evaluation.md`).
-4. Smoke-set regression fixture and pipeline contract test.
+4. Smoke-set regression fixture (pipeline contract test written; full accuracy regression needs a stored LLM-cache run).
 5. Fresh-clone test on an actual second machine (the clean-clone backend check above is the
    closest substitute run from here).
 6. Judge calibration (`server/eval/calibrate.py`) has never been run against a labelled sample.
-7. API Docker image never finished building here: `uv sync` pulls full CUDA torch wheels
-   (400MB+ for nvidia-cublas alone), and two attempts each ran 20-40+ minutes without finishing
-   before being cut off for time. Fix: pin a CPU-only torch wheel, e.g. add an
-   `[[tool.uv.index]]` for `https://download.pytorch.org/whl/cpu` scoped to `torch`, then
-   `uv lock` and rebuild — should cut the image by gigabytes and the build by most of that time.
-   The dashboard image builds and runs correctly (`docker build -t interlock-dashboard ./dashboard`
-   then `docker run`, smoke-tested with a `200` response).
+7. API Docker image: CPU-only torch pinned in `pyproject.toml` (`[[tool.uv.index]]` +
+   `[tool.uv.sources]`); `uv lock` removed all 18 nvidia-* packages. Build not re-timed, but
+   the lockfile change means `docker build` no longer downloads 400MB+ of CUDA wheels.
+   The dashboard image still builds and runs correctly.
 
 ## Live TigerGraph verification (2026-10-07)
 
