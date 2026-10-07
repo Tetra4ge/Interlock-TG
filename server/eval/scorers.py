@@ -42,6 +42,20 @@ def score_abstention(answerable: bool, abstained: bool) -> float:
     return 1.0 if abstained != answerable else 0.0
 
 
+def evidence_recall(
+    cited: Iterable[tuple[str, int]], gold: Iterable[tuple[str, int]]
+) -> float | None:
+    """Recall counterpart of citation_accuracy: of the gold evidence
+    locations, how many did the answer cite. None when the question has no
+    gold evidence (e.g. unanswerable), so it is excluded from the mean
+    rather than counted as a perfect or a zero score."""
+    gold_set = set(gold)
+    if not gold_set:
+        return None
+    cited_set = set(cited)
+    return sum(1 for g in gold_set if g in cited_set) / len(gold_set)
+
+
 def citation_accuracy(
     cited: Iterable[tuple[str, int]], gold: Iterable[tuple[str, int]]
 ) -> float | None:
