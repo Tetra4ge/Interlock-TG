@@ -144,6 +144,25 @@ def main() -> None:
         choices=["correct", "citation_accuracy", "evidence_recall", "faithfulness"],
     )
 
+    serve_parser = subparsers.add_parser("serve", help="Run the HTTP API (docs at /docs)")
+    serve_parser.add_argument("--host", default="127.0.0.1")
+    serve_parser.add_argument("--port", type=int, default=8000)
+    serve_parser.add_argument("--reload", action="store_true", help="Restart on code changes")
+
+    cache_parser = subparsers.add_parser(
+        "demo-cache", help="Build data/samples/cached_answers.jsonl from stored runs"
+    )
+    for name in ("rag", "graphrag", "agent"):
+        cache_parser.add_argument(
+            f"--{name}",
+            metavar="RUN_ID[,RUN_ID]",
+            help=f"run_id(s) of {name} runs, comma separated",
+        )
+    cache_parser.add_argument("--limit", type=int, default=None, help="At most this many questions")
+    cache_parser.add_argument(
+        "--out", default=None, help="Output path (default: the shipped cache)"
+    )
+
     args = parser.parse_args()
 
     if args.command == "db-migrate":
@@ -401,6 +420,28 @@ def main() -> None:
             diff = "-" if row["diff"] is None else f"{row['diff']:+.2f}"
             ci = "-" if row["ci95"] is None else f"[{row['ci95'][0]:+.2f}, {row['ci95'][1]:+.2f}]"
             print(f"{cat:<14}{row['n']:>6}  {diff:>8}  {ci:>17}  {row['verdict']}")
+    elif args.command == "serve":
+        import uvicorn
+
+        uvicorn.run("server.api.main:app", host=args.host, port=args.port, reload=args.reload)
+    elif args.command == "demo-cache":
+        from pathlib import Path as _Path
+
+        from server.api.demo import build_cache_from_runs
+        from server.api.deps import CACHED_ANSWERS_PATH
+        from server.store.db import connect
+
+        chosen = {n: getattr(args, n) for n in ("rag", "graphrag", "agent") if getattr(args, n)}
+        if not chosen:
+            print("Give at least one of --rag, --graphrag, --agent (a run_id).", file=sys.stderr)
+            sys.exit(1)
+        out_path = _Path(args.out) if args.out else CACHED_ANSWERS_PATH
+        conn = connect()
+        try:
+            n = build_cache_from_runs(conn, chosen, out_path, args.limit)
+        finally:
+            conn.close()
+        print(f"Wrote {n} cached questions to {out_path} from {chosen}")
     else:
         parser.print_help()
 
