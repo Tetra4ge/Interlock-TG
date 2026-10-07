@@ -11,14 +11,43 @@ environment noted; nothing here is claimed beyond that.
 | Lint (server, tests, spikes) | `uv run ruff check server tests spikes` | passed |
 | Format | `uv run ruff format --check server tests spikes` | passed |
 | Type check | `uv run mypy server` | passed (127 files) |
-| Dashboard typecheck | `npm run typecheck` | see the entry below |
-| Dashboard unit tests | `npm test` | see the entry below |
-| Dashboard build | `npm run build` | see the entry below |
+| Dashboard build | `npm run build` | passed |
+| Dashboard typecheck | `npm run typecheck` | passed (run after `build`; Next generates route/layout types that typecheck needs — see CI step order) |
+| Dashboard unit tests | `npm test` | 55 passed |
+| Dashboard lint | `npm run lint` | passed |
 | Compose file | `docker compose config -q` | passed |
-| API image | `docker build -t interlock-api .` | see the entry below |
+| API image | `docker build --platform linux/amd64 -t interlock-api .` | failed on a transient network error downloading a CUDA package mid-build (not a code issue); not yet retried to completion |
+| Clean-clone backend checks | fresh `git clone` of the branch, then `uv sync --frozen && ruff check/format && mypy && pytest` | all passed, 782 tests |
 
 Integration tests (`pytest -m integration`) are not run in CI. They need a live TigerGraph and a
 real LLM, and the integration test drops and recreates a graph. Run them locally before tagging.
+
+## Manual browser verification (2026-10-07, Claude in Chrome, real local servers)
+
+`DEMO_MODE=true uv run hl serve` + `npm run dev`, driven through an actual Chrome browser, not
+just `curl`. All seven dashboard pages were navigated to and confirmed to render real data, not
+an error panel:
+
+- **Overview** — category accuracy bars with CIs, matching `docs/results.md`.
+- **Trade-offs** — cost/latency/accuracy scatter plots, correct per-pipeline stats.
+- **Failures** — failure-type bar chart, matches the labels in `docs/results.md`.
+- **Question inspector** — question list, three answer cards, a citation chip opened the citation
+  drawer, "Show source page text" fetched the real cited PDF page through
+  `GET /documents/{id}/pages/{n}`, and the drawer correctly flagged a citation whose quote
+  couldn't be matched to the model's evidence block — the dashboard surfacing a real data-quality
+  gap honestly, not a bug.
+- **Live ask** — selecting a cached example question and clicking "Ask all three" answered in
+  0.1s from stored results; GraphRAG correctly showed "No stored answer for this pipeline".
+- **Data quality** — corpus and provenance numbers matched the API's `/data-quality` response.
+- **Review queue** — real quarantined records with their evidence JSON.
+
+One console error appeared on every page: a React hydration-mismatch warning caused by a
+`one-sec-browser-extension-id` attribute a Chrome extension injects before React hydrates. This
+is an artifact of the testing browser, not an application bug — confirmed by reading the error's
+own diff, which names the extension attribute as the sole mismatched attribute.
+
+Screenshots from this session are committed at `docs/screenshots/*.png` and embedded in the
+README's Demo section.
 
 ## Test coverage by phase
 
@@ -46,7 +75,7 @@ real LLM, and the integration test drops and recreates a graph. Run them locally
 | API bound to localhost in Compose | `127.0.0.1:` prefixes on the api and dashboard ports |
 | Guardrail tests pass | yes (unit suite above) |
 | Demo mode is the Compose default | yes (`DEMO_MODE` defaults to `true`) |
-| Disclaimer visible | README section; dashboard sidebar to be confirmed in the browser |
+| Disclaimer visible | README section, and confirmed in the browser: the orange banner ("Research demo... Not investment advice.") appears at the top and bottom of every dashboard page |
 | Only public data in samples | `data/samples/cached_answers.jsonl` holds answers built from the public filings; reviewed by reading, not by a scanner |
 
 ## Fresh-clone record (Phase 9 Step 11)
@@ -62,11 +91,13 @@ the entry below for the result.
 ## Known gaps before submission
 
 1. Final test-split runs for GraphRAG and the agent, with a live graph (`docs/results.md`).
-2. Question set far below target size and missing three categories.
+2. Question set far below target size and missing three categories (`docs/evaluation.md`).
 3. Smoke-set regression fixture and pipeline contract test.
-4. Fresh-clone test on a second machine.
-5. `docs/evaluation.md` (question verification and judge calibration) is missing.
-6. Architecture diagram is an SVG drawn from the code; no PNG export.
+4. Fresh-clone test on an actual second machine (the clean-clone backend check above is the
+   closest substitute run from here).
+5. Judge calibration (`server/eval/calibrate.py`) has never been run against a labelled sample.
+6. API Docker image: last build attempt failed on a transient network error, not retried to a
+   clean finish yet.
 
 ## Live TigerGraph findings (checked 2026-10-07, read-only unless noted)
 
