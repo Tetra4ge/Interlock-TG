@@ -376,8 +376,16 @@ def main() -> None:
                 f"{_fmt(agg['citation_accuracy_mean']):>6}  "
                 f"{_fmt(agg['evidence_recall_mean']):>6}  {_fmt(agg['abstention_rate']):>8}"
             )
-        if summary["overall"]["failures"]:
-            print("failures:", summary["overall"]["failures"])
+        overall = summary["overall"]
+        print(
+            f"cost/question ${overall['cost_usd_mean'] or 0:.4f}  "
+            f"llm calls {_fmt(overall['llm_calls_mean'])}  "
+            f"tool calls {_fmt(overall['tool_calls_mean'])}  "
+            f"median latency {(overall['latency_median_ms'] or 0) / 1000:.1f}s  "
+            f"budget exceeded {_fmt(overall['budget_exceeded_rate'])}"
+        )
+        if overall["failures"]:
+            print("failures:", overall["failures"])
     elif args.command == "compare":
         from server.eval.compare import compare_runs, load_scores
 

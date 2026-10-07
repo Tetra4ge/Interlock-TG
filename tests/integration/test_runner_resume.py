@@ -122,3 +122,53 @@ def test_judge_verdict_reaches_the_score(tmp_path: Path) -> None:
     )
     assert summary["overall"]["faithfulness_mean"] == 0.0
     assert summary["overall"]["failures"] == {"hallucination": 2}
+
+
+class _AgentLikePipeline:
+    """Reports tool calls, and a budget-exceeded status on the second question."""
+
+    def __init__(self) -> None:
+        self.n = 0
+
+    def answer(self, question: str, request_id: str) -> AnswerResult:
+        self.n += 1
+        exceeded = self.n == 2
+        return AnswerResult(
+            pipeline="agent",
+            question=question,
+            answer_short="Sanjiv Bajaj" if not exceeded else "Someone Else",
+            answer_long="",
+            answer_type=AnswerType.ENTITY,
+            citations=[],
+            evidence=[],
+            trace=[],
+            usage=Usage(
+                tokens_in=0, tokens_out=0, cost_usd=0.01, latency_ms=5, llm_calls=4, tool_calls=3
+            ),
+            status=Status.BUDGET if exceeded else Status.OK,
+        )
+
+
+def test_steps_and_budget_exceeded_rate_are_reported(tmp_path: Path) -> None:
+    summary = run_eval(
+        "agent", "test", run_id="r-agent", pipeline=_AgentLikePipeline(),
+        questions=_questions(4), runs_dir=tmp_path,
+    )  # fmt: skip
+    overall = summary["overall"]
+    assert overall["tool_calls_mean"] == 3
+    assert overall["budget_exceeded_rate"] == 0.25
+    # a wrong answer that hit the budget is labelled as such
+    assert overall["failures"] == {"budget_loop": 1}
+    scores = [
+        json.loads(line) for line in (tmp_path / "r-agent/scores.jsonl").read_text().splitlines()
+    ]
+    assert [s["budget_exceeded"] for s in scores] == [False, True, False, False]
+
+
+def test_a_run_without_tool_calls_still_summarises(tmp_path: Path) -> None:
+    summary = run_eval(
+        "fake", "test", run_id="r-plain", pipeline=_CountingPipeline(),
+        questions=_questions(2), runs_dir=tmp_path,
+    )  # fmt: skip
+    assert summary["overall"]["tool_calls_mean"] == 0
+    assert summary["overall"]["budget_exceeded_rate"] == 0
