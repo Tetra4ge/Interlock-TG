@@ -1,3 +1,5 @@
+import re
+
 from pydantic import BaseModel, Field
 
 from server.embed.keyword import load_chunks
@@ -7,9 +9,13 @@ from server.pipelines.agent.tools.neighbors import log_triples
 from server.pipelines.graphrag.expand import parse_triples
 
 DESCRIPTION = (
-    "Get the exact source quote and page for a fact or chunk id (the ref_id shown with "
-    "evidence), to confirm before citing."
+    "Get the full text and source page of an evidence item you were shown, by its label "
+    "(for example E5). Search results are only previews; use this to read the rest of one "
+    "before relying on it or citing it. Also accepts a fact's ref_id."
 )
+
+
+LABEL = re.compile(r"E\d+")
 
 
 class GetEvidenceArgs(BaseModel):
@@ -17,7 +23,7 @@ class GetEvidenceArgs(BaseModel):
 
 
 def _from_log(ctx: ToolContext, ref_id: str) -> ToolResult | None:
-    label = ctx.log.label_of(ref_id)
+    label = ref_id.upper() if LABEL.fullmatch(ref_id.upper()) else ctx.log.label_of(ref_id)
     item = ctx.log.item_for_label(label) if label else None
     if label is None or item is None:
         return None

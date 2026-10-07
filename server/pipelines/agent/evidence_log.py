@@ -1,10 +1,28 @@
 import re
+from collections.abc import Callable
 
-from server.pipelines.common.budget import fit_to_budget
+import numpy as np
+
+from server.pipelines.common.budget import fit_to_budget, item_tokens
 from server.pipelines.models import EvidenceItem
 
 LABEL_RE = re.compile(r"\bE(\d+)\b")
 RECENT_STEPS = 3
+RECENT_BONUS = 0.05  # recency breaks ties between similarly relevant items
+
+Relevance = Callable[[list[str]], list[float]]
+
+
+def question_similarity(question: str, texts: list[str]) -> list[float]:
+    """Cosine similarity of each text to the question (embeddings are normalised)."""
+    from server.embed.provider import embed_texts
+    from server.embed.query import embed_query
+
+    if not texts:
+        return []
+    q = np.array(embed_query(question), dtype=np.float32)
+    vectors = np.array(embed_texts(texts, is_query=False), dtype=np.float32)
+    return [float(x) for x in vectors @ q]
 
 
 class EvidenceLog:
@@ -59,21 +77,48 @@ class EvidenceLog:
         return len(self.items)
 
     def prioritized(
-        self, budget_tokens: int, last_text: str, recent_labels: list[str]
+        self,
+        budget_tokens: int,
+        last_text: str,
+        recent_labels: list[str],
+        relevance: Relevance | None = None,
     ) -> tuple[list[EvidenceItem], dict[str, dict]]:
-        """Fit the log into the shared evidence budget: items the agent's last
-        message cited first, then items from its latest steps, then the rest."""
+        """Fit the log into the shared evidence budget. Anything the agent's last
+        message cited comes first. The rest is ordered by relevance to the question
+        (recent steps get a small bonus) when a scorer is given and the log does
+        not already fit; without one, recent steps come first, then log order.
+
+        Recency alone is a poor proxy: an agent that flails ends with a log whose
+        newest items are its worst, and they would push out the ones that matter."""
+        if sum(item_tokens(i) for i in self.items) <= budget_tokens:
+            return self._fit(self.items, budget_tokens)
+
         cited = {f"E{n}" for n in LABEL_RE.findall(last_text)}
         recent = set(recent_labels)
+        labelled = [(f"E{i + 1}", item) for i, item in enumerate(self.items)]
 
-        def rank(label: str) -> int:
-            return 0 if label in cited else 1 if label in recent else 2
+        scores: list[float] | None = None
+        if relevance is not None:
+            try:
+                scores = relevance([item.text for _, item in labelled])
+            except Exception:  # scoring is a heuristic; never lose the answer over it
+                scores = None
 
-        ordered = sorted(
-            ((f"E{i + 1}", item) for i, item in enumerate(self.items)),
-            key=lambda pair: rank(pair[0]),  # stable: log order within a group
-        )
-        kept = fit_to_budget([item for _, item in ordered], budget_tokens)
+        def key(i: int) -> tuple[int, float]:
+            label = labelled[i][0]
+            if label in cited:
+                return (0, 0.0)
+            if scores is None:
+                return (1, 0.0) if label in recent else (2, 0.0)
+            return (1, -(scores[i] + (RECENT_BONUS if label in recent else 0.0)))
+
+        order = sorted(range(len(labelled)), key=key)  # stable: log order breaks ties
+        return self._fit([labelled[i][1] for i in order], budget_tokens)
+
+    def _fit(
+        self, ordered: list[EvidenceItem], budget_tokens: int
+    ) -> tuple[list[EvidenceItem], dict[str, dict]]:
+        kept = fit_to_budget(ordered, budget_tokens)
         return kept, {i.ref_id: self.provenance[i.ref_id] for i in kept}
 
 

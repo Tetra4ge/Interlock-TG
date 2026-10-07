@@ -276,3 +276,39 @@ def test_the_loop_is_resumable_under_the_same_budget(monkeypatch, tracer, fake_t
 def test_step_args_are_recorded_as_json_safe(monkeypatch, tracer, fake_tools) -> None:  # type: ignore[no-untyped-def]
     state = _run(FakeLLM(turn(call("find_entity", name="A")), turn(text="x")), monkeypatch, tracer)
     json.dumps(state.steps[0].model_dump())
+
+
+REJECTION = RuntimeError(
+    "Error code: 400 - Tool call validation failed: parameters for tool search_text did not match"
+)
+
+
+def test_a_provider_rejected_tool_call_is_recoverable(monkeypatch, tracer, fake_tools) -> None:  # type: ignore[no-untyped-def]
+    llm = FakeLLM(REJECTION, turn(call("search_text", query="auditor")), turn(text="done"))  # type: ignore[arg-type]
+
+    def play(req):  # type: ignore[no-untyped-def]
+        out = llm.script.pop(0)
+        llm.requests.append(req.model_copy(deep=True))
+        if isinstance(out, Exception):
+            raise out
+        return out
+
+    monkeypatch.setattr(loop_mod, "call_llm", play)
+    budget = Budget()
+    state = run_loop(new_state("q", budget), EvidenceLog(), tracer, budget)
+
+    assert state.status == ANSWERED and state.rejected_turns == 1
+    assert [s.tool for s in state.steps] == ["search_text"]  # the rejected turn cost no step
+    retry = llm.requests[1].messages[-1]
+    assert retry.role == "user" and "match the tool's schema" in retry.content
+    assert any(s.error and s.error.startswith("rejected") for s in tracer.steps)
+
+
+def test_repeated_rejections_end_the_loop_as_an_error(monkeypatch, tracer, fake_tools) -> None:  # type: ignore[no-untyped-def]
+    def always(req):  # type: ignore[no-untyped-def]
+        raise REJECTION
+
+    monkeypatch.setattr(loop_mod, "call_llm", always)
+    budget = Budget()
+    state = run_loop(new_state("q", budget), EvidenceLog(), tracer, budget)
+    assert state.status == ERROR and state.rejected_turns == loop_mod.MAX_REJECTED_TURNS

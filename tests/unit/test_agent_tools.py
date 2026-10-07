@@ -198,6 +198,24 @@ def test_search_text_logs_chunks_with_page_ranges(ctx, vector) -> None:  # type:
     assert vector[0]["filters"] == {"company_id": "TATASTEEL", "fiscal_year": "FY2023-24"}
 
 
+@pytest.mark.parametrize("given", ["C:TATASTEEL", "TATASTEEL", "tatasteel", "c:tatasteel"][:3])
+def test_search_text_accepts_the_id_as_find_entity_prints_it(ctx, vector, given: str) -> None:  # type: ignore[no-untyped-def]
+    result = execute_tool(ctx, "search_text", {"query": "auditor", "company_id": given})
+    assert result.ok
+    assert vector[0]["filters"] == {"company_id": "TATASTEEL"}
+
+
+def test_the_search_text_schema_allows_the_prefixed_form() -> None:
+    import re
+
+    from server.pipelines.agent.tools import tool_specs
+
+    spec = next(s for s in tool_specs() if s.name == "search_text")
+    pattern = spec.parameters["properties"]["company_id"]["anyOf"][0]["pattern"]
+    assert re.fullmatch(pattern, "C:TATASTEEL") and re.fullmatch(pattern, "BAJAJ-AUTO")
+    assert not re.fullmatch(pattern, "x; DROP")
+
+
 def test_search_text_section_filter_and_k(ctx, vector) -> None:  # type: ignore[no-untyped-def]
     result = execute_tool(ctx, "search_text", {"query": "auditor", "section": "auditor", "k": 1})
     assert result.labels == ["E1"] and "governance" not in result.text
@@ -327,6 +345,19 @@ def test_get_evidence_returns_a_logged_fact(ctx, monkeypatch) -> None:  # type: 
     ctx.log.add("triple", "d1", "Person: A -> Company: B\n  source: doc abc, p.46", "a" * 24, 46)
     result = execute_tool(ctx, "get_evidence", {"ref_id": "d1"})
     assert result.ok and result.labels == ["E1"] and "p.46" in result.text
+
+
+@pytest.mark.parametrize("label", ["E1", "e1"])
+def test_get_evidence_reads_an_item_by_its_label(ctx, label: str) -> None:  # type: ignore[no-untyped-def]
+    full = "The auditor's name is at the end. " * 50 + "Price Waterhouse & Co."
+    ctx.log.add("chunk", "abc-1", full, "d" * 24, 298)
+    result = execute_tool(ctx, "get_evidence", {"ref_id": label})
+    assert result.ok and result.labels == ["E1"] and "Price Waterhouse & Co." in result.text
+    assert "p.298" in result.text
+
+
+def test_an_unknown_label_is_an_error(ctx) -> None:  # type: ignore[no-untyped-def]
+    assert not execute_tool(ctx, "get_evidence", {"ref_id": "E9"}).ok
 
 
 def test_get_evidence_finds_a_transaction_by_either_edge_id(ctx) -> None:  # type: ignore[no-untyped-def]

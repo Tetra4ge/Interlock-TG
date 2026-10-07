@@ -1,7 +1,7 @@
 import time
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from server.graph.queries import vector_search
 from server.pipelines.agent.tools.base import ToolContext, ToolResult, error
@@ -10,7 +10,8 @@ from server.pipelines.config import RETRIEVAL
 
 DESCRIPTION = (
     "Semantic search over the filings' text. Use for facts not in the graph or to confirm "
-    "details. Filter by company_id (e.g. TATASTEEL), fiscal_year (FY2023-24) and section."
+    "details. Filter by company_id (e.g. C:TATASTEEL or TATASTEEL), fiscal_year (FY2023-24) "
+    "and section."
 )
 PREVIEW_CHARS = 1200  # per chunk shown to the model; the evidence log keeps the full text
 DOC_PREFIX_CHARS = 12
@@ -20,12 +21,25 @@ Section = Literal[
 ]
 
 
+def _bare_company_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value.removeprefix("C:").upper()
+
+
 class SearchTextArgs(BaseModel):
     query: str = Field(min_length=1, max_length=300)
-    company_id: str | None = Field(default=None, pattern=r"^[A-Z0-9\-]{1,32}$")
+    # Accepts the id exactly as find_entity prints it (C:TATASTEEL) or bare (TATASTEEL);
+    # a model naturally reuses the id it was just given.
+    company_id: str | None = Field(default=None, pattern=r"^(C:)?[A-Za-z0-9\-]{1,32}$")
     fiscal_year: str | None = Field(default=None, pattern=r"^FY\d{4}-\d{2}$")
     section: Section | None = None
     k: int = Field(default=5, ge=1, le=8)
+
+    @field_validator("company_id")
+    @classmethod
+    def _strip_prefix(cls, v: str | None) -> str | None:
+        return _bare_company_id(v)
 
 
 def _excluded_doc_ids() -> set[str]:

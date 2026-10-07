@@ -84,3 +84,59 @@ def test_each_half_of_a_transaction_id_finds_the_same_label() -> None:
     assert log.label_of("t1-r") == label == log.label_of("t1-c") == log.label_of("t1-r,t1-c")
     assert log.add("triple", "t1-c", "again") == label  # no duplicate entry
     assert len(log) == 1
+
+
+def _relevance(scores: dict[str, float]):  # type: ignore[no-untyped-def]
+    return lambda texts: [scores[t] for t in texts]
+
+
+def test_relevance_beats_recency_when_the_log_does_not_fit() -> None:
+    log = EvidenceLog()
+    log.add("chunk", "auditor", "auditor " + "pad " * 150)  # E1: the answer, found early
+    for i in range(4):
+        log.add("chunk", f"noise{i}", f"noise{i} " + "pad " * 150)  # E2..E5: later, irrelevant
+    scores = {"auditor " + "pad " * 150: 0.9}
+    scores.update({f"noise{i} " + "pad " * 150: 0.1 for i in range(4)})
+    per_item = estimate_tokens("auditor " + "pad " * 150) + LABEL_OVERHEAD_TOKENS
+
+    items, _ = log.prioritized(per_item * 2, "", ["E2", "E3", "E4", "E5"], _relevance(scores))
+
+    assert items[0].ref_id == "auditor"  # it would have been dropped by recency alone
+
+
+def test_without_a_scorer_recent_steps_still_come_first() -> None:
+    log = _log(5, words=100)
+    per_item = estimate_tokens("word " * 100) + LABEL_OVERHEAD_TOKENS
+    items, _ = log.prioritized(per_item * 2, "", ["E4", "E5"])
+    assert [i.ref_id for i in items] == ["r3", "r4"]
+
+
+def test_cited_items_stay_first_even_against_more_relevant_ones() -> None:
+    log = _log(4, words=100)
+    texts = [i.text for i in log.items]
+    scores = dict.fromkeys(texts, 0.9)
+    per_item = estimate_tokens(texts[0]) + LABEL_OVERHEAD_TOKENS
+    items, _ = log.prioritized(per_item, "I used E3", [], _relevance(scores))
+    assert [i.ref_id for i in items] == ["r2"]
+
+
+def test_a_failing_scorer_falls_back_to_recency() -> None:
+    log = _log(5, words=100)
+    per_item = estimate_tokens("word " * 100) + LABEL_OVERHEAD_TOKENS
+
+    def boom(texts: list[str]) -> list[float]:
+        raise RuntimeError("embedding model unavailable")
+
+    items, _ = log.prioritized(per_item * 2, "", ["E4", "E5"], boom)
+    assert [i.ref_id for i in items] == ["r3", "r4"]
+
+
+def test_the_scorer_is_not_called_when_everything_fits() -> None:
+    calls: list[int] = []
+
+    def spy(texts: list[str]) -> list[float]:
+        calls.append(1)
+        return [0.0] * len(texts)
+
+    items, _ = _log(3).prioritized(10_000, "", [], spy)
+    assert calls == [] and len(items) == 3

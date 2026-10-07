@@ -2,7 +2,7 @@ import time
 
 from server.llm.gateway import SpendCapExceeded
 from server.llm.models import LLMMessage
-from server.pipelines.agent.evidence_log import EvidenceLog, recent_labels
+from server.pipelines.agent.evidence_log import EvidenceLog, question_similarity, recent_labels
 from server.pipelines.agent.loop import new_state, run_loop
 from server.pipelines.agent.state import (
     BUDGET_EXCEEDED,
@@ -33,7 +33,10 @@ def _draft(
 ) -> tuple[ModelAnswer | None, dict[str, LabeledEvidence], str | None]:
     """The shared final answer over the evidence log, within the shared budget."""
     items, provenance = log.prioritized(
-        RETRIEVAL.evidence_token_budget, state.last_text, recent_labels(state.steps)
+        RETRIEVAL.evidence_token_budget,
+        state.last_text,
+        recent_labels(state.steps),
+        relevance=lambda texts: question_similarity(question, texts),
     )
     labels = assign_labels(items, provenance)
     answer, err = final_answer(tracer, question, labels, extra_instructions=extra)

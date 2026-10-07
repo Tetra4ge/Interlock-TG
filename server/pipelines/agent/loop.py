@@ -22,6 +22,10 @@ from server.pipelines.config import AGENT, AgentConfig
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent / "prompts/agent_system_v1.md"
 TURN_MAX_TOKENS = 800
 SUMMARY_CHARS = 300
+MAX_REJECTED_TURNS = 2
+# Providers validate tool calls against the schema server-side and answer 400 when
+# the model's call does not fit. That is the model's mistake, not an outage.
+REJECTED_MARKER = "tool call validation failed"
 
 
 def system_prompt(budget: Budget) -> str:
@@ -84,6 +88,24 @@ def run_loop(
         except SpendCapExceeded:
             raise
         except Exception as e:
+            if REJECTED_MARKER in str(e).lower() and state.rejected_turns < MAX_REJECTED_TURNS:
+                state.rejected_turns += 1
+                tracer.add(
+                    "llm",
+                    "agent_turn",
+                    f"step {len(state.steps)}",
+                    "",
+                    error=f"rejected: {e}"[:400],
+                )
+                state.messages.append(
+                    LLMMessage(
+                        role="user",
+                        content="Your last tool call was rejected because its arguments did not "
+                        f"match the tool's schema ({str(e)[:300]}). Call the tool again with "
+                        "arguments that match the schema.",
+                    )
+                )
+                continue
             state.status, state.stop_reason = ERROR, f"llm: {e!r}"[:300]
             tracer.add("llm", "agent_turn", f"step {len(state.steps)}", "", error=state.stop_reason)
             break

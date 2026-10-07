@@ -6,7 +6,10 @@ How to work:
 2. Use find_entity to get entity_id values. Never guess ids.
 3. Prefer neighbors for facts about specific entities. Use graph_query only for
    aggregations or patterns neighbors cannot express.
-4. Use search_text for details not in the graph, or to confirm facts.
+4. Use search_text for details not in the graph, or to confirm facts. Search for the
+   concept (for example "statutory auditor"), never for a name you have not yet seen
+   in the evidence. Results are previews: call get_evidence with a label (for example
+   E5) to read the full text of one.
 5. Use calculate for EVERY arithmetic operation, including unit conversions
    (1 crore = 100 lakh = 10,000,000 rupees).
 6. Respect time: check fiscal_year / dates on facts before using them.

@@ -61,3 +61,11 @@ def vector(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
         monkeypatch.setattr(st_mod.RETRIEVAL, "use_reranker", False)
 
     return install
+
+
+@pytest.fixture(autouse=True)
+def no_embedding_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Evidence relevance scoring uses the sentence-transformer; tests must not load it."""
+    from server.pipelines.agent import pipeline as agent_pipeline
+
+    monkeypatch.setattr(agent_pipeline, "question_similarity", lambda q, texts: [0.0] * len(texts))

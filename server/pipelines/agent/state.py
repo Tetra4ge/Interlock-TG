@@ -46,6 +46,7 @@ class AgentState(BaseModel):
     stop_reason: str | None = None
     repeat_counter: dict[str, int] = Field(default_factory=dict)  # "tool:args" -> times called
     graph_query_failures: int = 0
+    rejected_turns: int = 0  # provider refused the model's tool call as schema-invalid
     last_text: str = ""  # the model's last free-text message (may name [E#] it relied on)
 
     def elapsed_s(self) -> float:
