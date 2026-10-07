@@ -467,3 +467,24 @@ def test_the_openapi_schema_is_served(harness: Harness) -> None:
     assert {"/health", "/ask", "/compare", "/runs", "/compare-runs", "/graph/subgraph"} <= set(
         spec["paths"]
     )
+
+
+def test_review_queue_route_lists_pending_records(harness: Harness, memdb: MemoryDB) -> None:
+    memdb.execute(
+        "INSERT INTO documents (doc_id, company_id, doc_type, fiscal_year, file_path, fetched_at) "
+        "VALUES ('d', 'TATASTEEL', 'annual_report', 'FY2023-24', 'x.pdf', 'now')"
+    )
+    memdb.execute(
+        "INSERT INTO records (record_id, run_id, doc_id, record_type, payload_json, status) "
+        "VALUES ('r1', 'run', 'd', 'rpt', '{\"amount_raw\": \"48.2\"}', 'review')"
+    )
+    memdb.execute(
+        "INSERT INTO review_queue (record_id, reason, created_at) "
+        "VALUES ('r1', 'unit_unknown', 'now')"
+    )
+    memdb.commit()
+    with harness as client:
+        body = client.get("/review-queue").json()
+        too_many = client.get("/review-queue", params={"limit": 9999})
+    assert body[0]["record_id"] == "r1" and body[0]["payload"] == {"amount_raw": "48.2"}
+    assert too_many.status_code == 422
