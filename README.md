@@ -238,6 +238,10 @@ sequenceDiagram
 
 ## Data
 
+<div align="center">
+<img src="docs/diagram.png" alt="System Diagram" width="100%">
+</div>
+
 ### Corpus
 
 | Field | Value |
