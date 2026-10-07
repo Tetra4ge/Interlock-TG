@@ -1,3 +1,5 @@
+import pytest
+
 from server.parse.tokens import estimate_tokens
 from server.pipelines.agent.evidence_log import EvidenceLog, recent_labels
 from server.pipelines.agent.state import AgentState, Budget, Step
@@ -140,3 +142,15 @@ def test_the_scorer_is_not_called_when_everything_fits() -> None:
 
     items, _ = _log(3).prioritized(10_000, "", [], spy)
     assert calls == [] and len(items) == 3
+
+
+def test_question_similarity_is_cosine_of_normalised_embeddings(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from server.embed import provider, query
+    from server.pipelines.agent.evidence_log import question_similarity
+
+    monkeypatch.setattr(query, "embed_query", lambda q: [1.0, 0.0])
+    monkeypatch.setattr(
+        provider, "embed_texts", lambda texts, is_query=False: [[1.0, 0.0], [0.0, 1.0], [0.6, 0.8]]
+    )
+    assert question_similarity("q", ["a", "b", "c"]) == pytest.approx([1.0, 0.0, 0.6])
+    assert question_similarity("q", []) == []
