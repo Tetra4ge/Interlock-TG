@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accuracyRows, callsRows, failureStack, tradeoffPoints } from "./chart";
+import { accuracyRows, allZero, callsRows, failureStack, takeaways, tradeoffPoints } from "./chart";
 import { citationChips, edgeIdsOf, goldEdgeIds, splitMarkers } from "./evidence";
 import { humanize, money, ms, pct, pctRange, shortId, signed } from "./format";
 import { PIPELINES, PIPELINE_ORDER, isPipelineKey } from "./pipelines";
@@ -197,5 +197,39 @@ describe("sample caveats", () => {
     expect(small[0]).not.toContain("agent");
     const mixed = sampleCaveats({ rag: m("dev", 100), agent: m("test", 100) });
     expect(mixed[0]).toContain("different splits");
+  });
+});
+
+describe("takeaways", () => {
+  const mk = (llm: number, latency: number): MetricsBlock => block({ llm_calls_mean: llm, latency_median_ms: latency });
+  const compare = (verdict: string, diff: number | null): CompareRunsOut => ({
+    runs: {},
+    questions: [],
+    leaders: {},
+    metrics: {
+      rag: { run_id: "r", pipeline: "rag", split: "dev", question_version: "v1", git_commit: null, overall: mk(1, 9000), by_category: {} },
+      agent: { run_id: "a", pipeline: "agent", split: "dev", question_version: "v1", git_commit: null, overall: mk(5.4, 57000), by_category: {} },
+    },
+    pairs: [{ metric: "correct", a: "agent", b: "rag", overall: { n: 5, diff, ci95: null, verdict }, by_category: {} }],
+  });
+
+  it("states the cost multiples and an accuracy claim only as strong as the verdict", () => {
+    const [unclear] = takeaways(compare("no clear difference", -0.2));
+    expect(unclear).toContain("5.4\u00d7 the LLM calls");
+    expect(unclear).toContain("6.3\u00d7 the median latency");
+    expect(unclear).toContain("no clear accuracy difference (-20 points)");
+    expect(takeaways(compare("A better", 0.4))[0]).toContain("clearly more accurate (+40 points)");
+    expect(takeaways(compare("B better", -0.4))[0]).toContain("clearly less accurate");
+  });
+  it("asks for a baseline when there is no RAG run, and for more runs when alone", () => {
+    const noRag = { ...compare("A better", 0.1), metrics: { agent: compare("A better", 0.1).metrics.agent } };
+    expect(takeaways(noRag)[0]).toContain("Select a RAG run");
+    const alone = { ...compare("A better", 0.1), metrics: { rag: compare("A better", 0.1).metrics.rag }, pairs: [] };
+    expect(takeaways(alone)[0]).toContain("more than one pipeline");
+  });
+  it("detects an all-zero cost axis", () => {
+    expect(allZero([{ x: 0 }, { x: 0 }])).toBe(true);
+    expect(allZero([{ x: 0 }, { x: 0.01 }])).toBe(false);
+    expect(allZero([])).toBe(false);
   });
 });

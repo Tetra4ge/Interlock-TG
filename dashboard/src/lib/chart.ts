@@ -90,3 +90,51 @@ export function callsRows(metrics: CompareRunsOut["metrics"]): { pipeline: strin
     tool: metrics[k]!.overall.tool_calls_mean ?? 0,
   }));
 }
+
+/** Plain-language trade-off notes derived from the data, each measured against RAG.
+ *  Whether an accuracy difference is real is taken from the paired verdicts, so
+ *  this never claims more than the intervals support. */
+export function takeaways(compare: CompareRunsOut): string[] {
+  const rag = compare.metrics.rag;
+  const notes: string[] = [];
+  if (!rag) return ["Select a RAG run to see how the other pipelines compare with the baseline."];
+
+  const ratio = (a: number | null, b: number | null): number | null =>
+    a !== null && b !== null && b > 0 ? a / b : null;
+
+  for (const key of PIPELINE_ORDER) {
+    const m = compare.metrics[key];
+    if (!m || key === "rag") continue;
+    const name = key === "agent" ? "The agent" : "GraphRAG";
+    const calls = ratio(m.overall.llm_calls_mean, rag.overall.llm_calls_mean);
+    const slower = ratio(m.overall.latency_median_ms, rag.overall.latency_median_ms);
+    const cost = [
+      calls !== null ? `${calls.toFixed(1)}× the LLM calls` : null,
+      slower !== null ? `${slower.toFixed(1)}× the median latency` : null,
+    ].filter(Boolean);
+
+    const pair = compare.pairs.find((p) => p.a === key && p.b === "rag");
+    let accuracy = "";
+    if (pair) {
+      const diff = pair.overall.diff;
+      const sign = diff !== null && diff >= 0 ? "+" : "";
+      const size = diff === null ? "" : ` (${sign}${(diff * 100).toFixed(0)} points)`;
+      accuracy =
+        pair.overall.verdict === "A better"
+          ? `and is clearly more accurate${size}`
+          : pair.overall.verdict === "B better"
+            ? `and is clearly less accurate${size}`
+            : `with no clear accuracy difference${size}`;
+    }
+    if (cost.length || accuracy) {
+      const tail = accuracy ? `, ${accuracy}` : "";
+      notes.push(`${name} uses ${cost.join(" and ") || "a similar budget"} compared with RAG${tail}.`);
+    }
+  }
+  if (notes.length === 0) notes.push("Select runs for more than one pipeline to compare cost and accuracy.");
+  return notes;
+}
+
+export function allZero(points: { x: number }[]): boolean {
+  return points.length > 0 && points.every((p) => p.x === 0);
+}
