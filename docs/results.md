@@ -18,6 +18,7 @@ reachable. Until it is, the headline comparison in the README is not supported.
 | run_id | pipeline | split | git commit | clean tree | n | accuracy (95% CI) | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `rag-test-20261007T014855` | RAG | test | `17cfed3` | yes | 12 | 1.00 (1.00–1.00) | **latest clean test run** |
+| `graphrag-dev-20261007` | GraphRAG | dev | `905a786` | yes | 5 | 0.60 (0.20–1.00) | **first graph-enabled GraphRAG run**; live `InterlockV2` graph |
 | `rag-test-v1` | RAG | test | `df6f158` | no | 8 | 0.875 (0.625–1.00) | earlier run |
 | `phase5-test-v2`, `phase5-test-v3` | RAG | test | `9acc876` | no | 12 | 1.00 (1.00–1.00) | earlier runs, same commit |
 | `phase7-rag-dev` | RAG | dev | `24d9391` | no | 5 | 0.60 (0.20–1.00) | |
@@ -35,12 +36,27 @@ citations are the weak point even where answers are correct. Evidence recall is 
 
 ## GraphRAG and Agentic GraphRAG
 
-No test-split runs exist for either. The only agent run is a dev run with **no graph**, so it does
-not measure the agent. The Phase 6 and Phase 7 exit criteria that depend on graph-enabled runs
-remain open (see `docs/test-plan.md`).
+`graphrag-dev-20261007`: first graph-enabled GraphRAG run, against the live `InterlockV2` graph.
+
+| category | n | GraphRAG accuracy (95% CI) | RAG accuracy (95% CI) |
+| --- | --- | --- | --- |
+| single_fact | 3 | 0.33 (0.00–1.00) | 0.33 (0.00–1.00) |
+| unanswerable | 2 | 1.00 (1.00–1.00) | 1.00 (1.00–1.00) |
+| **overall** | **5** | **0.60 (0.20–1.00)** | **0.60 (0.20–1.00)** |
+
+GraphRAG matched RAG exactly on this 5-question dev set. With n=5 the confidence intervals
+overlap completely — this is not evidence for or against GraphRAG; it demonstrates the pipeline
+runs end-to-end against a live graph. LLM calls: 2.0/question (plan + answer). Median latency:
+28.9 s. No tool calls (GraphRAG is a single-pass pipeline). Citation accuracy: 0.25.
+Failures: 1 `hallucination`, 1 `wrong_abstention`.
+
+No test-split run exists for GraphRAG or the Agent. The Phase 6 and 7 exit criteria that depend
+on test-split runs remain open (see `docs/test-plan.md`).
 
 ## Failure labels
 
+- `rag-test-20261007T014855`: no failures (all 12 correct on this set).
+- `graphrag-dev-20261007`: `hallucination` 1, `wrong_abstention` 1.
 - `phase7-rag-dev`: `hallucination` 1, `wrong_abstention` 1.
 - `phase7-agent-dev-nograph`: `bad_query` 2, `wrong_abstention` 1.
 

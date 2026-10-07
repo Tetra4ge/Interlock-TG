@@ -14,6 +14,7 @@ dependencies = [
     "rapidfuzz>=3.0.0",
     "groq>=1.7.0",
     "libsql>=0.1.11",
+    "torch>=2.0.0",
     "sentence-transformers>=6.1.0",
     "fastapi>=0.142.2",
     "uvicorn[standard]>=0.54.0",
@@ -25,6 +26,20 @@ hl = "server.cli:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Use CPU-only PyTorch wheels for sentence-transformers.  The default PyPI torch wheel
+# on Linux pulls ~400 MB of nvidia-cublas/cufft/etc. even though we only use the CPU
+# path.  Pinning to the pytorch.org CPU index keeps the API Docker image under 2 GB
+# and the `uv sync` step in CI under two minutes.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchvision = [{ index = "pytorch-cpu" }]
+torchaudio = [{ index = "pytorch-cpu" }]
 
 [tool.hatch.build.targets.wheel]
 packages = ["server"]
