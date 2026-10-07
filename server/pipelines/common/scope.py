@@ -60,3 +60,10 @@ def detect_filters(question: str) -> dict[str, str]:
     if year:
         filters["fiscal_year"] = year
     return filters
+
+
+@cache
+def company_display_names() -> dict[str, str]:
+    """company_id -> legal name, e.g. "TATASTEEL" -> "Tata Steel Limited"."""
+    data = yaml.safe_load(COMPANIES_PATH.read_text()) or {}
+    return {c["company_id"]: c["name"] for c in data.get("companies", [])}

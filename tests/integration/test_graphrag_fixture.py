@@ -329,3 +329,45 @@ def test_graphrag_is_registered_alongside_rag() -> None:
 
     load_all()
     assert {"rag", "graphrag"} <= set(REGISTRY)
+
+
+def test_global_question_uses_statistics_and_never_touches_the_graph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from server.graph.stats import StatItem
+    from server.pipelines.graphrag import global_mode as gm
+
+    pack = [
+        StatItem(topic="COVERAGE", text="The dataset has 26 documents covering 4 companies."),
+        StatItem(topic="IN_SECTOR", text="Sector Automobiles: 2 companies tracked."),
+    ]
+    monkeypatch.setattr(gm, "dataset_stats_pack", lambda: pack)
+    graph = Graph()
+    answer = {
+        "answer_type": "text",
+        "answer_short": "Automobiles",
+        "answer_long": "Automobiles has two companies [E2].",
+        "citations": [{"evidence_id": "E2", "quote": "Sector Automobiles: 2 companies tracked."}],
+    }
+    _use(monkeypatch, graph, _llm(plan={**PLAN, "mentions": [], "is_global": True}, answer=answer))
+
+    result = GraphRAGPipeline().answer("Which sector has the most companies?", "req-global")
+
+    assert result.status == Status.OK
+    assert graph.expand_calls == []
+    assert [e.kind for e in result.evidence] == ["summary", "summary"]
+    assert "global_stats" in _names(result) and "expand_hop(hop 1)" not in _names(result)
+    assert result.citations[0].doc_id == ""  # statistics have no source page
+
+
+def test_global_question_without_statistics_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    from server.pipelines.graphrag import global_mode as gm
+
+    monkeypatch.setattr(gm, "dataset_stats_pack", lambda: [])
+    _use(monkeypatch, Graph(), _llm(plan={**PLAN, "mentions": [], "is_global": True}))
+    result = GraphRAGPipeline().answer("Which sector has the most companies?", "req-global-2")
+    assert (
+        next(s for s in result.trace if s.name == "fallback").input_summary
+        == "no_global_statistics"
+    )
+    assert [e.kind for e in result.evidence] == ["chunk"]

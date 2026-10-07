@@ -11,6 +11,7 @@ from server.pipelines.common.result import build_result, error_result
 from server.pipelines.common.tracer import Tracer
 from server.pipelines.config import GRAPHRAG, RETRIEVAL
 from server.pipelines.graphrag.expand import ExpansionFailed, expand, seed_ids
+from server.pipelines.graphrag.global_mode import global_evidence
 from server.pipelines.graphrag.linked_text import entity_ids_for_text, linked_text
 from server.pipelines.graphrag.linking import LinkPlan, link_entities, plan_question, usable
 from server.pipelines.graphrag.models import Triple
@@ -52,6 +53,13 @@ class GraphRAGPipeline:
     def _graph_evidence(self, question: str, plan: LinkPlan, tr: Tracer) -> Evidence | None:
         """Triples plus linked text, split within the shared budget. None means
         "use vector evidence instead" and the reason is already in the trace."""
+        if plan.is_global and GRAPHRAG.global_enabled:
+            stats = global_evidence(question, plan, tr)
+            if stats is not None:
+                return stats
+            self._note_fallback(tr, "no_global_statistics")
+            return None
+
         linked = usable(link_entities(plan.mentions, tr))
         if not linked:
             self._note_fallback(tr, "no_entity_linked")
