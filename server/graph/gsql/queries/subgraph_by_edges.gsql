@@ -4,19 +4,19 @@ CREATE OR REPLACE QUERY subgraph_by_edges(SET<STRING> edge_ids) FOR GRAPH Interl
   // DIRECTOR_OF, PARTY_TO, AUDITED_BY and SUBSIDIARY_OF. Scans the type, never walks outward.
   SetAccum<EDGE> @@edges;
 
-  Directors = SELECT t FROM Person:s -(DIRECTOR_OF:e)- Company:t
+  Directors = SELECT t FROM Person:s -(DIRECTOR_OF>:e)- Company:t
               WHERE e.edge_id IN edge_ids
               ACCUM @@edges += e;
-  CompanyParties = SELECT t FROM Company:s -(PARTY_TO:e)- RelatedPartyTxn:t
+  CompanyParties = SELECT t FROM Company:s -(PARTY_TO>:e)- RelatedPartyTxn:t
                    WHERE e.edge_id IN edge_ids
                    ACCUM @@edges += e;
-  PersonParties = SELECT t FROM Person:s -(PARTY_TO:e)- RelatedPartyTxn:t
+  PersonParties = SELECT t FROM Person:s -(PARTY_TO>:e)- RelatedPartyTxn:t
                   WHERE e.edge_id IN edge_ids
                   ACCUM @@edges += e;
-  Audits = SELECT t FROM Company:s -(AUDITED_BY:e)- AuditFirm:t
+  Audits = SELECT t FROM Company:s -(AUDITED_BY>:e)- AuditFirm:t
            WHERE e.edge_id IN edge_ids
            ACCUM @@edges += e;
-  Subsidiaries = SELECT t FROM Company:s -(SUBSIDIARY_OF:e)- Company:t
+  Subsidiaries = SELECT t FROM Company:s -(SUBSIDIARY_OF>:e)- Company:t
                  WHERE e.edge_id IN edge_ids
                  ACCUM @@edges += e;
 

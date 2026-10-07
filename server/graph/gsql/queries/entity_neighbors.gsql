@@ -1,22 +1,53 @@
 CREATE QUERY entity_neighbors(SET<VERTEX> seeds, INT hops = 1, STRING fiscal_year = "", INT max_triples = 150) FOR GRAPH Interlock SYNTAX v2 {
+  // Bounded N-hop expansion. Each edge group below names its own type list (forward `>` and
+  // reverse `<` of every type we own) instead of a true wildcard `:e`, because accessing an
+  // attribute like e.fiscal_year on a truly generic edge fails: most global edge types (this
+  // workspace also hosts an unrelated fraud-sample graph) do not carry that attribute at all.
+  // PARTY_TO is split by direction because t/s swap sides: forward lands on the RelatedPartyTxn
+  // (check t.fiscal_year), reverse starts from it (check s.fiscal_year).
   ListAccum<STRING> @@triples;
   SetAccum<VERTEX> @@frontier;
-  
+
   Start = seeds;
-  
-  Hop1 = SELECT t FROM Start:s -(:e)- :t
-         WHERE fiscal_year == "" OR (e.type == "DIRECTOR_OF" AND e.fiscal_year == fiscal_year) OR (e.type == "PARTY_TO" AND t.type == "RelatedPartyTxn" AND t.fiscal_year == fiscal_year) OR e.type NOT IN ("DIRECTOR_OF", "PARTY_TO")
-         ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
-         POST-ACCUM @@frontier += t
-         LIMIT max_triples;
-         
+
+  DirHop1 = SELECT t FROM Start:s -((DIRECTOR_OF>|<DIRECTOR_OF):e)- :t
+            WHERE fiscal_year == "" OR e.fiscal_year == fiscal_year
+            ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+            POST-ACCUM @@frontier += t
+            LIMIT max_triples;
+  PartyFwdHop1 = SELECT t FROM Start:s -(PARTY_TO>:e)- :t
+            WHERE fiscal_year == "" OR t.fiscal_year == fiscal_year
+            ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+            POST-ACCUM @@frontier += t
+            LIMIT max_triples;
+  PartyRevHop1 = SELECT t FROM Start:s -(<PARTY_TO:e)- :t
+            WHERE fiscal_year == "" OR s.fiscal_year == fiscal_year
+            ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+            POST-ACCUM @@frontier += t
+            LIMIT max_triples;
+  OtherHop1 = SELECT t FROM Start:s -((AUDITED_BY>|<AUDITED_BY|SUBSIDIARY_OF>|<SUBSIDIARY_OF|HOLDS_STAKE>|<HOLDS_STAKE|NAMED_IN>|<NAMED_IN|IN_SECTOR>|<IN_SECTOR):e)- :t
+            ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+            POST-ACCUM @@frontier += t
+            LIMIT max_triples;
+
   IF hops == 2 THEN
     Start2 = @@frontier;
-    Hop2 = SELECT t FROM Start2:s -(:e)- :t
-           WHERE fiscal_year == "" OR (e.type == "DIRECTOR_OF" AND e.fiscal_year == fiscal_year) OR (e.type == "PARTY_TO" AND t.type == "RelatedPartyTxn" AND t.fiscal_year == fiscal_year) OR e.type NOT IN ("DIRECTOR_OF", "PARTY_TO")
-           ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
-           LIMIT max_triples;
+    DirHop2 = SELECT t FROM Start2:s -((DIRECTOR_OF>|<DIRECTOR_OF):e)- :t
+              WHERE fiscal_year == "" OR e.fiscal_year == fiscal_year
+              ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+              LIMIT max_triples;
+    PartyFwdHop2 = SELECT t FROM Start2:s -(PARTY_TO>:e)- :t
+              WHERE fiscal_year == "" OR t.fiscal_year == fiscal_year
+              ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+              LIMIT max_triples;
+    PartyRevHop2 = SELECT t FROM Start2:s -(<PARTY_TO:e)- :t
+              WHERE fiscal_year == "" OR s.fiscal_year == fiscal_year
+              ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+              LIMIT max_triples;
+    OtherHop2 = SELECT t FROM Start2:s -((AUDITED_BY>|<AUDITED_BY|SUBSIDIARY_OF>|<SUBSIDIARY_OF|HOLDS_STAKE>|<HOLDS_STAKE|NAMED_IN>|<NAMED_IN|IN_SECTOR>|<IN_SECTOR):e)- :t
+              ACCUM @@triples += s.id + "|" + e.type + "|" + t.id
+              LIMIT max_triples;
   END;
-  
+
   PRINT @@triples;
 }

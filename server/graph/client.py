@@ -1,8 +1,10 @@
 import logging
+from typing import Any
 
 import httpx
 import pyTigerGraph as tg
 
+from server.graph.names import map_back, map_forward, rewrite_gsql, to_tg
 from server.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -31,7 +33,59 @@ def _mint_cloud_token(host: str, secret: str) -> str:
     return str(body["token"])
 
 
-def get_tg_connection(graphname: str | None = None) -> tg.TigerGraphConnection:
+class NamedConnection:
+    """Wraps a pyTigerGraph connection so callers use logical type names.
+
+    Type-name arguments are prefixed on the way in, and prefixed names in responses are mapped
+    back on the way out. Everything else is passed through unchanged.
+    """
+
+    def __init__(self, conn: tg.TigerGraphConnection) -> None:
+        self._conn = conn
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._conn, name)
+
+    def upsertVertices(self, vertexType: str, data: Any, *args: Any, **kwargs: Any) -> Any:
+        return map_back(self._conn.upsertVertices(to_tg(vertexType), data, *args, **kwargs))
+
+    def upsertEdges(
+        self,
+        sourceVertexType: str,
+        edgeType: str,
+        targetVertexType: str,
+        data: Any,
+        *a: Any,
+        **k: Any,
+    ) -> Any:
+        return map_back(
+            self._conn.upsertEdges(
+                to_tg(sourceVertexType), to_tg(edgeType), to_tg(targetVertexType), data, *a, **k
+            )
+        )
+
+    def getVerticesById(self, vertexType: str, vertexIds: Any, *args: Any, **kwargs: Any) -> Any:
+        return map_back(self._conn.getVerticesById(to_tg(vertexType), vertexIds, *args, **kwargs))
+
+    def getVertexCount(self, vertexType: Any = "*", *args: Any, **kwargs: Any) -> Any:
+        return self._conn.getVertexCount(map_forward(vertexType), *args, **kwargs)
+
+    def getEdgeCount(self, edgeType: Any = "*", *args: Any, **kwargs: Any) -> Any:
+        return self._conn.getEdgeCount(map_forward(edgeType), *args, **kwargs)
+
+    def runInstalledQuery(
+        self, queryName: str, params: Any = None, *args: Any, **kwargs: Any
+    ) -> Any:
+        return map_back(
+            self._conn.runInstalledQuery(queryName, map_forward(params), *args, **kwargs)
+        )
+
+    def runInterpretedQuery(self, query: str, *args: Any, **kwargs: Any) -> Any:
+        rewritten = rewrite_gsql(query, self._conn.graphname)
+        return map_back(self._conn.runInterpretedQuery(rewritten, *args, **kwargs))
+
+
+def get_tg_connection(graphname: str | None = None) -> NamedConnection:
     """
     Returns an authenticated pyTigerGraph connection using the configured settings.
     If no graphname is provided, defaults to the one in settings.
@@ -70,4 +124,4 @@ def get_tg_connection(graphname: str | None = None) -> tg.TigerGraphConnection:
         except Exception as e:
             logger.warning(f"Could not create secret/token, proceeding with basic auth: {e}")
 
-    return conn
+    return NamedConnection(conn)
