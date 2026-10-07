@@ -85,7 +85,7 @@ export default function SubgraphCanvas({
   if (state.status === "loading") return <p className="text-sm text-muted" aria-busy="true">Loading the subgraph…</p>;
   if (state.status === "error") {
     return (
-      <div role="status" className="rounded-lg border border-amber-300 bg-warn-bg p-3 text-sm text-warn-fg">
+      <div role="status" className="rounded-lg border border-warn/30 bg-warn-bg p-3 text-sm text-warn-fg">
         The subgraph could not be loaded: {state.message}
         <p className="mt-1 text-xs">The evidence text each pipeline used is still shown on its card.</p>
       </div>

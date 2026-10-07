@@ -47,7 +47,7 @@ export default function RunSelector({
               value={selection[key] ?? ""}
               onChange={(e) => choose(key, e.target.value)}
               disabled={options.length === 0}
-              className="max-w-56 rounded-md border border-border bg-surface px-2 py-1.5 text-xs"
+              className="max-w-56 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-xs text-foreground"
             >
               <option value="">{options.length ? "none" : "no runs yet"}</option>
               {options.map((r) => (

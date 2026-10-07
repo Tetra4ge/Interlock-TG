@@ -52,7 +52,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
       ) : (
         <div className="space-y-6">
           {sampleCaveats(compare.metrics).map((note) => (
-            <div key={note} role="note" className="rounded-lg border border-amber-300 bg-warn-bg px-3 py-2 text-sm text-warn-fg">
+            <div key={note} role="note" className="rounded-lg border border-warn/30 bg-warn-bg px-3 py-2 text-sm text-warn-fg">
               {note}
             </div>
           ))}
