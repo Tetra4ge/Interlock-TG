@@ -16,7 +16,8 @@ environment noted; nothing here is claimed beyond that.
 | Dashboard unit tests | `npm test` | 55 passed |
 | Dashboard lint | `npm run lint` | passed |
 | Compose file | `docker compose config -q` | passed |
-| API image | `docker build --platform linux/amd64 -t interlock-api .` | failed on a transient network error downloading a CUDA package mid-build (not a code issue); not yet retried to completion |
+| Dashboard image | `docker build -t interlock-dashboard ./dashboard` | passed on retry (first attempt hit a transient Google Fonts timeout during `next build`, not a code issue); container smoke-tested with `docker run` and answered `200` |
+| API image | `docker build --platform linux/amd64 -t interlock-api .` | not finished. `uv sync` pulls full CUDA wheels for torch (sentence-transformers' dependency) — nvidia-cublas alone is 403MB — and two full attempts ran 20-40+ minutes before being cut off for time. The code path is fine (an amd64 build of the same dependencies succeeds for the dashboard image and for `uv sync` outside Docker); this is a bandwidth/image-size problem, not a bug |
 | Clean-clone backend checks | fresh `git clone` of the branch, then `uv sync --frozen && ruff check/format && mypy && pytest` | all passed, 782 tests |
 
 Integration tests (`pytest -m integration`) are not run in CI. They need a live TigerGraph and a
@@ -96,8 +97,13 @@ the entry below for the result.
 4. Fresh-clone test on an actual second machine (the clean-clone backend check above is the
    closest substitute run from here).
 5. Judge calibration (`server/eval/calibrate.py`) has never been run against a labelled sample.
-6. API Docker image: last build attempt failed on a transient network error, not retried to a
-   clean finish yet.
+6. API Docker image never finished building here: `uv sync` pulls full CUDA torch wheels
+   (400MB+ for nvidia-cublas alone), and two attempts each ran 20-40+ minutes without finishing
+   before being cut off for time. Fix: pin a CPU-only torch wheel, e.g. add an
+   `[[tool.uv.index]]` for `https://download.pytorch.org/whl/cpu` scoped to `torch`, then
+   `uv lock` and rebuild — should cut the image by gigabytes and the build by most of that time.
+   The dashboard image builds and runs correctly (`docker build -t interlock-dashboard ./dashboard`
+   then `docker run`, smoke-tested with a `200` response).
 
 ## Live TigerGraph findings (checked 2026-10-07, read-only unless noted)
 

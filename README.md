@@ -52,7 +52,9 @@ docker compose up --build
 - Both ports are bound to `127.0.0.1`.
 
 The first build downloads the Python dependencies (sentence-transformers includes torch), so it
-is large and takes several minutes.
+is large and can take well over 30 minutes on a slow connection — torch's CUDA wheels alone are
+several hundred MB each, even though only the CPU path is used. See `docs/test-plan.md` for a
+fix (pin a CPU-only torch wheel). The dashboard image is unaffected and builds in under a minute.
 
 ---
 
