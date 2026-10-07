@@ -9,6 +9,7 @@
 [![TigerGraph](https://img.shields.io/badge/TigerGraph-GSQL-F78C1E?logo=tigergraph&logoColor=white)](https://www.tigergraph.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?logo=turso&logoColor=black)](https://turso.tech/)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker&logoColor=white)](https://docker.com)
 
 **Interlock** extracts board-interlocks, audit relationships, related-party transactions and promoter-pledge trails from Indian listed-company disclosures, loads them into a TigerGraph knowledge graph, and runs three question-answering pipelines — RAG, GraphRAG and Agentic GraphRAG — side by side on the same questions so you can see exactly where the graph changes the answer.
