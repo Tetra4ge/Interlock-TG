@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
-from server.api import demo, quality, runs, subgraph
+from server.api import demo, quality, review, runs, subgraph
 from server.api.deps import AppContext
 from server.api.live import new_request_id, run_compare, run_one
 from server.api.schemas import (
@@ -23,6 +23,7 @@ from server.api.schemas import (
     HealthOut,
     QuestionOut,
     ResultOut,
+    ReviewItem,
     RunMetrics,
     RunOut,
     SubgraphOut,
@@ -183,6 +184,11 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
     def data_quality(request: Request) -> DataQualityOut:
         with get_ctx(request).db() as conn:
             return quality.data_quality(conn)
+
+    @app.get("/review-queue", response_model=list[ReviewItem])
+    def review_queue(request: Request, limit: int = Query(100, ge=1, le=500)) -> list[ReviewItem]:
+        with get_ctx(request).db() as conn:
+            return review.pending_reviews(conn, limit)
 
     return app
 
