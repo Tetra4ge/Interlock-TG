@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/", label: "Overview" },
+  { href: "/", label: "Home", exact: true },
+  { href: "/overview", label: "Overview" },
   { href: "/tradeoffs", label: "Trade-offs" },
   { href: "/failures", label: "Failures" },
   { href: "/inspector", label: "Inspector" },
@@ -13,8 +14,9 @@ const LINKS = [
   { href: "/review-queue", label: "Review queue" },
 ];
 
-export function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+export function isActive(pathname: string, href: string, exact = false): boolean {
+  if (exact) return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export default function Nav() {
@@ -22,7 +24,7 @@ export default function Nav() {
   return (
     <nav aria-label="Main" className="flex flex-wrap items-center gap-0.5 text-sm">
       {LINKS.map((l) => {
-        const active = isActive(pathname, l.href);
+        const active = isActive(pathname, l.href, l.exact);
         return (
           <Link
             key={l.href}

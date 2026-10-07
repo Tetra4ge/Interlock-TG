@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import Nav from "@/components/Nav";
-import { DISCLAIMER } from "@/lib/pipelines";
+
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -19,13 +19,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
       <body className="flex min-h-full flex-col bg-background text-foreground antialiased">
 
-        {/* Disclaimer banner */}
-        <div
-          role="note"
-          className="border-b border-border bg-surface px-4 py-1.5 text-center text-xs text-muted-fg"
-        >
-          {DISCLAIMER}
-        </div>
+
 
         {/* Header */}
         <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
@@ -59,9 +53,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Footer */}
         <footer className="mt-auto border-t border-border px-4 py-4">
           <div className="mx-auto max-w-7xl flex flex-col items-center gap-1 text-center text-xs text-muted">
-            <p>{DISCLAIMER}</p>
+
             <p className="text-muted/60">
-              Built by{" "}
+              Built for Agentic Graph RAG Hackathon, by team{" "}
               <span className="text-accent font-medium">Hotty_Fi5e</span>
               {" · "}
               <a
