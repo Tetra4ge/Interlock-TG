@@ -1,11 +1,6 @@
 from pydantic import BaseModel
 
 
-class LLMMessage(BaseModel):
-    role: str
-    content: str
-
-
 class ToolSpec(BaseModel):
     name: str
     description: str
@@ -16,6 +11,17 @@ class ToolCall(BaseModel):
     id: str
     name: str
     arguments: dict
+
+
+class LLMMessage(BaseModel):
+    """role is system | user | assistant | tool. An assistant turn that called
+    tools carries `tool_calls`; each answering `tool` message carries the
+    `tool_call_id` it responds to."""
+
+    role: str
+    content: str = ""
+    tool_calls: list[ToolCall] = []
+    tool_call_id: str | None = None
 
 
 class LLMRequest(BaseModel):

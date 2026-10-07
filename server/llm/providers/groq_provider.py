@@ -41,6 +41,34 @@ def _to_groq_tools(tools: list) -> list[dict] | None:
     ]
 
 
+def to_groq_messages(messages: list) -> list[dict[str, Any]]:
+    """Chat messages in Groq's (OpenAI-compatible) shape. An assistant turn that
+    made tool calls must be replayed with them, and each tool result must name
+    the call it answers, or the next request is rejected."""
+    out: list[dict[str, Any]] = []
+    for m in messages:
+        if m.role == "assistant" and m.tool_calls:
+            out.append(
+                {
+                    "role": "assistant",
+                    "content": m.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
+                        }
+                        for tc in m.tool_calls
+                    ],
+                }
+            )
+        elif m.role == "tool":
+            out.append({"role": "tool", "tool_call_id": m.tool_call_id, "content": m.content})
+        else:
+            out.append({"role": m.role, "content": m.content})
+    return out
+
+
 class GroqProvider(BaseLLMProvider):
     def __init__(self) -> None:
         self.client = Groq(api_key=settings.groq_api_key)
@@ -50,7 +78,7 @@ class GroqProvider(BaseLLMProvider):
 
         kwargs: dict[str, Any] = {
             "model": request.model,
-            "messages": [{"role": m.role, "content": m.content} for m in request.messages],
+            "messages": to_groq_messages(request.messages),
             "temperature": request.temperature,
             "max_tokens": request.max_tokens,
         }
