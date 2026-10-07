@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Seconds to reuse a read-only API response. The run store can be a remote database
     # where every query is a network round trip, and runs change rarely. 0 disables it.
     read_cache_seconds: float = 15.0
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,https://interlock-tg.vercel.app"
 
     model_config = SettingsConfigDict(
         env_file=ROOT / ".env",

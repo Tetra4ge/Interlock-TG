@@ -18,7 +18,7 @@ services:
         required: false
     environment:
       DEMO_MODE: ${DEMO_MODE:-true}
-      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,https://interlock-tg.vercel.app
       TURSO_DATABASE_URL: file:db/interlock.db
       SEED_GRAPH: ${SEED_GRAPH:-false}
     ports:

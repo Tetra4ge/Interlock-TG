@@ -35,8 +35,8 @@
 | Pipeline | Test split | Accuracy (95% CI) | Notes |
 | --- | --- | --- | --- |
 | RAG | 12 questions | 1.00 (1.00–1.00) | Degenerate interval at this sample size; citation accuracy 0.33 |
-| GraphRAG | not run | — | Live graph works (verified); no eval run stored yet |
-| Agentic GraphRAG | not run | — | Live graph tools work (verified); no eval run stored yet |
+| GraphRAG | 5 dev questions | 0.60 (0.20–1.00) | Live graph (`InterlockV2`); matched RAG on this set (n=5, CIs overlap) |
+| Agentic GraphRAG | not run | — | Live graph tools work (verified); no eval-harness run stored yet |
 
 ## 🚀 Quick Start (Docker, demo mode, no API key)
 
@@ -810,7 +810,7 @@ Interlock-TG/
 ## Limitations
 
 - **Small evaluation set.** 17 questions (12 test). `multi_hop`, `temporal` and `global` have no questions yet.
-- **Graph pipelines unverified.** GraphRAG and the agent have not run against a live graph with loaded data.
+- **GraphRAG dev run only.** One 5-question dev run exists against the live graph; no test-split run. The agent has not run an eval-harness pass yet.
 - **Extraction is automatic.** Records pass a grounding check, but precision has been measured only on the pilot companies.
 - **Coverage is partial.** TRF's filings are marked `manual_needed` for all three years.
 - **Costs are not measured on a paid tier.** The free Groq tier was used, so cost figures are placeholders.
