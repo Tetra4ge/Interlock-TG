@@ -13,7 +13,6 @@ import { chromium } from "playwright";
 
 const BASE = process.env.DASHBOARD_URL || "http://localhost:3000";
 const results = [];
-const problems = [];
 const ok = (name, cond, detail = "") => {
   results.push({ name, pass: !!cond, detail });
 };

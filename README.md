@@ -661,7 +661,9 @@ cd dashboard
 npm install
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser to explore the dashboard.
+Open [http://localhost:3000](http://localhost:3000) in your browser to explore the dashboard. It needs the API running in another terminal (`uv run hl serve`). With no `GROQ_API_KEY` the **Live ask** page answers the cached example questions instantly; anything else explains that it needs a key.
+
+Dashboard checks: `npm test` (unit), `npm run typecheck`, `npm run build`, and the Playwright browser tests `npm run e2e` / `npm run e2e:graph` (see the header of each script in `dashboard/e2e/`).
 
 ---
 
@@ -688,6 +690,8 @@ Every command is exposed through the `hl` entry point (`uv run hl <command>`).
 | `ask` | 4 | Answer a question through a chosen pipeline. |
 | `eval` | 5 | Score a pipeline (`rag`, `graphrag`, `agent`) against a frozen split with bootstrap CIs; `--judge` adds faithfulness. Persists to the DB. |
 | `ask --pipeline agent` | 7 | Run the tool-using agent (budgeted loop, guarded graph access, claim verifier). |
+| `serve` | 8 | Run the HTTP API for the dashboard (OpenAPI docs at `/docs`). |
+| `demo-cache` | 8 | Build the no-key demo answers (`data/samples/cached_answers.jsonl`) from stored runs. |
 | `compare` | 6 | Paired per-category comparison of two scored runs (A minus B) with a 95% bootstrap interval. |
 
 ---
