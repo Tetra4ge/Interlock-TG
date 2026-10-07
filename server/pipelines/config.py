@@ -23,6 +23,7 @@ class GraphRAGConfig(BaseModel):
     min_per_relation: int = 5
     triple_budget_share: float = 0.6
     hub_degree_percentile: float = 99.0
+    hub_min_degree: int = 25
     link_min_score: int = 85
     link_score_gap: int = 5
     gsql_timeout_seconds: int = 10

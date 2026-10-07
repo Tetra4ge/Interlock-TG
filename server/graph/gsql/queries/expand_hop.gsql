@@ -1,0 +1,23 @@
+CREATE OR REPLACE QUERY expand_hop(SET<STRING> seed_ids, SET<STRING> edge_types, SET<STRING> excluded, INT max_rows = 500) FOR GRAPH Interlock SYNTAX v2 {
+  // One hop of bounded expansion for GraphRAG. Ids arrive as plain strings (SET<VERTEX> params
+  // would need an explicit vertex type per id). Callers pass {"-"} for `excluded` when nothing
+  // is excluded; fiscal-year filtering, per-seed fan-out and ranking happen in Python.
+  SetAccum<EDGE> @@edges;
+
+  Start = SELECT v FROM (Company|Person|AuditFirm):v WHERE v.id IN seed_ids;
+
+  Hop = SELECT t
+        FROM Start:s -((DIRECTOR_OF|PARTY_TO|AUDITED_BY|SUBSIDIARY_OF|HOLDS_STAKE|NAMED_IN|IN_SECTOR):e)- :t
+        WHERE e.type IN edge_types AND NOT (t.id IN excluded)
+        ACCUM IF @@edges.size() < max_rows THEN @@edges += e END;
+
+  // A transaction without its counterparty is useless: pull in the other PARTY_TO edge so
+  // "company -> transaction -> counterparty" is one logical hop.
+  Txns = SELECT t FROM Hop:t WHERE t.type == "RelatedPartyTxn";
+  Parties = SELECT p
+            FROM Txns:t -(PARTY_TO:e)- :p
+            ACCUM @@edges += e;
+
+  PRINT @@edges AS edges;
+  PRINT Txns[Txns.nature, Txns.relationship, Txns.amount_inr, Txns.fiscal_year] AS txns;
+}
