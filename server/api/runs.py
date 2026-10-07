@@ -75,9 +75,10 @@ def _run_row(conn: Any, run_id: str) -> tuple | None:
     ).fetchone()
 
 
-def load_score_rows(conn: Any, run_id: str) -> list[dict[str, Any]]:
+def load_scored_run(conn: Any, run_id: str) -> tuple[list[dict[str, Any]], dict[str, AnswerResult]]:
     """Scores joined with the stored answer and the question's category, in the row
-    shape the eval harness aggregates (the same one `scores.jsonl` has)."""
+    shape the eval harness aggregates (the same one `scores.jsonl` has), plus the parsed
+    answers. One query: against a remote database every query is a round trip."""
     rows = conn.execute(
         """
         SELECT s.qid, COALESCE(q.category, 'unknown'), s.correct, s.faithfulness,
@@ -89,9 +90,11 @@ def load_score_rows(conn: Any, run_id: str) -> list[dict[str, Any]]:
         """,
         [run_id],
     ).fetchall()
-    out = []
+    out: list[dict[str, Any]] = []
+    answers: dict[str, AnswerResult] = {}
     for qid, category, correct, faith, cite, recall, label, answer_json in rows:
         res = AnswerResult.model_validate_json(answer_json)
+        answers[qid] = res
         out.append(
             {
                 "qid": qid,
@@ -110,14 +113,14 @@ def load_score_rows(conn: Any, run_id: str) -> list[dict[str, Any]]:
                 "tool_calls": res.usage.tool_calls,
             }
         )
-    return out
+    return out, answers
 
 
-def run_metrics(conn: Any, run_id: str) -> RunMetrics | None:
-    run = _run_row(conn, run_id)
-    if run is None:
-        return None
-    rows = load_score_rows(conn, run_id)
+def load_score_rows(conn: Any, run_id: str) -> list[dict[str, Any]]:
+    return load_scored_run(conn, run_id)[0]
+
+
+def _metrics(run: tuple, rows: list[dict[str, Any]]) -> RunMetrics | None:
     if not rows:
         return None
     summary = summarize(rows)
@@ -126,6 +129,13 @@ def run_metrics(conn: Any, run_id: str) -> RunMetrics | None:
         overall=_block(summary["overall"]),
         by_category={c: _block(b) for c, b in summary["by_category"].items()},
     )  # fmt: skip
+
+
+def run_metrics(conn: Any, run_id: str) -> RunMetrics | None:
+    run = _run_row(conn, run_id)
+    if run is None:
+        return None
+    return _metrics(run, load_scored_run(conn, run_id)[0])
 
 
 def get_result(conn: Any, run_id: str, qid: str) -> ResultOut | None:
@@ -238,15 +248,14 @@ def compare_view(conn: Any, run_ids: dict[str, str]) -> CompareRunsOut:
     rows: dict[str, list[dict]] = {}
     results: dict[str, dict[str, AnswerResult]] = {}
     for key, run_id in run_ids.items():
-        m = run_metrics(conn, run_id)
+        run = _run_row(conn, run_id)
+        if run is None:
+            continue
+        run_rows, answers = load_scored_run(conn, run_id)
+        m = _metrics(run, run_rows)
         if m is None:
             continue
-        metrics[key] = m
-        rows[key] = load_score_rows(conn, run_id)
-        stored = conn.execute(
-            "SELECT qid, answer_json FROM results WHERE run_id = ?", [run_id]
-        ).fetchall()
-        results[key] = {q: AnswerResult.model_validate_json(a) for q, a in stored}
+        metrics[key], rows[key], results[key] = m, run_rows, answers
 
     categories_of = {r["qid"]: r["category"] for rs in rows.values() for r in rs}
     text_of = {q: t for q, t in conn.execute("SELECT qid, question FROM questions").fetchall()}

@@ -48,7 +48,12 @@ class FakePipeline:
 
 class Harness:
     def __init__(
-        self, memdb: MemoryDB, tmp_path: Path, key: str = "key", demo: bool = False
+        self,
+        memdb: MemoryDB,
+        tmp_path: Path,
+        key: str = "key",
+        demo: bool = False,
+        cache_s: float = 0.0,  # off by default so tests see every change at once
     ) -> None:
         self.pipes = {n: FakePipeline(n, f"{n} answer") for n in ("rag", "graphrag", "agent")}
         self.loads = 0
@@ -60,7 +65,9 @@ class Harness:
             return self.pipes
 
         self.ctx = AppContext(
-            cfg=Settings(groq_api_key=key, demo_mode=demo, cors_origins=ORIGIN),
+            cfg=Settings(
+                groq_api_key=key, demo_mode=demo, cors_origins=ORIGIN, read_cache_seconds=cache_s
+            ),
             db_factory=lambda: memdb,
             pipelines_loader=loader,
             tg_probe=lambda: self.tg_ok,
@@ -521,3 +528,46 @@ def test_document_routes(harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_
     assert pdf.content.startswith(b"%PDF")
     assert no_pdf.status_code == 404 and "not available" in no_pdf.json()["detail"]
     assert traversal.status_code in (404, 422)
+
+
+# --- the read cache --------------------------------------------------------------------
+
+
+def test_read_only_routes_reuse_a_recent_result(memdb: MemoryDB, tmp_path: Path) -> None:
+    seed_run(memdb, "r1", "rag")
+    with Harness(memdb, tmp_path, cache_s=60) as client:
+        first = client.get("/runs").json()
+        seed_run(memdb, "r2", "agent")  # changes the store...
+        second = client.get("/runs").json()
+    assert [r["run_id"] for r in first] == [
+        "r1"
+    ] and second == first  # ...but within the TTL it is reused
+
+
+def test_with_the_cache_off_a_change_is_visible_immediately(
+    memdb: MemoryDB, tmp_path: Path
+) -> None:
+    seed_run(memdb, "r1", "rag")
+    with Harness(memdb, tmp_path, cache_s=0) as client:
+        client.get("/runs")
+        seed_run(memdb, "r2", "agent")
+        assert {r["run_id"] for r in client.get("/runs").json()} == {"r1", "r2"}
+
+
+def test_a_404_is_never_cached(memdb: MemoryDB, tmp_path: Path) -> None:
+    with Harness(memdb, tmp_path, cache_s=60) as client:
+        assert client.get("/runs/late/metrics").status_code == 404
+        seed_question(memdb, "q1")
+        seed_run(memdb, "late", "rag", rows={"q1": {"result": answer_result(), "correct": 1.0}})
+        assert client.get("/runs/late/metrics").status_code == 200  # the run finished meanwhile
+
+
+def test_different_arguments_do_not_share_a_cache_entry(memdb: MemoryDB, tmp_path: Path) -> None:
+    seed_question(memdb, "d1", split="dev")
+    seed_question(memdb, "t1", split="test")
+    with Harness(memdb, tmp_path, cache_s=60) as client:
+        dev = client.get("/questions", params={"split": "dev"}).json()
+        test = client.get("/questions", params={"split": "test"}).json()
+        gold = client.get("/questions", params={"split": "test", "include_gold": "true"}).json()
+    assert [q["qid"] for q in dev] == ["d1"] and [q["qid"] for q in test] == ["t1"]
+    assert test[0]["gold_answer"] is None and gold[0]["gold_answer"] == "gold"

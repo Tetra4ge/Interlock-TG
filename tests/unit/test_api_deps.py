@@ -149,3 +149,46 @@ def test_load_json_lines_skips_blank_and_bad_lines(tmp_path) -> None:  # type: i
     p.write_text(json.dumps({"a": 1}) + "\n\nnot json\n" + json.dumps({"b": 2}) + "\n")
     assert load_json_lines(p) == [{"a": 1}, {"b": 2}]
     assert load_json_lines(tmp_path / "missing.jsonl") == []
+
+
+def test_cached_reuses_a_result_within_the_ttl_and_recomputes_after(
+    memdb: MemoryDB, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    ctx = _ctx(memdb, cfg=_cfg(read_cache_seconds=10))
+    calls: list[int] = []
+    clock = [100.0]
+    monkeypatch.setattr(deps_mod.time, "monotonic", lambda: clock[0])
+
+    def compute() -> int:
+        calls.append(1)
+        return len(calls)
+
+    assert ctx.cached(("k",), compute) == 1 and ctx.cached(("k",), compute) == 1
+    clock[0] += 11
+    assert ctx.cached(("k",), compute) == 2 and len(calls) == 2
+
+
+def test_cached_with_a_zero_ttl_never_stores(memdb: MemoryDB) -> None:
+    ctx = _ctx(memdb, cfg=_cfg(read_cache_seconds=0))
+    n = iter(range(10))
+    assert ctx.cached(("k",), lambda: next(n)) == 0 and ctx.cached(("k",), lambda: next(n)) == 1
+
+
+def test_cached_does_not_store_a_failure(memdb: MemoryDB) -> None:
+    ctx = _ctx(memdb, cfg=_cfg(read_cache_seconds=60))
+
+    def boom() -> int:
+        raise ValueError("bad")
+
+    with pytest.raises(ValueError):
+        ctx.cached(("k",), boom)
+    assert ctx.cached(("k",), lambda: 7) == 7
+
+
+def test_cached_keeps_keys_apart_and_bounds_its_size(memdb: MemoryDB, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(deps_mod, "READ_CACHE_MAX_ENTRIES", 3)
+    ctx = _ctx(memdb, cfg=_cfg(read_cache_seconds=60))
+    for i in range(5):
+        assert ctx.cached(("k", i), lambda i=i: i) == i
+    assert len(ctx._read_cache) <= 3
+    assert ctx.cached(("k", 4), lambda: -1) == 4  # the newest entries survive eviction

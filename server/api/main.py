@@ -4,6 +4,7 @@ typed JSON. No business logic lives here."""
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from typing import Any, TypeVar
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,6 +34,7 @@ from server.pipelines.models import AnswerResult
 from server.settings import settings
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 NEEDS_KEY = (
     "Live questions need an API key (GROQ_API_KEY). This question is not one of the cached "
@@ -43,6 +45,17 @@ NEEDS_KEY = (
 def get_ctx(request: Request) -> AppContext:
     ctx: AppContext = request.app.state.ctx
     return ctx
+
+
+def _read(ctx: AppContext, key: tuple, fn: Callable[[Any], T]) -> T:
+    """Run a read-only query against the run store through the short read cache. A
+    HTTPException raised by `fn` (a 404) propagates and is never cached."""
+
+    def compute() -> T:
+        with ctx.db() as conn:
+            return fn(conn)
+
+    return ctx.cached(key, compute)
 
 
 def _bad_question(question: object) -> str:
@@ -127,24 +140,27 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
 
     @app.get("/runs", response_model=list[RunOut])
     def list_runs(request: Request) -> list[RunOut]:
-        with get_ctx(request).db() as conn:
-            return runs.list_runs(conn)
+        return _read(get_ctx(request), ("runs",), runs.list_runs)
 
     @app.get("/runs/{run_id}/metrics", response_model=RunMetrics)
     def run_metrics(run_id: str, request: Request) -> RunMetrics:
-        with get_ctx(request).db() as conn:
+        def load(conn: Any) -> RunMetrics:
             found = runs.run_metrics(conn, run_id)
-        if found is None:
-            raise HTTPException(404, f"no scored run {run_id!r}")
-        return found
+            if found is None:
+                raise HTTPException(404, f"no scored run {run_id!r}")
+            return found
+
+        return _read(get_ctx(request), ("metrics", run_id), load)
 
     @app.get("/runs/{run_id}/results/{qid}", response_model=ResultOut)
     def run_result(run_id: str, qid: str, request: Request) -> ResultOut:
-        with get_ctx(request).db() as conn:
+        def load(conn: Any) -> ResultOut:
             found = runs.get_result(conn, run_id, qid)
-        if found is None:
-            raise HTTPException(404, f"no result for {qid!r} in run {run_id!r}")
-        return found
+            if found is None:
+                raise HTTPException(404, f"no result for {qid!r} in run {run_id!r}")
+            return found
+
+        return _read(get_ctx(request), ("result", run_id, qid), load)
 
     @app.get("/compare-runs", response_model=CompareRunsOut)
     def compare_runs(
@@ -156,19 +172,24 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
         chosen = {k: v for k, v in (("rag", rag), ("graphrag", graphrag), ("agent", agent)) if v}
         if not chosen:
             raise HTTPException(400, "give at least one of rag, graphrag, agent as a run_id")
-        with get_ctx(request).db() as conn:
+
+        def load(conn: Any) -> CompareRunsOut:
             out = runs.compare_view(conn, chosen)
-        if not out.metrics:
-            raise HTTPException(404, "none of those runs has scored results")
-        return out
+            if not out.metrics:
+                raise HTTPException(404, "none of those runs has scored results")
+            return out
+
+        return _read(get_ctx(request), ("compare", tuple(sorted(chosen.items()))), load)
 
     @app.get("/questions", response_model=list[QuestionOut])
     def questions(
         request: Request, split: str | None = Query(None, pattern="^(dev|test)$"),
         include_gold: bool = False,
     ) -> list[QuestionOut]:  # fmt: skip
-        with get_ctx(request).db() as conn:
-            return runs.list_questions(conn, split, include_gold)
+        return _read(
+            get_ctx(request), ("questions", split, include_gold),
+            lambda conn: runs.list_questions(conn, split, include_gold),
+        )  # fmt: skip
 
     @app.get("/graph/subgraph", response_model=SubgraphOut)
     def graph_subgraph(edge_ids: str, request: Request) -> SubgraphOut:
@@ -183,8 +204,7 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
 
     @app.get("/data-quality", response_model=DataQualityOut)
     def data_quality(request: Request) -> DataQualityOut:
-        with get_ctx(request).db() as conn:
-            return quality.data_quality(conn)
+        return _read(get_ctx(request), ("data-quality",), quality.data_quality)
 
     @app.get("/documents/{doc_id}/pages/{page}", response_model=DocumentPage)
     def document_page(doc_id: str, page: int, request: Request) -> DocumentPage:
@@ -205,8 +225,9 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
 
     @app.get("/review-queue", response_model=list[ReviewItem])
     def review_queue(request: Request, limit: int = Query(100, ge=1, le=500)) -> list[ReviewItem]:
-        with get_ctx(request).db() as conn:
-            return review.pending_reviews(conn, limit)
+        return _read(
+            get_ctx(request), ("review", limit), lambda conn: review.pending_reviews(conn, limit)
+        )
 
     return app
 

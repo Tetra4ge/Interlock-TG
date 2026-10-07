@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from server.pipelines.models import AnswerResult
 from server.settings import ROOT, Settings, settings
@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 CACHED_ANSWERS_PATH = ROOT / "data/samples/cached_answers.jsonl"
 TG_PROBE_TIMEOUT_S = 6.0
 TG_PROBE_TTL_S = 30.0
+READ_CACHE_MAX_ENTRIES = 256
+T = TypeVar("T")
 ADHOC_RUN_ID = "adhoc"
 
 
@@ -55,6 +57,8 @@ class AppContext:
         self._pipelines: dict[str, Any] | None = None
         self._pipelines_lock = threading.Lock()
         self._tg_cache: tuple[float, bool] | None = None
+        self._read_cache: dict[tuple, tuple[float, Any]] = {}
+        self._read_cache_lock = threading.Lock()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tg-probe")
 
     @contextmanager
@@ -80,6 +84,26 @@ class AppContext:
             if self._pipelines is None:
                 self._pipelines = self._pipelines_loader()
             return self._pipelines
+
+    def cached(self, key: tuple, compute: Callable[[], T]) -> T:
+        """Reuse a read-only result for `read_cache_seconds`. Only successful results are
+        kept: an exception propagates and nothing is stored."""
+        ttl = self.settings.read_cache_seconds
+        if ttl <= 0:
+            return compute()
+        now = time.monotonic()
+        with self._read_cache_lock:
+            hit = self._read_cache.get(key)
+        if hit and now - hit[0] < ttl:
+            value: T = hit[1]
+            return value
+        value = compute()
+        with self._read_cache_lock:
+            if len(self._read_cache) >= READ_CACHE_MAX_ENTRIES:
+                oldest = min(self._read_cache, key=lambda k: self._read_cache[k][0])
+                del self._read_cache[oldest]
+            self._read_cache[key] = (now, value)
+        return value
 
     def turso_ok(self) -> bool:
         try:
