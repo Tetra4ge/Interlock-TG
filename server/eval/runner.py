@@ -9,10 +9,12 @@ from typing import Any, Protocol
 import numpy as np
 
 from server.common.git import git_state
+from server.eval.judge import JudgeResult
 from server.eval.models import Question
 from server.eval.normalize import parse_number_crore, split_list
 from server.eval.scorers import (
     citation_accuracy,
+    evidence_recall,
     score_abstention,
     score_entity,
     score_list,
@@ -20,6 +22,7 @@ from server.eval.scorers import (
     score_yes_no,
 )
 from server.eval.stats import bootstrap_ci
+from server.eval.taxonomy import classify_failure
 from server.pipelines.config import RETRIEVAL
 from server.pipelines.models import AnswerResult, AnswerType, Status
 
@@ -29,6 +32,12 @@ RUNS_DIR = Path("data/eval/runs")
 
 class Answerer(Protocol):
     def answer(self, question: str, request_id: str) -> AnswerResult: ...
+
+
+class JudgeFn(Protocol):
+    def __call__(
+        self, question: str, answer_long: str, evidence_texts: list[str]
+    ) -> JudgeResult | None: ...
 
 
 def load_questions(path: Path = QUESTIONS_PATH) -> list[Question]:
@@ -48,7 +57,13 @@ def _score_answer(q: Question, pred: str) -> float:
     raise ValueError(f"Unsupported answer type for scoring: {q.answer_type} ({q.qid})")
 
 
-def score_result(q: Question, r: AnswerResult) -> dict[str, Any]:
+def score_result(
+    q: Question,
+    r: AnswerResult,
+    *,
+    faithfulness: float | None = None,
+    judge_reason: str | None = None,
+) -> dict[str, Any]:
     abstained = r.status == Status.ABSTAINED
     errored = r.status == Status.ERROR
     if not q.answerable:
@@ -57,38 +72,59 @@ def score_result(q: Question, r: AnswerResult) -> dict[str, Any]:
         correct = 0.0
     else:
         correct = _score_answer(q, r.answer_short)
+
+    cited = [(c.doc_id, c.page) for c in r.citations]
+    gold_ev = [(e.doc_id, e.page) for e in q.gold_evidence]
+    recall = evidence_recall(cited, gold_ev)
+    failure = classify_failure(
+        q, r, correct=correct, faithfulness=faithfulness, evidence_recall=recall
+    )
     return {
         "qid": q.qid,
         "category": q.category,
         "correct": correct,
         "abstained": abstained,
         "error": errored,
-        "citation_accuracy": citation_accuracy(
-            [(c.doc_id, c.page) for c in r.citations],
-            [(e.doc_id, e.page) for e in q.gold_evidence],
-        ),
+        "faithfulness": faithfulness,
+        "judge_reason": judge_reason,
+        "citation_accuracy": citation_accuracy(cited, gold_ev),
+        "evidence_recall": recall,
+        "failure_label": failure,
         "latency_ms": r.usage.latency_ms,
         "cost_usd": r.usage.cost_usd,
         "llm_calls": r.usage.llm_calls,
     }
 
 
+def _mean_or_none(values: Sequence[float]) -> float | None:
+    return float(np.mean(values)) if values else None
+
+
 def _aggregate(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
     correct = [r["correct"] for r in rows]
     mean, lo, hi = bootstrap_ci(correct) if correct else (float("nan"), float("nan"), float("nan"))
     cit = [r["citation_accuracy"] for r in rows if r["citation_accuracy"] is not None]
+    rec = [r["evidence_recall"] for r in rows if r.get("evidence_recall") is not None]
+    faith = [r["faithfulness"] for r in rows if r.get("faithfulness") is not None]
     lat = [r["latency_ms"] for r in rows]
+    failures: dict[str, int] = defaultdict(int)
+    for r in rows:
+        if r.get("failure_label"):
+            failures[r["failure_label"]] += 1
     return {
         "n": len(rows),
         "correct_mean": mean,
         "correct_ci95": [lo, hi],
-        "citation_accuracy_mean": float(np.mean(cit)) if cit else None,
+        "faithfulness_mean": _mean_or_none(faith),
+        "citation_accuracy_mean": _mean_or_none(cit),
+        "evidence_recall_mean": _mean_or_none(rec),
         "abstention_rate": sum(r["abstained"] for r in rows) / len(rows) if rows else None,
         "error_count": sum(r["error"] for r in rows),
+        "failures": dict(sorted(failures.items())),
         "latency_median_ms": median(lat) if lat else None,
         "latency_p90_ms": float(np.percentile(lat, 90)) if lat else None,
-        "cost_usd_mean": float(np.mean([r["cost_usd"] for r in rows])) if rows else None,
-        "llm_calls_mean": float(np.mean([r["llm_calls"] for r in rows])) if rows else None,
+        "cost_usd_mean": _mean_or_none([r["cost_usd"] for r in rows]),
+        "llm_calls_mean": _mean_or_none([r["llm_calls"] for r in rows]),
     }
 
 
@@ -123,6 +159,7 @@ def run_eval(
     pipeline: Answerer | None = None,
     questions: Sequence[Question] | None = None,
     runs_dir: Path = RUNS_DIR,
+    judge: JudgeFn | None = None,
 ) -> dict[str, Any]:
     if pipeline is None:
         import server.pipelines.rag  # noqa: F401  (registers "rag")
@@ -162,8 +199,24 @@ def run_eval(
             f.flush()
 
     records = _load_results(results_path)
-    scores = [score_result(q, records[q.qid]) for q in qs if q.qid in records]
+    scores = []
+    for q in qs:
+        if q.qid not in records:
+            continue
+        r = records[q.qid]
+        verdict = None
+        if judge is not None and q.answerable and r.status == Status.OK and r.evidence:
+            verdict = judge(q.question, r.answer_long, [e.text for e in r.evidence])
+        scores.append(
+            score_result(
+                q,
+                r,
+                faithfulness=verdict.faithfulness if verdict else None,
+                judge_reason=verdict.reason if verdict else None,
+            )
+        )
     (out / "scores.jsonl").write_text("".join(json.dumps(s) + "\n" for s in scores))
     summary = summarize(scores)
+    summary["run_id"] = run_id
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     return summary

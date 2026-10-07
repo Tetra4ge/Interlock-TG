@@ -417,45 +417,6 @@ convention `<COMPANY_ID>__<doc_type>__<FY>.pdf` (e.g.
 
 ---
 
-## Current implementation status
-
-| Phase | Description | Status |
-|---|---|---|
-| 0 | Environment, TigerGraph, LLM gateway | ✅ Complete |
-| 1 | Data acquisition (fetch, registry, inbox) | ✅ Complete (all manual; exchange adapter stubs) |
-| 2 | Parse, section detection, chunking, extraction, grounding | ✅ Complete |
-| 3 | Entity resolution, graph load, GSQL queries, embeddings | ✅ Complete (vector: NumPy fallback) |
-| 4 | Shared answer contract, RAG baseline, tracer | ✅ RAG pipeline working; GraphRAG/Agent stubs |
-| 5 | Evaluation set, scorers, judge, runner | 🔲 Not started |
-| 6 | GraphRAG pipeline | 🔲 Not started |
-| 7 | Agentic GraphRAG pipeline | 🔲 Not started |
-| 8 | FastAPI backend + dashboard UI | 🔲 Dashboard is stock Next.js scaffold |
-| 9 | Hardening, security review | 🔲 Not started |
-| 10 | Demo prep, submission | 🔲 Not started |
-
----
-
-## What needs to happen next (Phase 5)
-
-Phase 5 goal: a frozen question set, per-type scorers, a calibrated LLM judge, and one
-command that evaluates any pipeline with bootstrap confidence intervals.
-
-Files to create:
-- `server/eval/models.py` — `Question`, `RunConfig`, `ScoreRow`
-- `server/eval/templates/` — YAML templates per category
-- `server/eval/generate.py` — fill templates from graph via installed gold GSQL queries
-- `server/eval/scorers.py` — exact match, set F1, numeric tolerance, abstention
-- `server/eval/judge.py` — LLM judge for TEXT and faithfulness
-- `server/eval/stats.py` — bootstrap CIs, paired differences
-- `server/eval/runner.py` — `hl eval --pipeline rag --split test`
-- `server/graph/gsql/queries/gold_*.gsql` — gold GSQL queries per template
-- `data/eval/questions_v1.jsonl` — frozen question set
-
-Question categories: single_fact, multi_hop, temporal, numerical, global, unanswerable.
-Target: ~150–300 questions, ≥20 test questions per category, 30% dev / 70% test split.
-
----
-
 ## Common pitfalls
 
 | Symptom | Cause | Fix |

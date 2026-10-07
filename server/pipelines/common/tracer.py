@@ -53,7 +53,7 @@ class Tracer:
             tokens_out=sum(s.tokens_out for s in self.steps),
             cost_usd=sum(s.cost_usd for s in self.steps),
             latency_ms=total_latency_ms,
-            llm_calls=sum(1 for s in self.steps if s.kind in ("llm", "verify")),
+            llm_calls=sum(1 for s in self.steps if s.kind == "llm"),
             tool_calls=sum(1 for s in self.steps if s.kind == "tool"),
         )
 

@@ -129,6 +129,9 @@ def main() -> None:
     eval_parser.add_argument("--split", type=str, default="test", choices=["dev", "test"])
     eval_parser.add_argument("--limit", type=int, default=None)
     eval_parser.add_argument("--run-id", type=str, default=None, help="Reuse an id to resume a run")
+    eval_parser.add_argument(
+        "--judge", action="store_true", help="Score faithfulness with the LLM judge"
+    )
 
     args = parser.parse_args()
 
@@ -329,24 +332,41 @@ def main() -> None:
             print()
 
     elif args.command == "eval":
-        from server.eval.runner import run_eval
+        from server.eval.judge import judge_faithfulness
+        from server.eval.models import Question
+        from server.eval.persist import persist_run
+        from server.eval.runner import QUESTIONS_PATH, RUNS_DIR, load_questions, run_eval
+        from server.store.db import connect
 
-        summary = run_eval(args.pipeline, args.split, run_id=args.run_id, limit=args.limit)
+        judge = judge_faithfulness if args.judge else None
+        summary = run_eval(
+            args.pipeline, args.split, run_id=args.run_id, limit=args.limit, judge=judge
+        )
+        run_dir = RUNS_DIR / summary["run_id"]
+        questions: list[Question] = load_questions(QUESTIONS_PATH)
+        conn = connect()
+        try:
+            persist_run(conn, run_dir, questions)
+        finally:
+            conn.close()
+
+        def _fmt(v: float | None) -> str:
+            return "-" if v is None else f"{v:.2f}"
+
         print(
-            f"{'category':<14}{'n':>4}  {'correct':>8}  "
-            f"{'95% CI':>17}  {'abstain':>8}  {'cite acc':>9}"
+            f"{'category':<14}{'n':>4}  {'correct':>8}  {'95% CI':>17}  "
+            f"{'faith':>6}  {'cite':>6}  {'recall':>6}  {'abstain':>8}"
         )
         for cat, agg in [*summary["by_category"].items(), ("OVERALL", summary["overall"])]:
             lo, hi = agg["correct_ci95"]
-            cit = (
-                "-"
-                if agg["citation_accuracy_mean"] is None
-                else f"{agg['citation_accuracy_mean']:.2f}"
-            )
             print(
                 f"{cat:<14}{agg['n']:>4}  {agg['correct_mean']:>8.2f}  "
-                f"[{lo:.2f}, {hi:.2f}]  {agg['abstention_rate']:>8.2f}  {cit:>9}"
+                f"[{lo:.2f}, {hi:.2f}]  {_fmt(agg['faithfulness_mean']):>6}  "
+                f"{_fmt(agg['citation_accuracy_mean']):>6}  "
+                f"{_fmt(agg['evidence_recall_mean']):>6}  {_fmt(agg['abstention_rate']):>8}"
             )
+        if summary["overall"]["failures"]:
+            print("failures:", summary["overall"]["failures"])
     else:
         parser.print_help()
 

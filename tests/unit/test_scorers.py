@@ -63,3 +63,30 @@ def test_citation_accuracy_counts_gold_pages() -> None:
 
 def test_entity_match_used_by_scorers_is_consistent() -> None:
     assert entity_match("T V Narendran", "T. V. Narendran")
+
+
+def test_citation_accuracy_counts_distinct_locations() -> None:
+    # The same page cited several times (e.g. one quote per listed director)
+    # is one location; a correct page alongside it should not be drowned out.
+    cited = [("d", 10), ("d", 10), ("d", 10), ("d", 234)]
+    assert citation_accuracy(cited, [("d", 234)]) == 0.5
+
+
+def test_citation_accuracy_all_duplicates_of_a_gold_page_is_one() -> None:
+    cited = [("d", 5), ("d", 5), ("d", 5)]
+    assert citation_accuracy(cited, [("d", 5)]) == 1.0
+
+
+def test_evidence_recall_counts_gold_locations_found() -> None:
+    from server.eval.scorers import evidence_recall
+
+    # one of two gold pages was cited
+    assert evidence_recall([("d", 2)], [("d", 2), ("d", 9)]) == 0.5
+    # duplicates of a gold page still count once
+    assert evidence_recall([("d", 2), ("d", 2)], [("d", 2)]) == 1.0
+
+
+def test_evidence_recall_is_none_without_gold() -> None:
+    from server.eval.scorers import evidence_recall
+
+    assert evidence_recall([("d", 1)], []) is None
