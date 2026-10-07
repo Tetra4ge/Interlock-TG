@@ -212,5 +212,15 @@ class ReviewItem(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class DocumentPage(BaseModel):
+    doc_id: str
+    page: int
+    text: str
+    company_id: str | None = None
+    fiscal_year: str | None = None
+    doc_type: str | None = None
+    pdf_available: bool = False
+
+
 class ErrorOut(BaseModel):
     detail: str
