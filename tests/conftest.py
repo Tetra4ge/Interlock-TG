@@ -32,3 +32,34 @@ def memdb() -> Iterator[MemoryDB]:
     db = MemoryDB()
     yield db
     db.raw.close()
+
+
+@pytest.fixture
+def tracer(memdb: MemoryDB, monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
+    """A real Tracer writing to the in-memory DB's `traces` table."""
+    from server.pipelines.common import tracer as tracer_mod
+
+    monkeypatch.setattr(tracer_mod, "connect", lambda: memdb)
+    return tracer_mod.Tracer("req-test", "graphrag")
+
+
+def seed_entities(db: MemoryDB, rows: list[tuple[str, str, str, str]]) -> None:
+    """rows: (entity_id, kind, canonical_name, aliases_text). Builds the FTS
+    table exactly as the `entity-index` build step does."""
+    db.execute("DROP TABLE IF EXISTS entities_fts")
+    db.execute(
+        "CREATE VIRTUAL TABLE entities_fts USING fts5("
+        "entity_id UNINDEXED, canonical_name, aliases_text, kind UNINDEXED)"
+    )
+    for eid, kind, name, aliases in rows:
+        db.execute(
+            "INSERT INTO entities (entity_id, kind, canonical_name, aliases_text) "
+            "VALUES (?, ?, ?, ?)",
+            [eid, kind, name, aliases],
+        )
+        db.execute(
+            "INSERT INTO entities_fts (entity_id, canonical_name, aliases_text, kind) "
+            "VALUES (?, ?, ?, ?)",
+            [eid, name, aliases, kind],
+        )
+    db.commit()

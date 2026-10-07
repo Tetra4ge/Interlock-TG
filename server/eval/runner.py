@@ -162,9 +162,11 @@ def run_eval(
     judge: JudgeFn | None = None,
 ) -> dict[str, Any]:
     if pipeline is None:
-        import server.pipelines.rag  # noqa: F401  (registers "rag")
-        from server.pipelines.base import REGISTRY
+        from server.pipelines.base import REGISTRY, load_all
 
+        load_all()
+        if pipeline_name not in REGISTRY:
+            raise ValueError(f"Unknown pipeline {pipeline_name!r}. Available: {sorted(REGISTRY)}")
         pipeline = REGISTRY[pipeline_name]
 
     qs = list(questions) if questions is not None else load_questions()

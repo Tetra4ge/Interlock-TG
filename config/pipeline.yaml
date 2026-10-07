@@ -24,6 +24,16 @@ graphrag:
   max_hops: 2
   max_triples: 150
   linked_chunks: 6
+  fanout_hop1: 50
+  fanout_hop2: 15
+  min_per_relation: 5
+  triple_budget_share: 0.6
+  hub_degree_percentile: 99
+  hub_min_degree: 25
+  link_min_score: 85
+  link_score_gap: 5
+  gsql_timeout_seconds: 10
+  global_enabled: true
 agent:
   max_steps: 8
   max_tokens: 40000

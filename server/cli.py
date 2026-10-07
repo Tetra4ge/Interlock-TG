@@ -133,6 +133,17 @@ def main() -> None:
         "--judge", action="store_true", help="Score faithfulness with the LLM judge"
     )
 
+    compare_parser = subparsers.add_parser(
+        "compare", help="Paired comparison of two scored eval runs (A minus B)"
+    )
+    compare_parser.add_argument("--a", required=True, help="run_id of pipeline A")
+    compare_parser.add_argument("--b", required=True, help="run_id of pipeline B")
+    compare_parser.add_argument(
+        "--metric",
+        default="correct",
+        choices=["correct", "citation_accuracy", "evidence_recall", "faithfulness"],
+    )
+
     args = parser.parse_args()
 
     if args.command == "db-migrate":
@@ -296,9 +307,9 @@ def main() -> None:
         import_sample()
 
     elif args.command == "ask":
-        import server.pipelines.rag  # noqa: F401  (registers "rag")
-        from server.pipelines.base import REGISTRY
+        from server.pipelines.base import REGISTRY, load_all
 
+        load_all()
         pipeline = REGISTRY.get(args.pipeline)
         if pipeline is None:
             print(
@@ -367,6 +378,21 @@ def main() -> None:
             )
         if summary["overall"]["failures"]:
             print("failures:", summary["overall"]["failures"])
+    elif args.command == "compare":
+        from server.eval.compare import compare_runs, load_scores
+
+        try:
+            comparison = compare_runs(load_scores(args.a), load_scores(args.b), args.metric)
+        except (FileNotFoundError, ValueError) as err:
+            print(str(err), file=sys.stderr)
+            sys.exit(1)
+
+        print(f"{args.metric}: A={args.a}  B={args.b}  (positive = A better)")
+        print(f"{'category':<14}{'pairs':>6}  {'A - B':>8}  {'95% CI':>17}  verdict")
+        for cat, row in [*comparison["by_category"].items(), ("OVERALL", comparison["overall"])]:
+            diff = "-" if row["diff"] is None else f"{row['diff']:+.2f}"
+            ci = "-" if row["ci95"] is None else f"[{row['ci95'][0]:+.2f}, {row['ci95'][1]:+.2f}]"
+            print(f"{cat:<14}{row['n']:>6}  {diff:>8}  {ci:>17}  {row['verdict']}")
     else:
         parser.print_help()
 

@@ -89,6 +89,23 @@ def search_vector_index(
     return results
 
 
+def score_chunks(query: str, chunk_ids: list[str]) -> dict[str, float]:
+    """Cosine similarity of the query to specific chunks (embeddings are
+    L2-normalised, so a dot product). Chunks missing from the index are left out."""
+    index_path = os.path.join(DATA_DIR, f"{MODEL_NAME}_index.npz")
+    if not os.path.exists(index_path):
+        raise FileNotFoundError("Vector index not found. Run build_vector_index() first.")
+
+    data = np.load(index_path)
+    row_of = {str(c): i for i, c in enumerate(data["chunk_ids"])}
+    wanted = [(c, row_of[c]) for c in chunk_ids if c in row_of]
+    if not wanted:
+        return {}
+    q_vec = np.array(embed_query(query), dtype=np.float32)
+    vectors = data["vectors"][[row for _, row in wanted]]
+    return {c: float(s) for (c, _), s in zip(wanted, np.dot(vectors, q_vec), strict=True)}
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     build_vector_index()

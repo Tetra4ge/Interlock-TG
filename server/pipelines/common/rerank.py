@@ -31,3 +31,18 @@ def rerank(question: str, hits: list[dict]) -> list[dict]:
     scores = model.predict(pairs)
     scored = sorted(zip(hits, scores, strict=True), key=lambda x: x[1], reverse=True)
     return [h for h, _ in scored]
+
+
+def rerank_fused(question: str, hits: list[dict], top_k: int) -> list[dict]:
+    """Cross-encoder order fused with the retrieval order, so a reranker slip
+    cannot discard a chunk both rankings liked. Shared by every pipeline that
+    reranks (ADR-0012: reranking must hold across pipelines)."""
+    from server.pipelines.common.fusion import reciprocal_rank_fusion
+
+    reranked = rerank(question, hits)
+    order = reciprocal_rank_fusion(
+        [[(h["chunk_id"], 0.0) for h in hits], [(h["chunk_id"], 0.0) for h in reranked]],
+        k_out=top_k,
+    )
+    by_id = {h["chunk_id"]: h for h in hits}
+    return [by_id[cid] for cid, _ in order]

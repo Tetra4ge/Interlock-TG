@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any
 
 from rapidfuzz import fuzz
@@ -10,6 +11,22 @@ from server.pipelines.common.fusion import reciprocal_rank_fusion
 from server.store.db import connect
 
 logger = logging.getLogger(__name__)
+
+
+class GraphQueryError(RuntimeError):
+    """An installed GSQL query failed (timeout, not installed, bad params).
+    Distinct from an empty result so callers can retry or fall back."""
+
+
+def run_installed_strict(query_name: str, params: dict, timeout_s: int | None = None) -> Any:
+    # Opening the connection mints a token over HTTP, so it can fail too.
+    try:
+        conn = get_tg_connection()
+        return conn.runInstalledQuery(
+            query_name, params=params, timeout=None if timeout_s is None else timeout_s * 1000
+        )
+    except Exception as e:
+        raise GraphQueryError(f"{query_name}: {e}") from e
 
 
 def run_installed(query_name: str, params: dict) -> Any:
@@ -79,36 +96,45 @@ def vector_search(query: str, k: int = 10, filters: dict | None = None) -> list[
     return final_results
 
 
+def _fts_query(text: str) -> str:
+    """Quoted phrase-prefix, plus every token as an AND-ed prefix for multi-token
+    names. Everything is quoted so FTS5 syntax characters in a name cannot break
+    the query; fuzziness comes from the RapidFuzz re-rank, not the index."""
+    safe = text.replace('"', '""')
+    phrase = f'"{safe}"*'
+    tokens = [t for t in re.findall(r"\w+", text) if len(t) > 1]
+    if len(tokens) < 2:
+        return phrase
+    anded = " AND ".join('"' + t + '"*' for t in tokens)
+    return f"{phrase} OR ({anded})"
+
+
 def entity_search(text: str, kind: str | None = None, limit: int = 5) -> list[dict]:
-    # FTS5 search then RapidFuzz
     db = connect()
-
-    # Escape simple FTS characters (just quoting for now)
-    safe_text = text.replace('"', '""')
-    fts_query = f'"{safe_text}"*'
-
     where = "entities_fts MATCH ?"
-    params = [fts_query]
-
+    params: list[str] = [_fts_query(text)]
     if kind:
         where += " AND kind = ?"
         params.append(kind)
 
     try:
-        rows = db.execute(
-            "SELECT entity_id, canonical_name, aliases_text, kind "
-            f"FROM entities_fts WHERE {where} LIMIT 100",
-            params,
-        ).fetchall()
-    except Exception as e:
-        # FTS table might not exist if build-graph hasn't run Step 14
-        logger.warning(f"FTS query failed: {e}. Falling back to full scan.")
-        q = "SELECT entity_id, canonical_name, aliases_text, kind FROM entities"
-        if kind:
-            q += " WHERE kind = ?"
-            rows = db.execute(q, [kind]).fetchall()
-        else:
-            rows = db.execute(q).fetchall()
+        try:
+            rows = db.execute(
+                "SELECT entity_id, canonical_name, aliases_text, kind "
+                f"FROM entities_fts WHERE {where} LIMIT 100",
+                params,
+            ).fetchall()
+        except Exception as e:
+            # FTS table might not exist if build-graph hasn't run the entity-index step
+            logger.warning(f"FTS query failed: {e}. Falling back to full scan.")
+            q = "SELECT entity_id, canonical_name, aliases_text, kind FROM entities"
+            if kind:
+                q += " WHERE kind = ?"
+                rows = db.execute(q, [kind]).fetchall()
+            else:
+                rows = db.execute(q).fetchall()
+    finally:
+        db.close()
 
     candidates = []
     for r in rows:
@@ -121,18 +147,53 @@ def entity_search(text: str, kind: str | None = None, limit: int = 5) -> list[di
             (fuzz.token_sort_ratio(text.lower(), n.lower()) for n in names if n), default=0
         )
         candidates.append(
-            {"entity_id": eid, "canonical_name": canon, "kind": r_kind, "score": best_score}
+            {
+                "entity_id": eid,
+                "canonical_name": canon,
+                "kind": r_kind,
+                "score": best_score,
+                "names": [n for n in names if n],
+            }
         )
 
     candidates.sort(key=lambda x: x["score"], reverse=True)
     return candidates[:limit]
 
 
+def entity_names(entity_ids: list[str]) -> dict[str, tuple[str, str]]:
+    """entity_id -> (canonical_name, kind) for the ids that exist in Turso."""
+    if not entity_ids:
+        return {}
+    db = connect()
+    try:
+        marks = ",".join("?" * len(entity_ids))
+        rows = db.execute(
+            f"SELECT entity_id, canonical_name, kind FROM entities WHERE entity_id IN ({marks})",
+            list(entity_ids),
+        ).fetchall()
+    finally:
+        db.close()
+    return {r[0]: (r[1], r[2]) for r in rows}
+
+
+_VERTEX_TYPE_BY_PREFIX = {"C:": "Company", "P:": "Person", "A:": "AuditFirm"}
+
+
+def vertex_param(entity_id: str) -> tuple[str, str]:
+    """(id, vertex_type) for a query parameter declared as untyped VERTEX. A bare
+    id string is encoded without its type, which TigerGraph rejects."""
+    for prefix, vertex_type in _VERTEX_TYPE_BY_PREFIX.items():
+        if entity_id.startswith(prefix):
+            return entity_id, vertex_type
+    raise ValueError(f"Cannot infer a vertex type from entity id {entity_id!r}")
+
+
 def neighbors(
     entity_id: str, rel_types: list[str] | None = None, hops: int = 1, fy: str = ""
 ) -> Any:
     return run_installed(
-        "entity_neighbors", {"seeds": [entity_id], "hops": hops, "fiscal_year": fy}
+        "entity_neighbors",
+        {"seeds": [vertex_param(entity_id)], "hops": hops, "fiscal_year": fy},
     )
 
 
@@ -141,7 +202,10 @@ def shared_directors(ids: list[str], fy: str = "") -> Any:
 
 
 def path_between(a: str, b: str, max_hops: int = 3) -> Any:
-    return run_installed("path_between", {"source": a, "target": b, "max_hops": max_hops})
+    return run_installed(
+        "path_between",
+        {"source": vertex_param(a), "target": vertex_param(b), "max_hops": max_hops},
+    )
 
 
 def aggregate_stake(entity_id: str) -> Any:
@@ -149,7 +213,19 @@ def aggregate_stake(entity_id: str) -> Any:
 
 
 def chunks_for_entities(ids: list[str], limit: int = 10) -> Any:
-    return run_installed("chunks_for_entities", {"entities": ids, "max_limit": limit})
+    return run_installed(
+        "chunks_for_entities",
+        {"entities": [vertex_param(i) for i in ids], "max_limit": limit},
+    )
+
+
+def chunks_for_entities_strict(ids: list[str], limit: int, timeout_s: int | None = None) -> Any:
+    """Same query, but a failure raises GraphQueryError instead of reading as no chunks."""
+    return run_installed_strict(
+        "chunks_for_entities",
+        {"entities": [vertex_param(i) for i in ids], "max_limit": limit},
+        timeout_s,
+    )
 
 
 def get_chunk(chunk_id: str) -> dict:
