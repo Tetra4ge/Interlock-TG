@@ -7,9 +7,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 
-from server.api import demo, quality, review, runs, subgraph
+from server.api import demo, documents, quality, review, runs, subgraph
 from server.api.deps import AppContext
 from server.api.live import new_request_id, run_compare, run_one
 from server.api.schemas import (
@@ -19,6 +19,7 @@ from server.api.schemas import (
     CompareOut,
     CompareRunsOut,
     DataQualityOut,
+    DocumentPage,
     ExampleQuestion,
     HealthOut,
     QuestionOut,
@@ -184,6 +185,23 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
     def data_quality(request: Request) -> DataQualityOut:
         with get_ctx(request).db() as conn:
             return quality.data_quality(conn)
+
+    @app.get("/documents/{doc_id}/pages/{page}", response_model=DocumentPage)
+    def document_page(doc_id: str, page: int, request: Request) -> DocumentPage:
+        try:
+            with get_ctx(request).db() as conn:
+                return documents.page_text(conn, doc_id, page)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        except documents.DocumentNotFound as e:
+            raise HTTPException(404, str(e)) from e
+
+    @app.get("/documents/{doc_id}/pdf")
+    def document_pdf(doc_id: str) -> FileResponse:
+        path = documents.pdf_path(doc_id)
+        if path is None:
+            raise HTTPException(404, "the source PDF is not available in this checkout")
+        return FileResponse(path, media_type="application/pdf", content_disposition_type="inline")
 
     @app.get("/review-queue", response_model=list[ReviewItem])
     def review_queue(request: Request, limit: int = Query(100, ge=1, le=500)) -> list[ReviewItem]:
