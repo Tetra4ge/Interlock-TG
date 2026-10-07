@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🕸️ Interlock
+# Interlock
 ### Agentic GraphRAG for Corporate Governance & Disclosure Networks
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
@@ -205,8 +205,8 @@ Per-document parsing extracts both the text layer (page-numbered) and table stru
 flowchart LR
     PDF[(Raw PDF<br/>sha256-addressed)] --> TXT[PyMuPDF<br/>text + page numbers]
     PDF --> TAB[pdfplumber<br/>table cells / rows]
-    TXT --> J[(parsed/doc_id.json<br/>pages[])]
-    TAB --> J2[(parsed/doc_id.json<br/>tables[])]
+    TXT --> J[("parsed/doc_id.json<br/>pages[]")]
+    TAB --> J2[("parsed/doc_id.json<br/>tables[]")]
     J --> SEC[Section Detector<br/>keyword + TOC offset]
     J2 --> SEC
     SEC --> SECS[(sections table<br/>kind, page_start, page_end)]
