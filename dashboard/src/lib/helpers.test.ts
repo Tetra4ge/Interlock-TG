@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { accuracyRows, allZero, callsRows, failureStack, takeaways, tradeoffPoints } from "./chart";
+import { NO_FILTERS, UNLABELLED, distinct, failureRows, filterFailures, labelColor } from "./failures";
 import { citationChips, edgeIdsOf, goldEdgeIds, splitMarkers } from "./evidence";
 import { humanize, money, ms, pct, pctRange, shortId, signed } from "./format";
 import { PIPELINES, PIPELINE_ORDER, isPipelineKey } from "./pipelines";
@@ -231,5 +232,44 @@ describe("takeaways", () => {
     expect(allZero([{ x: 0 }, { x: 0 }])).toBe(true);
     expect(allZero([{ x: 0 }, { x: 0.01 }])).toBe(false);
     expect(allZero([])).toBe(false);
+  });
+});
+
+describe("failures", () => {
+  const cell = (correct: number | null, label: string | null, answer = "x") => ({
+    run_id: "r", status: "ok" as const, answer_short: answer, correct, failure_label: label,
+    cost_usd: 0, latency_ms: 0, tool_calls: 0,
+  });
+  const compare = {
+    runs: {}, metrics: {}, pairs: [], leaders: {},
+    questions: [
+      { qid: "q1", question: "Who audits Tata Steel?", category: "single_fact", cells: { rag: cell(0, "retrieval_miss", "Nobody"), agent: cell(1, null) } },
+      { qid: "q2", question: "Total RPT of Tata Motors", category: "numerical", cells: { rag: cell(0.5, null), graphrag: cell(null, null) } },
+      { qid: "q3", question: "Fine question", category: "single_fact", cells: { rag: cell(1, null) } },
+    ],
+  } as unknown as CompareRunsOut;
+
+  it("lists only pairs scored below fully correct, labelling unlabelled ones", () => {
+    const rows = failureRows(compare);
+    expect(rows.map((r) => r.key)).toEqual(["q1:rag", "q2:rag"]);
+    expect(rows[0].label).toBe("retrieval_miss");
+    expect(rows[1].label).toBe(UNLABELLED); // partial credit but no label
+  });
+  it("filters by search, category, pipeline and label together", () => {
+    const rows = failureRows(compare);
+    expect(filterFailures(rows, NO_FILTERS)).toHaveLength(2);
+    expect(filterFailures(rows, { ...NO_FILTERS, search: "TATA STEEL" }).map((r) => r.qid)).toEqual(["q1"]);
+    expect(filterFailures(rows, { ...NO_FILTERS, search: "nobody" }).map((r) => r.qid)).toEqual(["q1"]);
+    expect(filterFailures(rows, { ...NO_FILTERS, category: "numerical" }).map((r) => r.qid)).toEqual(["q2"]);
+    expect(filterFailures(rows, { ...NO_FILTERS, pipeline: "agent" })).toEqual([]);
+    expect(filterFailures(rows, { ...NO_FILTERS, label: "retrieval_miss", category: "numerical" })).toEqual([]);
+  });
+  it("offers each filter value once, sorted", () => {
+    expect(distinct(failureRows(compare), (r) => r.category)).toEqual(["numerical", "single_fact"]);
+  });
+  it("gives each label a stable colour", () => {
+    const labels = ["a", "b"];
+    expect(labelColor("a", labels)).toBe(labelColor("a", labels));
+    expect(labelColor("a", labels)).not.toBe(labelColor("b", labels));
   });
 });
