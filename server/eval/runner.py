@@ -58,7 +58,11 @@ def _score_answer(q: Question, pred: str) -> float:
 
 
 def score_result(
-    q: Question, r: AnswerResult, *, faithfulness: float | None = None
+    q: Question,
+    r: AnswerResult,
+    *,
+    faithfulness: float | None = None,
+    judge_reason: str | None = None,
 ) -> dict[str, Any]:
     abstained = r.status == Status.ABSTAINED
     errored = r.status == Status.ERROR
@@ -82,6 +86,7 @@ def score_result(
         "abstained": abstained,
         "error": errored,
         "faithfulness": faithfulness,
+        "judge_reason": judge_reason,
         "citation_accuracy": citation_accuracy(cited, gold_ev),
         "evidence_recall": recall,
         "failure_label": failure,
@@ -199,12 +204,19 @@ def run_eval(
         if q.qid not in records:
             continue
         r = records[q.qid]
-        faith = None
+        verdict = None
         if judge is not None and q.answerable and r.status == Status.OK and r.evidence:
             verdict = judge(q.question, r.answer_long, [e.text for e in r.evidence])
-            faith = verdict.faithfulness if verdict else None
-        scores.append(score_result(q, r, faithfulness=faith))
+        scores.append(
+            score_result(
+                q,
+                r,
+                faithfulness=verdict.faithfulness if verdict else None,
+                judge_reason=verdict.reason if verdict else None,
+            )
+        )
     (out / "scores.jsonl").write_text("".join(json.dumps(s) + "\n" for s in scores))
     summary = summarize(scores)
+    summary["run_id"] = run_id
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     return summary
