@@ -214,6 +214,18 @@ def _match_score(mention: str, cand: dict) -> int:
     )
 
 
+def find_candidates(text: str, kind: str | None = None, limit: int = 5) -> list[dict]:
+    """Best-effort entity lookup for a caller that decides for itself (the agent's
+    find_entity): every candidate with its match score, best first, no threshold."""
+    wanted = kind if kind in ("company", "person", "audit_firm") else None
+    scored = [
+        {**c, "match": _match_score(text, c)}
+        for c in entity_search(text, wanted, limit=CANDIDATE_POOL)
+    ]
+    scored.sort(key=lambda c: (c["match"], c["score"]), reverse=True)
+    return scored[:limit]
+
+
 def link_sector(mention: Mention, cfg: GraphRAGConfig) -> LinkedEntity | None:
     best_name, best = "", 0.0
     for name in _sector_members():

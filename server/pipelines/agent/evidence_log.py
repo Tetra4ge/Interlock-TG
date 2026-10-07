@@ -40,6 +40,9 @@ class EvidenceLog:
             "fiscal_year": fiscal_year,
         }
         self._label_of[ref_id] = label
+        # A transaction is logged as "edgeA,edgeB"; either edge id finds it.
+        for part in ref_id.split(","):
+            self._label_of.setdefault(part, label)
         return label
 
     def label_of(self, ref_id: str) -> str | None:

@@ -76,3 +76,11 @@ def test_budget_checks_report_which_limit_was_hit() -> None:
     st.steps = []
     st.started -= 61
     assert st.check_budget(budget) == "timeout"
+
+
+def test_each_half_of_a_transaction_id_finds_the_same_label() -> None:
+    log = EvidenceLog()
+    label = log.add("triple", "t1-r,t1-c", "txn text")
+    assert log.label_of("t1-r") == label == log.label_of("t1-c") == log.label_of("t1-r,t1-c")
+    assert log.add("triple", "t1-c", "again") == label  # no duplicate entry
+    assert len(log) == 1
